@@ -1,0 +1,107 @@
+---- Register ----
+
+16 Register insgesamt => 4 bit
+Carry-Register, PC
+
+Op-Code Breite: 7 bit
+
+
+Assembler-Befehle
+
+---- ALU (16 Befehle => 4 bit) ----
+
+-- Arithmetische Operationen --
+
+add: dest, src1, src2
+addi: dest, src1, imm
+addc: dest, src1, src2
+addci: dest, src1, imm
+
+sub: dest, src1, src2
+subi: dest, src1, imm
+subc: dest, src1, src2
+subci: dest, src1, imm
+
+-mul: dest, src1, src2
+-muli: dest, src, imm
+-mulc: dest, src1, src2
+-mulci: dest, src, imm
+
+-div: dest, src1, src2
+-divi: dest, src, imm
+-divc: dest, src1, src2
+-divci: dest, src, imm
+
+
+-- Logische Operationen --
+
+slli: dest, imm
+slri: dest, imm
+
+-sali: dest, imm
+-sari: dest, imm
+
+sb: dest, imm
+ub: dest, imm // not necessary
+
+rr: dest, imm
+rl: dest, imm
+
+cmpe: src1, src2
+cmpg: src1, src2
+-cmpl: src1, src2
+
+xor: dest, src1, src2
+or: dest, src1, src2
+and: dest, src1, src2
+xnor: dest, src1, src2
+nor: dest, src1, src2
+
+
+---- Speicher ----
+
+loadI: imm, src
+storeI: imm, src
+
+mov: dest, src
+
+movui: dest, imm
+movli: dest, imm
+
+
+---- Flusskontrolle ----
+
+# PC zu einer absoluten Speicheradresse springen
+jmp: imm
+
+# Relativ
+bt: imm
+bf: imm
+
+
+|| Requires further specification
+
+Little or Big Endian (probably little endian?)
+How large is the memory?
+\- Where to store the stack?
+
+Some instructions are not necessarily needed
+and could be freed up to allow other more
+necessary instructions:
+
+- remove "xor", "xnor", "nor" and add "not" to "or", "and"
+  ("xor", "xnor", "nor" can be added if there are some
+  opcodes left - these will definitely be pseudo-opcodes)
+- sb and ub are pseudo-opcodes and are to be merged for
+  hardware (7bit + 1bit (set or unset) + 4bit + 6bit)
+- remove arithmetic immediate instructions that use the
+  carry; there are only edge-cases where they would be
+  useful
+- add arithmetic shifts to the ALU
+- "call", "push" and "pop" as pseudo-opcode
+- assembler instructions notated with . (.data $var "data")
+- registers should start with "%" and either numeric or some
+  names
+- return address register (or just repurposed general purpose register?)
+
+- use 'escaped' for comments

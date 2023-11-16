@@ -1,0 +1,15 @@
+[package]
+name = "assembler"
+version = "0.1.0"
+edition = "2021"
+description = "An assembler for a figtive RISC-V based CPU"
+# repository = "<URL>"
+license = "MPL-2.0"
+authors = ["Steven Becker <steven.becker@studium.uni-hamburg.de>"]
+publish = false
+
+[badges]
+maintenance = { status = "experimental" }
+
+[dependencies]
+nom = "7.1.3"

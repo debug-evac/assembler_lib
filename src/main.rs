@@ -11,9 +11,29 @@ mod linker;
 mod optimizer;
 mod translator;
 
+use clap::{Arg, Command};
+use clap::value_parser;
+use clap::ArgAction;
+use std::{fs, path::PathBuf};
+
 fn main() {
     //let src = "addi $3, $3, 1";
+    let matches = Command::new("Test")
+    .arg(Arg::new("file")
+                .value_parser(value_parser!(PathBuf))
+                .action(ArgAction::Set)
+                 .short('f')
+                 .num_args(1..=10)
+                 .required(true)
+                 .long("file")
+                 .help("A cool file, use \"...\""))
+    .get_matches();
+let myfile: Vec<&PathBuf> = matches.get_many::<PathBuf>("file")
+.expect("files are needed!")
+.collect();
+println!("{:?}", myfile); 
 
+    
     let source_code = r#"START:
     movu $3, 16
     movl $3, 16
@@ -36,4 +56,7 @@ END:
         Ok(parsed) => println!("{:?}", parsed.1),
         Err(_) => (),
     }
+
+    
+
 }

@@ -60,7 +60,7 @@ checksum = "3f8ebf5827e4ac4fd5946560e6a99776ea73b596d80898f357007317a7141e47"
 name = "assembler"
 version = "0.1.0"
 dependencies = [
- "argparse",
+"argparse",
  "clap",
  "nom",
 ]

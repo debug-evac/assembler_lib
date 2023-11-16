@@ -17,23 +17,25 @@ use nom::{
         opt,
         value,
         map_res,
+        peek,
     },
     character::complete::{
-        alphanumeric1,
+        alpha1,
         digit1,
         hex_digit1,
         multispace0,
-        multispace1,
+        multispace1, alphanumeric0,
     },
     sequence::{
         tuple,
         separated_pair,
-    },
+    }, Parser,
 };
 use std::collections::{
     HashMap,
     HashSet
 };
+use std::borrow::Cow;
 
 pub type Label = str;
 pub type LabelStr = String;
@@ -147,19 +149,31 @@ pub enum Instruction {
     Nor(Reg, Reg, Reg),
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Operation <'a> {
+    Instr(Instruction),
+    LablInstr(Cow<'a, Label>, Instruction),
+    Labl(Cow<'a, Label>)
+}
+
+impl <'a> From<Instruction> for Operation <'a> {
+    fn from(item: Instruction) -> Self {
+        Operation::Instr(item)
+    }
+}
+
 pub struct LabelRecog {
     // local labels are preceded with a dot (.)
-    label_map: Box<HashMap<LabelStr, u128>>,
-    label_res_map: Box<HashMap<LabelStr, Vec<usize>>>,
+    //label_map: Box<HashMap<LabelStr, u128>>,
+
+    label_map: Box<HashMap<LabelStr, Vec<usize>>>,
     local_definitions: Box<HashSet<LabelStr>>,
     global_definitions: Box<HashSet<LabelStr>>,
 }
 
 impl LabelRecog {
     pub fn new() -> LabelRecog {
-        let label_map: Box<HashMap<LabelStr, u128>> =
-        Box::new(HashMap::new());
-        let label_res_map: Box<HashMap<LabelStr, Vec<usize>>> =
+        let label_map: Box<HashMap<LabelStr, Vec<usize>>> =
         Box::new(HashMap::new());
         let local_definitions: Box<HashSet<LabelStr>> =
         Box::new(HashSet::new());
@@ -168,13 +182,12 @@ impl LabelRecog {
 
         LabelRecog {
             label_map,
-            label_res_map,
             local_definitions,
             global_definitions
         }
     }
 
-    pub fn merge(&self, other: &LabelRecog) -> Result<LabelRecog, _> {
+    /*pub fn merge(&self, other: &LabelRecog) -> Result<LabelRecog, _> {
         let global_disjoint = self.global_definitions.is_disjoint(
             &*other.global_definitions);
         let gl_local_disjoint = self.global_definitions.is_disjoint(
@@ -218,14 +231,17 @@ impl LabelRecog {
         //} else {
 
         //}
-    }
+    }*/
 }
 
-fn parse_label_name(input: &str) -> IResult<&str, &str> {
-    alphanumeric1(input)
+fn parse_label_name(input: &str) -> IResult<&str, Cow<str>> {
+    let (rest, parsed) = alpha1(input)?;
+    let (rest, parsed_l) = alphanumeric0(rest)?;
+
+    Ok((rest, Cow::from(format!("{}{}", parsed, parsed_l))))
 }
 
-fn parse_label_definition(input: &str) -> IResult<&str, &str> {
+fn parse_label_definition(input: &str) -> IResult<&str, Cow<str>> {
     let (rest, parsed) = parse_label_name(input)?;
     let (rest, _) = tag(":")(rest)?;
 
@@ -240,13 +256,25 @@ fn parse_imm(input: &str) -> IResult<&str, Imm> {
     let (rest, parsed) = opt(tag_no_case("0x"))(input)?;
     if parsed.is_none() {
         // Decimal
-        map_res(digit1, str::parse)(rest)
+        let (rest, parsed) = opt(tag("-"))(rest)?;
+        if parsed.is_none() {
+            // Positive decimal
+            map_res(digit1, str::parse)(rest)
+        } else {
+            // Negative decimal
+            map_res(digit1, |s: &str| {
+                let mut string_build = parsed.unwrap_or("").to_string();
+                string_build.push_str(s);
+                string_build.parse::<Imm>()
+            })(rest)
+        }
     } else {
         // Hex
         map_res(hex_digit1, from_hex)(rest)
     }
 }
 
+// $0 - $15
 fn parse_reg(input: &str) -> IResult<&str, Reg> {
     let (rest, _) = tag("$")(input)?;
     let (rest, reg) = map_res(digit1, str::parse)(rest)?;
@@ -254,12 +282,14 @@ fn parse_reg(input: &str) -> IResult<&str, Reg> {
     let real_reg = Reg::match_to_enum(&reg);
 
     if real_reg == Reg::NA {
+        println!("WARNING! Reg::NA RECEIVED! Rest = {}", rest);
         todo!("Implement own error!");
     } else {
         Ok((rest, real_reg))
     }
 }
 
+// ld $1,0x01 OR ld $1, 0x01
 fn parse_seper(input: &str) -> IResult<&str, &str> {
     let (rest, not_needed) = tag(",")(input)?;
     let (rest, _) = opt(tag(" "))(rest)?;
@@ -267,6 +297,7 @@ fn parse_seper(input: &str) -> IResult<&str, &str> {
     Ok((rest, not_needed))
 }
 
+// jmp label
 fn parse_inst_1imm(input: &str) -> IResult<&str, Instruction> {
     let (rest, instr) = alt((
         value(Instruction::Jmp(0), tag("jmp")),
@@ -290,6 +321,7 @@ fn parse_inst_1imm(input: &str) -> IResult<&str, Instruction> {
     Ok((rest, instr))
 }
 
+// ld $3, 0x30
 fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Instruction> {
     let (rest, instr) = alt((
         value(Instruction::Ld(Reg::NA, 0), tag("ld")),
@@ -462,7 +494,7 @@ fn parse_instruction(input: &str) -> IResult<&str, Instruction> {
     ))(input)
 }
 
-fn parse_line(input: &str) -> IResult<&str, (Option<&Label>, Option<Instruction>)> {
+fn parse_line(input: &str) -> IResult<&str, (Option<Cow<Label>>, Option<Instruction>)> {
     let (rest, _) = multispace0(input)?;
     let (rest, label) = opt(parse_label_definition)(rest)?;
     if label.is_some() {
@@ -475,6 +507,7 @@ fn parse_line(input: &str) -> IResult<&str, (Option<&Label>, Option<Instruction>
     }
 }
 
+/*
 fn correct_label_instr<'a>(
     label_map: &HashMap<String, u128>,
     label_res_map: &mut HashMap<LabelStr, Vec<usize>>,
@@ -537,12 +570,13 @@ fn correct_label_instr<'a>(
     }
     // TODO: Refactor
 }
+*/
 
-pub fn parse(input: &str) -> IResult<&str, Vec<Instruction>> {
+pub fn parse(input: &str) -> IResult<&str, Vec<Operation>> {
 
     let mut label_res_map: HashMap<LabelStr, Vec<usize>> = HashMap::new();
     let mut label_map: HashMap<LabelStr, u128> = HashMap::new();
-    let mut instr_list: Vec<Instruction> = vec![];
+    let mut instr_list: Vec<Operation> = vec![];
     let mut rest = input;
 
     loop {
@@ -558,9 +592,9 @@ pub fn parse(input: &str) -> IResult<&str, Vec<Instruction>> {
 
         match parsed {
             (Some(label), Some(instr)) => {
-                let addr = instr_list.len() as u128 * 4;
+                /*let addr = instr_list.len() as u128 * 4;
                 label_map.insert(label.to_string(), addr);
-                match label_res_map.get_mut(label) {
+                match label_res_map.get_mut(label.as_ref()) {
                     Some(val) => {
                         for pos in val.as_slice() {
                             match instr_list[*pos] {
@@ -579,20 +613,22 @@ pub fn parse(input: &str) -> IResult<&str, Vec<Instruction>> {
                     instr_list.push(option_instr.0.expect("Instruction 0 was None!"));
                 } else {
                     instr_list.push(option_instr.1.expect("Instruction 1 was None!").clone());
-                }
+                }*/
+                instr_list.push(Operation::LablInstr(label, instr));
             },
             (None, Some(instr)) => {
-                let option_instr = correct_label_instr(&label_map, &mut label_res_map, &instr_list.len(), &instr);
+                /*let option_instr = correct_label_instr(&label_map, &mut label_res_map, &instr_list.len(), &instr);
                 if option_instr.0.is_some() {
                     instr_list.push(option_instr.0.expect("Instruction 0 was None!"));
                 } else {
                     instr_list.push(option_instr.1.expect("Instruction 1 was None!").clone());
-                }
+                }*/
+                instr_list.push(Operation::Instr(instr));
             },
             (Some(label), None) => {
-                let addr = instr_list.len() as u128 * 4 + 4;
+                /*let addr = instr_list.len() as u128 * 4 + 4;
                 label_map.insert(label.to_string(), addr);
-                match label_res_map.get_mut(label) {
+                match label_res_map.get_mut(label.as_ref()) {
                     Some(val) => {
                         for pos in val.as_slice() {
                             match instr_list[*pos] {
@@ -605,7 +641,8 @@ pub fn parse(input: &str) -> IResult<&str, Vec<Instruction>> {
                         val.clear();
                     }
                     None => (),
-                }
+                }*/
+                instr_list.push(Operation::Labl(label));
             },
             (None, None) => (),
         }
@@ -626,11 +663,13 @@ mod tests {
 
     #[test]
     fn test_parse_label() {
-        assert_ne!(parse_label_definition("invalid"), Ok(("", "invalid")));
-        assert_ne!(parse_label_definition("invalid0:"), Ok(("", "invalid0")));
-        assert_ne!(parse_label_definition("invalid :"), Ok(("", "invalid")));
-        assert_ne!(parse_label_definition(" "), Ok(("", "")));
-        assert_eq!(parse_label_definition("valid:"), Ok(("", "valid")));
+        assert_ne!(parse_label_definition("invalid"), Ok(("", Cow::from("invalid"))));
+        assert_eq!(parse_label_definition("valid0:"), Ok(("", Cow::from("valid0"))));
+        assert_ne!(parse_label_definition("invalid :"), Ok(("", Cow::from("invalid"))));
+        assert_ne!(parse_label_definition(" "), Ok(("", Cow::from(""))));
+        assert_eq!(parse_label_definition("valid:"), Ok(("", Cow::from("valid"))));
+        assert_ne!(parse_label_definition("0invalid:"), Ok(("", Cow::from("0invalid"))));
+        assert_eq!(parse_label_definition("v415alid:"), Ok(("", Cow::from("v415alid"))));
     }
 
     #[test]
@@ -639,6 +678,7 @@ mod tests {
         assert_ne!(parse_imm(" "), Ok(("", 0)));
         assert_eq!(parse_imm("10"), Ok(("", 10)));
         assert_eq!(parse_imm("0xA"), Ok(("", 10)));
+        assert_eq!(parse_imm("-10"), Ok(("", -10)));
     }
 
     #[test]
@@ -731,15 +771,15 @@ mod tests {
     #[test]
     fn test_parse_line() {
         assert_eq!(parse_line("label: add $1, $5, $6"),
-                   Ok(("", (Some("label"), Some(Instruction::Addn(Reg::G1, Reg::G5, Reg::G6))))));
+                   Ok(("", (Some(Cow::from("label")), Some(Instruction::Addn(Reg::G1, Reg::G5, Reg::G6))))));
         assert_eq!(parse_line("\ntest:\n\nsub $6, $5, $11"),
-                   Ok(("", (Some("test"), Some(Instruction::Subn(Reg::G6, Reg::G5, Reg::G11))))));
+                   Ok(("", (Some(Cow::from("test")), Some(Instruction::Subn(Reg::G6, Reg::G5, Reg::G11))))));
         assert_eq!(parse_line("\n\n\nreturn:\n"),
-                   Ok(("", (Some("return"), None))));
-        assert_eq!(parse_line("movu $16, 0x05\nmovl $16, 0x05"),
-                   Ok(("\nmovl $14, 0x05", (None, Some(Instruction::Movu(Reg::G14, 5))))));
+                   Ok(("", (Some(Cow::from("return")), None))));
+        assert_eq!(parse_line("movu $15, 0x05\nmovl $15, 0x05"),
+                   Ok(("\nmovl $15, 0x05", (None, Some(Instruction::Movu(Reg::G15, 5))))));
         assert_eq!(parse_line("label:\ndiv $14, $13, $10"),
-                   Ok(("", (Some("label"), Some(Instruction::Divn(Reg::G14, Reg::G13, Reg::G10))))));
+                   Ok(("", (Some(Cow::from("label")), Some(Instruction::Divn(Reg::G14, Reg::G13, Reg::G10))))));
     }
 
     #[test]
@@ -754,14 +794,15 @@ mod tests {
     jmp START
 END:
 "#;
-        let correct_vec: Vec<Instruction> = vec![
-                                                 Instruction::Movu(Reg::G3, 16),
-                                                 Instruction::Movl(Reg::G3, 16),
-                                                 Instruction::Cmpe(Reg::G3, Reg::G4),
-                                                 Instruction::Bt(32),
-                                                 Instruction::Movu(Reg::G4, 16),
-                                                 Instruction::Movl(Reg::G4, 16),
-                                                 Instruction::Jmp(0)
+        let correct_vec: Vec<Operation> = vec![
+                                                 Operation::LablInstr(Cow::from("START"), Instruction::Movu(Reg::G3, 16)),
+                                                 Operation::from(Instruction::Movl(Reg::G3, 16)),
+                                                 Operation::from(Instruction::Cmpe(Reg::G3, Reg::G4)),
+                                                 Operation::from(Instruction::VBt("END".to_string())),
+                                                 Operation::from(Instruction::Movu(Reg::G4, 16)),
+                                                 Operation::from(Instruction::Movl(Reg::G4, 16)),
+                                                 Operation::from(Instruction::VJmp("START".to_string())),
+                                                 Operation::Labl(Cow::from("END"))
                                                 ];
 
         assert_eq!(parse(source_code),
@@ -770,3 +811,16 @@ END:
         // TODO: Probably more test cases!
     }
 }
+
+// Lokale und globale Labels
+// Lokale labels: .L1:
+// Globale labels: L2:
+
+// Pseudo-Opcodes:
+// "call [LABEL]", "jsr []", "pop [REG]" - "ld [REG], [IMM]", "push [REG]" - "st [REG], [IMM]"
+
+// Konstanten:
+// .data
+// LABEL .ASSEMBLER INSTRUCTION IMM
+// .text
+// CODE

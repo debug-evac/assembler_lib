@@ -13,7 +13,7 @@ mod translator;
 
 fn main() {
     //let src = "addi $3, $3, 1";
-
+/*
     let source_code = r#"START:
     movu $3, 16
     movl $3, 16
@@ -35,5 +35,5 @@ END:
     match res {
         Ok(parsed) => println!("{:?}", parsed.1),
         Err(_) => (),
-    }
+    }*/
 }

@@ -16,8 +16,7 @@ use nom::{
     combinator::{
         opt,
         value,
-        map_res,
-        peek,
+        map_res
     },
     character::complete::{
         alpha1,
@@ -29,7 +28,7 @@ use nom::{
     sequence::{
         tuple,
         separated_pair,
-    }, Parser,
+    },
 };
 use std::collections::{
     HashMap,
@@ -41,15 +40,34 @@ pub type Label = str;
 pub type LabelStr = String;
 pub type Imm = i32; // always less than 32
 
+#[derive(Debug, Clone)]
+pub struct LabelInsertError {
+    label: LabelStr,
+}
+
+impl LabelInsertError {
+    pub fn new(label: LabelStr) -> LabelInsertError {
+        LabelInsertError { label }
+    }
+}
+
+impl std::fmt::Display for LabelInsertError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{} already exists!", self.label)
+    }
+}
+
 #[repr(u8)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Reg {
     G0, G1, G2, G3, G4, G5, G6, G7, G8, G9, G10, G11, G12, G13, G14, G15,
+    G16, G17, G18, G19, G20, G21, G22, G23, G24, G25, G26, G27, G28, G29,
+    G30, G31,
     NA,
 }
 
 impl Reg {
-    pub fn match_to_enum(reg: &u8) -> Reg {
+    pub fn num_to_enum(reg: &u8) -> Reg {
         match *reg {
             reg if reg == Reg::G0 as u8 => Reg::G0,
             reg if reg == Reg::G1 as u8 => Reg::G1,
@@ -67,8 +85,28 @@ impl Reg {
             reg if reg == Reg::G13 as u8 => Reg::G13,
             reg if reg == Reg::G14 as u8 => Reg::G14,
             reg if reg == Reg::G15 as u8 => Reg::G15,
+            reg if reg == Reg::G16 as u8 => Reg::G16,
+            reg if reg == Reg::G17 as u8 => Reg::G17,
+            reg if reg == Reg::G18 as u8 => Reg::G18,
+            reg if reg == Reg::G19 as u8 => Reg::G19,
+            reg if reg == Reg::G20 as u8 => Reg::G20,
+            reg if reg == Reg::G21 as u8 => Reg::G21,
+            reg if reg == Reg::G22 as u8 => Reg::G22,
+            reg if reg == Reg::G23 as u8 => Reg::G23,
+            reg if reg == Reg::G24 as u8 => Reg::G24,
+            reg if reg == Reg::G25 as u8 => Reg::G25,
+            reg if reg == Reg::G26 as u8 => Reg::G26,
+            reg if reg == Reg::G27 as u8 => Reg::G27,
+            reg if reg == Reg::G28 as u8 => Reg::G28,
+            reg if reg == Reg::G29 as u8 => Reg::G29,
+            reg if reg == Reg::G30 as u8 => Reg::G30,
+            reg if reg == Reg::G31 as u8 => Reg::G31,
             _ => Reg::NA,
         }
+    }
+
+    pub fn str_to_enum(reg: &str) -> Reg {
+        todo!("Special register types!");
     }
 }
 
@@ -187,6 +225,20 @@ impl LabelRecog {
         }
     }
 
+    pub fn insert_def(&mut self, scope: bool, label: Cow<Label>) -> Result<bool, LabelInsertError> {
+        let element = self.global_definitions.get(label.as_ref());
+        let element2 = self.local_definitions.get(label.as_ref());
+        if element.is_some() || element2.is_some() {
+            return Err(LabelInsertError { label: label.to_string() })
+        }
+        if scope {
+            self.global_definitions.insert(label.to_string());
+        } else {
+            self.local_definitions.insert(label.to_string());
+        }
+        Ok(true)
+    }
+
     /*pub fn merge(&self, other: &LabelRecog) -> Result<LabelRecog, _> {
         let global_disjoint = self.global_definitions.is_disjoint(
             &*other.global_definitions);
@@ -242,10 +294,14 @@ fn parse_label_name(input: &str) -> IResult<&str, Cow<str>> {
 }
 
 fn parse_label_definition(input: &str) -> IResult<&str, Cow<str>> {
-    let (rest, parsed) = parse_label_name(input)?;
+    let (rest, scope) = opt(tag("."))(input)?;
+    let (rest, parsed) = parse_label_name(rest)?;
     let (rest, _) = tag(":")(rest)?;
 
-    Ok((rest, parsed))
+    match scope {
+        Some(local) => Ok((rest, Cow::from(local) + parsed)),
+        None => Ok((rest, parsed))
+    }
 }
 
 fn from_hex(input: &str) -> Result<Imm, std::num::ParseIntError> {
@@ -279,7 +335,7 @@ fn parse_reg(input: &str) -> IResult<&str, Reg> {
     let (rest, _) = tag("$")(input)?;
     let (rest, reg) = map_res(digit1, str::parse)(rest)?;
 
-    let real_reg = Reg::match_to_enum(&reg);
+    let real_reg = Reg::num_to_enum(&reg);
 
     if real_reg == Reg::NA {
         println!("WARNING! Reg::NA RECEIVED! Rest = {}", rest);
@@ -574,8 +630,9 @@ fn correct_label_instr<'a>(
 
 pub fn parse(input: &str) -> IResult<&str, Vec<Operation>> {
 
-    let mut label_res_map: HashMap<LabelStr, Vec<usize>> = HashMap::new();
-    let mut label_map: HashMap<LabelStr, u128> = HashMap::new();
+    //let mut label_res_map: HashMap<LabelStr, Vec<usize>> = HashMap::new();
+    //let mut label_map: HashMap<LabelStr, u128> = HashMap::new();
+    let mut symbol_map = LabelRecog::new();
     let mut instr_list: Vec<Operation> = vec![];
     let mut rest = input;
 
@@ -670,6 +727,7 @@ mod tests {
         assert_eq!(parse_label_definition("valid:"), Ok(("", Cow::from("valid"))));
         assert_ne!(parse_label_definition("0invalid:"), Ok(("", Cow::from("0invalid"))));
         assert_eq!(parse_label_definition("v415alid:"), Ok(("", Cow::from("v415alid"))));
+        assert_eq!(parse_label_definition(".veryvalid:"), Ok(("", Cow::from(".veryvalid"))));
     }
 
     #[test]
@@ -815,12 +873,13 @@ END:
 // Lokale und globale Labels
 // Lokale labels: .L1:
 // Globale labels: L2:
+// Done
 
 // Pseudo-Opcodes:
 // "call [LABEL]", "jsr []", "pop [REG]" - "ld [REG], [IMM]", "push [REG]" - "st [REG], [IMM]"
 
 // Konstanten:
 // .data
-// LABEL .ASSEMBLER INSTRUCTION IMM
+// [LABEL] .[ASSEMBLER INSTRUCTION] [IMM]
 // .text
 // CODE

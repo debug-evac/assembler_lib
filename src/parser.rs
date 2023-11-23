@@ -200,6 +200,7 @@ impl <'a> From<Instruction> for Operation <'a> {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct LabelRecog {
     // local labels are preceded with a dot (.)
     //label_map: Box<HashMap<LabelStr, u128>>,
@@ -237,6 +238,17 @@ impl LabelRecog {
             self.local_definitions.insert(label.to_string());
         }
         Ok(true)
+    }
+
+    pub fn insert_pos(&mut self, label: LabelStr, pos: &usize) -> () {
+        match self.label_map.get_mut(label.as_str()) {
+            Some(val) => val.push(*pos),
+            None => {
+                let mut list: Vec<usize> = vec![];
+                list.push(*pos);
+                self.label_map.insert(label, list);
+            },
+        };
     }
 
     /*pub fn merge(&self, other: &LabelRecog) -> Result<LabelRecog, _> {
@@ -628,7 +640,7 @@ fn correct_label_instr<'a>(
 }
 */
 
-pub fn parse(input: &str) -> IResult<&str, Vec<Operation>> {
+pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
 
     //let mut label_res_map: HashMap<LabelStr, Vec<usize>> = HashMap::new();
     //let mut label_map: HashMap<LabelStr, u128> = HashMap::new();
@@ -649,6 +661,20 @@ pub fn parse(input: &str) -> IResult<&str, Vec<Operation>> {
 
         match parsed {
             (Some(label), Some(instr)) => {
+                let _ = match label.strip_prefix(".") {
+                    Some(label) => symbol_map.insert_def(false, Cow::from(label)),
+                    None => symbol_map.insert_def(true, label.to_owned()),
+                };
+
+                let pos = instr_list.len();
+
+                match &instr {
+                    Instruction::VJmp(labl) => symbol_map.insert_pos(labl.to_string(), &pos),
+                    Instruction::VBt(labl) => symbol_map.insert_pos(labl.to_string(), &pos),
+                    Instruction::VBf(labl) => symbol_map.insert_pos(labl.to_string(), &pos),
+                    _ => (),
+                }
+
                 /*let addr = instr_list.len() as u128 * 4;
                 label_map.insert(label.to_string(), addr);
                 match label_res_map.get_mut(label.as_ref()) {
@@ -674,6 +700,15 @@ pub fn parse(input: &str) -> IResult<&str, Vec<Operation>> {
                 instr_list.push(Operation::LablInstr(label, instr));
             },
             (None, Some(instr)) => {
+                let pos = instr_list.len();
+
+                match &instr {
+                    Instruction::VJmp(labl) => symbol_map.insert_pos(labl.to_string(), &pos),
+                    Instruction::VBt(labl) => symbol_map.insert_pos(labl.to_string(), &pos),
+                    Instruction::VBf(labl) => symbol_map.insert_pos(labl.to_string(), &pos),
+                    _ => (),
+                }
+
                 /*let option_instr = correct_label_instr(&label_map, &mut label_res_map, &instr_list.len(), &instr);
                 if option_instr.0.is_some() {
                     instr_list.push(option_instr.0.expect("Instruction 0 was None!"));
@@ -683,6 +718,11 @@ pub fn parse(input: &str) -> IResult<&str, Vec<Operation>> {
                 instr_list.push(Operation::Instr(instr));
             },
             (Some(label), None) => {
+                let _ = match label.strip_prefix(".") {
+                    Some(label) => symbol_map.insert_def(false, Cow::from(label)),
+                    None => symbol_map.insert_def(true, label.to_owned()),
+                };
+
                 /*let addr = instr_list.len() as u128 * 4 + 4;
                 label_map.insert(label.to_string(), addr);
                 match label_res_map.get_mut(label.as_ref()) {
@@ -709,9 +749,9 @@ pub fn parse(input: &str) -> IResult<&str, Vec<Operation>> {
         }
     }
 
-    // TODO: If labels are still in the hashmap, return a custom parser error!
+    // NO! T ODO: If labels are still in the hashmap, return a custom parser error!
 
-    Ok(("", instr_list))
+    Ok(("", (symbol_map, instr_list)))
 }
 
 #[cfg(test)]
@@ -852,6 +892,12 @@ mod tests {
     jmp START
 END:
 "#;
+        let mut symbols = LabelRecog::new();
+        let _ = symbols.insert_def(true, Cow::from("START"));
+        let _ = symbols.insert_def(true, Cow::from("END"));
+        symbols.insert_pos("START".to_string(), &(6 as usize));
+        symbols.insert_pos("END".to_string(), &(3 as usize));
+
         let correct_vec: Vec<Operation> = vec![
                                                  Operation::LablInstr(Cow::from("START"), Instruction::Movu(Reg::G3, 16)),
                                                  Operation::from(Instruction::Movl(Reg::G3, 16)),
@@ -864,7 +910,7 @@ END:
                                                 ];
 
         assert_eq!(parse(source_code),
-                   Ok(("", correct_vec)));
+                   Ok(("", (symbols, correct_vec))));
 
         // TODO: Probably more test cases!
     }

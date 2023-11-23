@@ -209,7 +209,7 @@ pub struct LabelRecog {
     local_definitions: Box<HashSet<LabelStr>>,
     global_definitions: Box<HashSet<LabelStr>>,
 }
-
+/* 
 impl LabelRecog {
     pub fn new() -> LabelRecog {
         let label_map: Box<HashMap<LabelStr, Vec<usize>>> =
@@ -289,7 +289,7 @@ impl LabelRecog {
             let label_res_map = Box::new(new_labelresmap);
 
         }
-        Ok(*self)
+       Ok(*self)
         //if self.label_definitions.is_disjoint(&*other.label_definitions) {
 
         //} else {
@@ -297,6 +297,8 @@ impl LabelRecog {
         //}
     }*/
 }
+*/
+
 
 fn parse_label_name(input: &str) -> IResult<&str, Cow<str>> {
     let (rest, parsed) = alpha1(input)?;

@@ -209,7 +209,7 @@ pub struct LabelRecog {
     local_definitions: Box<HashSet<LabelStr>>,
     global_definitions: Box<HashSet<LabelStr>>,
 }
-/* 
+
 impl LabelRecog {
     pub fn new() -> LabelRecog {
         let label_map: Box<HashMap<LabelStr, Vec<usize>>> =
@@ -249,6 +249,30 @@ impl LabelRecog {
                 self.label_map.insert(label, list);
             },
         };
+    }
+
+    pub fn def_shadow(&self, other: &LabelRecog) -> bool {
+        let ret_val: bool;
+        ret_val |= self.global_definitions.is_disjoint(&other.global_definitions);
+        ret_val |= self.local_definitions.is_disjoint(&other.global_definitions);
+        ret_val |= self.local_definitions.is_disjoint(&other.global_definitions);
+        ret_val
+    }
+
+    pub fn get_ldefs(&self) -> HashSet<LabelStr> {
+        let mut new_set: HashSet<LabelStr> = HashSet::new();
+        new_set.union(&self.local_definitions);
+        new_set
+    }
+
+    pub fn get_gdefs(&self) -> HashSet<LabelStr> {
+        let mut new_set: HashSet<LabelStr> = HashSet::new();
+        new_set.union(&self.global_definitions);
+        new_set
+    }
+
+    pub fn get_pos_vec(&self, label: LabelStr) -> Option<&Vec<usize>> {
+        self.label_map.get(label.as_str())
     }
 
     /*pub fn merge(&self, other: &LabelRecog) -> Result<LabelRecog, _> {
@@ -297,7 +321,6 @@ impl LabelRecog {
         //}
     }*/
 }
-*/
 
 
 fn parse_label_name(input: &str) -> IResult<&str, Cow<str>> {

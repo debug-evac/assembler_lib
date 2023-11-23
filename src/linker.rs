@@ -13,8 +13,14 @@
 // absolute addresses.
 // Linked files need to be specified and ordered from flags or a
 // particular file (probably flags only, but we'll see).
-use crate::parser::LabelRecog;
+use crate::parser::{LabelRecog, Instruction, Operation};
 
 pub struct LinkError {
 
+}
+
+pub fn link(parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(LabelRecog, Vec<Operation>), LinkError> {
+    for code in parsed_instr.iter() {
+
+    }
 }

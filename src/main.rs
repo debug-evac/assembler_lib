@@ -15,6 +15,7 @@ use clap::{Arg, Command};
 use clap::value_parser;
 use clap::ArgAction;
 use std::path::Path;
+use std::string;
 use std::{fs, path::PathBuf};
 use std::fs::File;
 use std::io::prelude::*;
@@ -42,27 +43,32 @@ fn main() {
     .expect("`file`is required")
     .collect();
     
-    let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)>;
+    let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
+
+    let mut string_vector: Vec<String> = vec![];
 
     for file in vals {
         let contents = fs::read_to_string(file.as_path());
         match contents {
-            Ok(val) => {
-                let res = parser::parse(&val);
-                match res {
-                    Ok(parsed) => parsed_vector.push(parsed.1),
-                    Err(mes) => println!("{}", mes),
-                }
-            },
-            Err(mes) => println!("could not find file"),
+            Ok(val) => string_vector.push(val),
+            Err(_) => panic!("File error"),
         };
     }
-    let linked_vector: (LabelRecog, Vec<Operation>);
+
+    for val in string_vector.as_slice() {
+        let val = parser::parse(&val);
+        match val {
+            Ok(val) => parsed_vector.push(val.1),
+            Err(_) => panic!("Parser error"),
+        }
+    }
+
+    /*let linked_vector: (LabelRecog, Vec<Operation>);
         let res = linker::link(parsed_vector);
         match res{
             Ok(linked) => linked_vector  = linked,
             Err(mes) => println!("could not link the assembler files"),
-        }
+        }*/
 
 
 

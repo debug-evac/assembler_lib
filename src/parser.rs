@@ -127,10 +127,38 @@ pub enum Instruction {
     VBt(LabelStr),
     VBf(LabelStr),
 
+
+    // Imm is the address!
+    Beq(Reg, Reg, Imm), // Branch if equal 
+    Bne(Reg, Reg, Imm), // Branch if not equal
+    Blt(Reg, Reg, Imm), // Branch if less than
+    Bltu(Reg, Reg, Imm),
+    Bge(Reg, Reg, Imm), // Branch if greater or equal
+    Bgeu(Reg, Reg, Imm),
+
+    // LabelStr is the address
+    VBeq(Reg, Reg, LabelStr),
+    VBne(Reg, Reg, LabelStr),
+    VBlt(Reg, Reg, LabelStr),
+    VBltu(Reg, Reg, LabelStr),
+    VBge(Reg, Reg, LabelStr),
+    VBgeu(Reg, Reg, LabelStr),
+
     // 1 Reg & 1 Imm
     // Need VLd and VSt as well for variables
     Ld(Reg, Imm),
     St(Reg, Imm),
+    Lb(Reg, Imm), //Load byte
+    Lh(Reg, Imm), //Load half
+    Lw(Reg, Imm), //Load word
+    Sb(Reg, Imm), //Store byte
+    Sh(Reg, Imm), //Store half
+    Sw(Reg, Imm), //Store word
+    Lui(Reg, Imm),
+    Auipc(Reg, Imm),
+
+    Lbu(Reg, Imm),
+    Lhu(Reg, Imm),
 
     Movu(Reg, Imm),
     Movl(Reg, Imm),
@@ -144,8 +172,6 @@ pub enum Instruction {
     Srr(Reg, Imm),
     Slr(Reg, Imm),
 
-    Sb(Reg, Imm),
-    Ub(Reg, Imm),
 
     // 2 Regs
     Cmpe(Reg, Reg),
@@ -167,6 +193,13 @@ pub enum Instruction {
     Divi(Reg, Reg, Imm),
     Divci(Reg, Reg, Imm),
 
+    Slti(Reg, Reg, Imm),
+    Sltiu(Reg, Reg, Imm),
+
+    XorI(Reg, Reg, Imm),
+    OrI(Reg, Reg, Imm),
+    AndI(Reg, Reg, Imm),
+
     // 3 Regs
     Addn(Reg, Reg, Reg),
     Addcn(Reg, Reg, Reg),
@@ -185,6 +218,10 @@ pub enum Instruction {
     And(Reg, Reg, Reg),
     Xnor(Reg, Reg, Reg),
     Nor(Reg, Reg, Reg),
+
+    Slt(Reg, Reg, Reg),
+    Sltu(Reg, Reg, Reg),
+    
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -200,7 +237,7 @@ impl <'a> From<Instruction> for Operation <'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct LabelRecog {
     // local labels are preceded with a dot (.)
     //label_map: Box<HashMap<LabelStr, u128>>,
@@ -209,7 +246,7 @@ pub struct LabelRecog {
     local_definitions: Box<HashSet<LabelStr>>,
     global_definitions: Box<HashSet<LabelStr>>,
 }
-/* 
+
 impl LabelRecog {
     pub fn new() -> LabelRecog {
         let label_map: Box<HashMap<LabelStr, Vec<usize>>> =
@@ -297,7 +334,7 @@ impl LabelRecog {
         //}
     }*/
 }
-*/
+
 
 
 fn parse_label_name(input: &str) -> IResult<&str, Cow<str>> {
@@ -399,6 +436,19 @@ fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Instruction> {
         value(Instruction::Movu(Reg::NA, 0), tag("movu")),
         value(Instruction::Movl(Reg::NA, 0), tag("movl")),
 
+        value(Instruction::Lb(Reg::NA, 0), tag("lb")),
+        value(Instruction::Lbu(Reg::NA, 0), tag("lbu")),
+        value(Instruction::Lh(Reg::NA, 0), tag("lh")),
+        value(Instruction::Lhu(Reg::NA, 0), tag("lhu")),
+        value(Instruction::Lw(Reg::NA, 0), tag("lw")),
+
+        value(Instruction::Lui(Reg::NA, 0), tag("lui")),
+        value(Instruction::Auipc(Reg::NA, 0), tag("auipc")),
+
+        value(Instruction::Sb(Reg::NA, 0), tag("sb")),
+        value(Instruction::Sh(Reg::NA, 0), tag("sh")),
+        value(Instruction::Sw(Reg::NA, 0), tag("sw")),
+
         value(Instruction::Sll(Reg::NA, 0), tag("sll")),
         value(Instruction::Srl(Reg::NA, 0), tag("srl")),
         value(Instruction::Sra(Reg::NA, 0), tag("sra")),
@@ -407,7 +457,6 @@ fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Instruction> {
         value(Instruction::Srr(Reg::NA, 0), tag("srr")),
         value(Instruction::Slr(Reg::NA, 0), tag("slr")),
         value(Instruction::Sb(Reg::NA, 0), tag("sb")),
-        value(Instruction::Ub(Reg::NA, 0), tag("ub")),
     ))(input)?;
     let (rest, _) = tag(" ")(rest)?;
     let (rest, args) = separated_pair(parse_reg, parse_seper, parse_imm)(rest)?;
@@ -418,6 +467,19 @@ fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Instruction> {
         Instruction::Movu(_, _) => Instruction::Movu(args.0, args.1),
         Instruction::Movl(_, _) => Instruction::Movl(args.0, args.1),
 
+        Instruction::Lb(_, _) => Instruction::Lb(args.0, args.1),
+        Instruction::Lbu(_, _) => Instruction::Lbu(args.0, args.1),
+        Instruction::Lh(_, _) => Instruction::Lh(args.0, args.1),
+        Instruction::Lhu(_, _) => Instruction::Lhu(args.0, args.1),
+        Instruction::Lw(_, _) => Instruction::Lw(args.0, args.1),
+
+        Instruction::Lui(_, _) => Instruction::Lui(args.0, args.1),
+        Instruction::Auipc(_, _) => Instruction::Auipc(args.0, args.1),
+
+        Instruction::Sb(_, _) => Instruction::Sb(args.0, args.1),
+        Instruction::Sh(_, _) => Instruction::Sh(args.0, args.1),
+        Instruction::Sw(_, _) => Instruction::Sw(args.0, args.1),
+
         Instruction::Sll(_, _) => Instruction::Sll(args.0, args.1),
         Instruction::Srl(_, _) => Instruction::Srl(args.0, args.1),
         Instruction::Sra(_, _) => Instruction::Sra(args.0, args.1),
@@ -426,7 +488,6 @@ fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Instruction> {
         Instruction::Srr(_, _) => Instruction::Srr(args.0, args.1),
         Instruction::Slr(_, _) => Instruction::Slr(args.0, args.1),
         Instruction::Sb(_, _) => Instruction::Sb(args.0, args.1),
-        Instruction::Ub(_, _) => Instruction::Ub(args.0, args.1),
         _ => Instruction::NA
     };
 
@@ -465,6 +526,19 @@ fn parse_inst_1imm2reg(input: &str) -> IResult<&str, Instruction> {
         value(Instruction::Mulci(Reg::NA, Reg::NA, 0), tag("mulci")),
         value(Instruction::Divi(Reg::NA, Reg::NA, 0), tag("divi")),
         value(Instruction::Divci(Reg::NA, Reg::NA, 0), tag("divci")),
+
+        value(Instruction::Slti(Reg::NA, Reg::NA, 0), tag("slti")),
+        value(Instruction::Sltiu(Reg::NA, Reg::NA, 0), tag("sltiu")),
+        value(Instruction::XorI(Reg::NA, Reg::NA, 0), tag("xorI")),
+        value(Instruction::OrI(Reg::NA, Reg::NA, 0), tag("orI")),
+        value(Instruction::AndI(Reg::NA, Reg::NA, 0), tag("andI")),
+
+        value(Instruction::Beq(Reg::NA, Reg::NA, 0), tag("beq")),
+        value(Instruction::Bne(Reg::NA, Reg::NA, 0), tag("bne")),
+        value(Instruction::Blt(Reg::NA, Reg::NA, 0), tag("blt")),
+        value(Instruction::Bltu(Reg::NA, Reg::NA, 0), tag("bltu")),
+        value(Instruction::Bge(Reg::NA, Reg::NA, 0), tag("bge")),
+        value(Instruction::Bgeu(Reg::NA, Reg::NA, 0), tag("bgeu")),
     ))(input)?;
     let (rest, _) = tag(" ")(rest)?;
     let (rest, args) = tuple((parse_reg, parse_seper, parse_reg, parse_seper, parse_imm))(rest)?;
@@ -479,11 +553,51 @@ fn parse_inst_1imm2reg(input: &str) -> IResult<&str, Instruction> {
         Instruction::Mulci(_, _, _) => Instruction::Mulci(args.0, args.2, args.4),
         Instruction::Divi(_, _, _) => Instruction::Divi(args.0, args.2, args.4),
         Instruction::Divci(_, _, _) => Instruction::Divci(args.0, args.2, args.4),
+
+        Instruction::Slti(_, _, _) => Instruction::Slti(args.0, args.2, args.4),
+        Instruction::Sltiu(_, _, _) => Instruction::Sltiu(args.0, args.2, args.4),
+        Instruction::XorI(_, _, _) => Instruction::XorI(args.0, args.2, args.4),
+        Instruction::OrI(_, _, _) => Instruction::OrI(args.0, args.2, args.4),
+        Instruction::AndI(_, _, _) => Instruction::AndI(args.0, args.2, args.4),
+
+        Instruction::Beq(_, _, _) => Instruction::Beq(args.0, args.2, args.4),
+        Instruction::Bne(_, _, _) => Instruction::Bne(args.0, args.2, args.4),
+        Instruction::Blt(_, _, _) => Instruction::Blt(args.0, args.2, args.4),
+        Instruction::Bltu(_, _, _) => Instruction::Bltu(args.0, args.2, args.4),
+        Instruction::Bge(_, _, _) => Instruction::Bge(args.0, args.2, args.4),
+        Instruction::Bgeu(_, _, _) => Instruction::Bgeu(args.0, args.2, args.4),
         _ => Instruction::NA
     };
 
     Ok((rest, instr))
 }
+
+fn parse_inst_1lbl2reg(input: &str)-> IResult<&str, Instruction> {
+    let (rest, instr) = alt((
+        value(Instruction::VBeq(Reg::NA, Reg::NA, 0.to_string()), tag("beq")),
+        value(Instruction::VBne(Reg::NA, Reg::NA, 0.to_string()), tag("bne")),
+        value(Instruction::VBlt(Reg::NA, Reg::NA, 0.to_string()), tag("blt")),
+        value(Instruction::VBltu(Reg::NA, Reg::NA, 0.to_string()), tag("bltu")),
+        value(Instruction::VBge(Reg::NA, Reg::NA, 0.to_string()), tag("bge")),
+        value(Instruction::VBgeu(Reg::NA, Reg::NA, 0.to_string()), tag("bgeu")),
+    ))(input)?;
+    let (rest, _) = tag(" ")(rest)?;
+    let (rest, args) = tuple((parse_reg, parse_seper, parse_reg, parse_seper, parse_label_name))(rest)?;
+
+    let instr = match instr {
+        Instruction::VBeq(_, _, _) => Instruction::VBeq(args.0, args.2, args.4.to_string()),
+        Instruction::VBne(_, _, _) => Instruction::VBne(args.0, args.2, args.4.to_string()),
+        Instruction::VBlt(_, _, _) => Instruction::VBlt(args.0, args.2, args.4.to_string()),
+        Instruction::VBltu(_, _, _) => Instruction::VBltu(args.0, args.2, args.4.to_string()),
+        Instruction::VBge(_, _, _) => Instruction::VBge(args.0, args.2, args.4.to_string()),
+        Instruction::VBgeu(_, _, _) => Instruction::VBgeu(args.0, args.2, args.4.to_string()),
+
+        _ => Instruction::NA
+    };
+
+    Ok((rest, instr))
+}
+
 
 fn parse_inst_3reg(input: &str) -> IResult<&str, Instruction> {
     let (rest, instr) = alt((
@@ -504,6 +618,9 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Instruction> {
         value(Instruction::And(Reg::NA, Reg::NA, Reg::NA), tag("and")),
         value(Instruction::Xnor(Reg::NA, Reg::NA, Reg::NA), tag("xnor")),
         value(Instruction::Nor(Reg::NA, Reg::NA, Reg::NA), tag("nor")),
+
+        value(Instruction::Slt(Reg::NA, Reg::NA, Reg::NA),tag("slt")),
+        value(Instruction::Sltu(Reg::NA, Reg::NA, Reg::NA),tag("sltu")),
     ))(input)?;
     let (rest, _) = tag(" ")(rest)?;
     let (rest, args) = tuple((parse_reg, parse_seper, parse_reg, parse_seper, parse_reg))(rest)?;
@@ -526,6 +643,8 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Instruction> {
         Instruction::And(_, _, _) => Instruction::And(args.0, args.2, args.4),
         Instruction::Xnor(_, _, _) => Instruction::Xnor(args.0, args.2, args.4),
         Instruction::Nor(_, _, _) => Instruction::Nor(args.0, args.2, args.4),
+        Instruction::Slt(_, _, _) => Instruction::Slt(args.0, args.2, args.4),
+        Instruction::Sltu(_, _, _) => Instruction::Sltu(args.0, args.2, args.4),
         _ => Instruction::NA
     };
 

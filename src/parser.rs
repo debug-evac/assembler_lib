@@ -30,10 +30,10 @@ use nom::{
         separated_pair,
     },
 };
-use std::collections::{
+use std::{collections::{
     HashMap,
     HashSet
-};
+}, borrow::Borrow};
 use std::borrow::Cow;
 
 pub type Label = str;
@@ -251,12 +251,37 @@ impl LabelRecog {
         };
     }
 
-    pub fn def_shadow(&self, other: &LabelRecog) -> bool {
-        let ret_val: bool;
-        ret_val |= self.global_definitions.is_disjoint(&other.global_definitions);
-        ret_val |= self.local_definitions.is_disjoint(&other.global_definitions);
-        ret_val |= self.local_definitions.is_disjoint(&other.global_definitions);
-        ret_val
+    pub fn get_poss(&self, label: LabelStr) -> &[usize] {
+        match self.label_map.get(&label) {
+            Some(list) => list,
+            None => &[0 as usize],
+        }
+    }
+
+    pub fn redefine_def(&mut self, scope: bool, remove_label: &String, insert_label: String) -> () {
+        if scope {
+            self.global_definitions.remove(remove_label);
+            self.global_definitions.insert(insert_label);
+        } else {
+            self.local_definitions.remove(remove_label);
+            self.local_definitions.insert(insert_label);
+        }
+
+        match self.label_map.get(remove_label) {
+                Some(list) => {
+                    self.label_map.insert(insert_label, *list);
+                    self.label_map.remove(remove_label);
+                },
+                None => (),
+            };
+    }
+
+    pub fn gllc_def_shadowing(&self, other: &LabelRecog) -> bool {
+        self.global_definitions.is_disjoint(&other.local_definitions)
+    }
+
+    pub fn lclc_def_shadowing(&self, other: &LabelRecog) -> bool {
+        self.local_definitions.is_disjoint(&other.local_definitions)
     }
 
     pub fn get_ldefs(&self) -> HashSet<LabelStr> {
@@ -274,6 +299,23 @@ impl LabelRecog {
     pub fn get_pos_vec(&self, label: LabelStr) -> Option<&Vec<usize>> {
         self.label_map.get(label.as_str())
     }
+
+    pub fn extend_gdefs(&mut self, other: &LabelRecog) -> () {
+        let gdefs_union = self.global_definitions.union(&other.global_definitions).map(|x| *x);
+        self.global_definitions = Box::new(gdefs_union.collect());
+    }
+
+    pub fn extend_ldefs(&mut self, other: &LabelRecog) -> () {
+        let gdefs_union = self.global_definitions.union(&other.global_definitions).map(|x| *x);
+        self.global_definitions = Box::new(gdefs_union.collect());
+    }
+
+    /*
+    pub fn extend_gdef_array(&mut self, others: &[LabelRecog]) -> () {
+        for labelrec in others {
+            self.extend_gdefs(labelrec);
+        }
+    }*/
 
     /*pub fn merge(&self, other: &LabelRecog) -> Result<LabelRecog, _> {
         let global_disjoint = self.global_definitions.is_disjoint(

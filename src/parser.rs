@@ -146,8 +146,6 @@ pub enum Instruction {
 
     // 1 Reg & 1 Imm
     // Need VLd and VSt as well for variables
-    Ld(Reg, Imm),
-    St(Reg, Imm),
     Lb(Reg, Imm), //Load byte
     Lh(Reg, Imm), //Load half
     Lw(Reg, Imm), //Load word
@@ -163,14 +161,6 @@ pub enum Instruction {
     Movu(Reg, Imm),
     Movl(Reg, Imm),
 
-    // Shift left|right logical|arithmetic|rotate
-    Sll(Reg, Imm),
-    Srl(Reg, Imm),
-    Sra(Reg, Imm),
-    Sla(Reg, Imm),
-
-    Srr(Reg, Imm),
-    Slr(Reg, Imm),
 
 
     // 2 Regs
@@ -199,6 +189,15 @@ pub enum Instruction {
     XorI(Reg, Reg, Imm),
     OrI(Reg, Reg, Imm),
     AndI(Reg, Reg, Imm),
+
+    // Shift left|right logical|arithmetic|rotate
+    Sll(Reg, Reg, Imm),
+    Srl(Reg, Reg, Imm),
+    Sra(Reg, Reg, Imm),
+    Sla(Reg, Reg, Imm),
+
+    Srr(Reg, Reg, Imm),
+    Slr(Reg, Reg, Imm),
 
     // 3 Regs
     Addn(Reg, Reg, Reg),
@@ -431,8 +430,6 @@ fn parse_inst_1imm(input: &str) -> IResult<&str, Instruction> {
 // ld $3, 0x30
 fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Instruction> {
     let (rest, instr) = alt((
-        value(Instruction::Ld(Reg::NA, 0), tag("ld")),
-        value(Instruction::St(Reg::NA, 0), tag("st")),
         value(Instruction::Movu(Reg::NA, 0), tag("movu")),
         value(Instruction::Movl(Reg::NA, 0), tag("movl")),
 
@@ -449,21 +446,12 @@ fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Instruction> {
         value(Instruction::Sh(Reg::NA, 0), tag("sh")),
         value(Instruction::Sw(Reg::NA, 0), tag("sw")),
 
-        value(Instruction::Sll(Reg::NA, 0), tag("sll")),
-        value(Instruction::Srl(Reg::NA, 0), tag("srl")),
-        value(Instruction::Sra(Reg::NA, 0), tag("sra")),
-        value(Instruction::Sla(Reg::NA, 0), tag("sla")),
-
-        value(Instruction::Srr(Reg::NA, 0), tag("srr")),
-        value(Instruction::Slr(Reg::NA, 0), tag("slr")),
         value(Instruction::Sb(Reg::NA, 0), tag("sb")),
     ))(input)?;
     let (rest, _) = tag(" ")(rest)?;
     let (rest, args) = separated_pair(parse_reg, parse_seper, parse_imm)(rest)?;
 
     let instr = match instr {
-        Instruction::Ld(_, _) => Instruction::Ld(args.0, args.1),
-        Instruction::St(_, _) => Instruction::St(args.0, args.1),
         Instruction::Movu(_, _) => Instruction::Movu(args.0, args.1),
         Instruction::Movl(_, _) => Instruction::Movl(args.0, args.1),
 
@@ -480,13 +468,7 @@ fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Instruction> {
         Instruction::Sh(_, _) => Instruction::Sh(args.0, args.1),
         Instruction::Sw(_, _) => Instruction::Sw(args.0, args.1),
 
-        Instruction::Sll(_, _) => Instruction::Sll(args.0, args.1),
-        Instruction::Srl(_, _) => Instruction::Srl(args.0, args.1),
-        Instruction::Sra(_, _) => Instruction::Sra(args.0, args.1),
-        Instruction::Sla(_, _) => Instruction::Sla(args.0, args.1),
-
-        Instruction::Srr(_, _) => Instruction::Srr(args.0, args.1),
-        Instruction::Slr(_, _) => Instruction::Slr(args.0, args.1),
+        
         Instruction::Sb(_, _) => Instruction::Sb(args.0, args.1),
         _ => Instruction::NA
     };
@@ -518,14 +500,14 @@ fn parse_inst_2reg(input: &str) -> IResult<&str, Instruction> {
 fn parse_inst_1imm2reg(input: &str) -> IResult<&str, Instruction> {
     let (rest, instr) = alt((
         value(Instruction::Addi(Reg::NA, Reg::NA, 0), tag("addi")),
-        value(Instruction::Addci(Reg::NA, Reg::NA, 0), tag("addci")),
+        //value(Instruction::Addci(Reg::NA, Reg::NA, 0), tag("addci")),
         value(Instruction::Subi(Reg::NA, Reg::NA, 0), tag("subi")),
-        value(Instruction::Subci(Reg::NA, Reg::NA, 0), tag("subci")),
+        //value(Instruction::Subci(Reg::NA, Reg::NA, 0), tag("subci")),
 
         value(Instruction::Muli(Reg::NA, Reg::NA, 0), tag("muli")),
-        value(Instruction::Mulci(Reg::NA, Reg::NA, 0), tag("mulci")),
+        //value(Instruction::Mulci(Reg::NA, Reg::NA, 0), tag("mulci")),
         value(Instruction::Divi(Reg::NA, Reg::NA, 0), tag("divi")),
-        value(Instruction::Divci(Reg::NA, Reg::NA, 0), tag("divci")),
+        //value(Instruction::Divci(Reg::NA, Reg::NA, 0), tag("divci")),
 
         value(Instruction::Slti(Reg::NA, Reg::NA, 0), tag("slti")),
         value(Instruction::Sltiu(Reg::NA, Reg::NA, 0), tag("sltiu")),
@@ -539,6 +521,14 @@ fn parse_inst_1imm2reg(input: &str) -> IResult<&str, Instruction> {
         value(Instruction::Bltu(Reg::NA, Reg::NA, 0), tag("bltu")),
         value(Instruction::Bge(Reg::NA, Reg::NA, 0), tag("bge")),
         value(Instruction::Bgeu(Reg::NA, Reg::NA, 0), tag("bgeu")),
+
+        value(Instruction::Sll(Reg::NA, Reg::NA, 0), tag("sll")),
+        value(Instruction::Srl(Reg::NA, Reg::NA, 0), tag("srl")),
+        value(Instruction::Sra(Reg::NA, Reg::NA, 0), tag("sra")),
+        value(Instruction::Sla(Reg::NA, Reg::NA, 0), tag("sla")),
+
+        value(Instruction::Srr(Reg::NA, Reg::NA, 0), tag("srr")),
+        value(Instruction::Slr(Reg::NA, Reg::NA, 0), tag("slr")),
     ))(input)?;
     let (rest, _) = tag(" ")(rest)?;
     let (rest, args) = tuple((parse_reg, parse_seper, parse_reg, parse_seper, parse_imm))(rest)?;
@@ -566,6 +556,14 @@ fn parse_inst_1imm2reg(input: &str) -> IResult<&str, Instruction> {
         Instruction::Bltu(_, _, _) => Instruction::Bltu(args.0, args.2, args.4),
         Instruction::Bge(_, _, _) => Instruction::Bge(args.0, args.2, args.4),
         Instruction::Bgeu(_, _, _) => Instruction::Bgeu(args.0, args.2, args.4),
+
+        Instruction::Sll(_, _, _) => Instruction::Sll(args.0, args.2, args.4),
+        Instruction::Srl(_, _, _) => Instruction::Srl(args.0, args.2, args.4),
+        Instruction::Sra(_, _, _) => Instruction::Sra(args.0, args.2, args.4),
+        Instruction::Sla(_, _, _) => Instruction::Sla(args.0, args.2, args.4),
+
+        Instruction::Srr(_, _, _) => Instruction::Srr(args.0, args.2, args.4,),
+        Instruction::Slr(_, _, _) => Instruction::Slr(args.0, args.2, args.4),
         _ => Instruction::NA
     };
 
@@ -933,7 +931,7 @@ mod tests {
         assert_ne!(parse_inst_1imm1reg(" "), Ok(("", Instruction::NA)));
         assert_ne!(parse_inst_1imm1reg(""), Ok(("", Instruction::NA)));
         assert_ne!(parse_inst_1imm1reg("ld"), Ok(("", Instruction::NA)));
-        assert_eq!(parse_inst_1imm1reg("st $1, 0xAA"), Ok(("", Instruction::St(Reg::G1, 170))));
+        assert_eq!(parse_inst_1imm1reg("sw $1, 0xAA"), Ok(("", Instruction::Sw(Reg::G1, 170))));
         assert_eq!(parse_inst_1imm1reg("sb $15,6"), Ok(("", Instruction::Sb(Reg::G15, 6))));
         assert_ne!(parse_inst_1imm1reg("sb$15,6"), Ok(("", Instruction::Sb(Reg::G15, 6))));
         assert_ne!(parse_inst_1imm1reg("sb $15,  6"), Ok(("", Instruction::Sb(Reg::G15, 6))));
@@ -984,7 +982,7 @@ mod tests {
         assert_ne!(parse_instruction("xor $10$14,$7"), Ok(("", Instruction::Xor(Reg::G10, Reg::G14, Reg::G7))));
         assert_eq!(parse_instruction("add $10,$11, $10"), Ok(("", Instruction::Addn(Reg::G10, Reg::G11, Reg::G10))));
         assert_ne!(parse_instruction("xnor $6,  $8,$5"), Ok(("", Instruction::Xnor(Reg::G6, Reg::G8, Reg::G5))));
-        assert_eq!(parse_instruction("srr $5, 7"), Ok(("", Instruction::Srr(Reg::G5, 7))));
+        assert_eq!(parse_instruction("srr $5, $8, 7"), Ok(("", Instruction::Srr(Reg::G5, Reg::G8, 7))));
     }
 
     #[test]

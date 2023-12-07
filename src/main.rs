@@ -16,6 +16,8 @@ use clap::value_parser;
 use clap::ArgAction;
 use std::{fs, path::PathBuf};
 
+use crate::parser::Instruction;
+
 fn main() {
     //let src = "addi $3, $3, 1";
     let matches = Command::new("Test")
@@ -29,12 +31,24 @@ fn main() {
                  .help("A cool file, use \"...\""))
     .get_matches();
 
-    for file in matches {
-        let res = parser::parse(file);
-        match res {
-            Ok(parsed) => println!("{:?}", parsed.1.0),
-            Err(mes) => println!("{} could not find file", mes),
-        }
+    let vals: Vec<&PathBuf> = matches.get_many::<PathBuf>("file")
+    .expect("`file`is required")
+    .collect();
+    
+    let parsed_vector: Vec<(LabelRecog, Vec<Operation>)>;
+
+    for file in vals {
+        let contents = fs::read_to_string(file.as_path());
+        match contents {
+            Ok(val) => {
+                let res: Result<(&str, Vec<Instruction>), nom::Err<nom::error::Error<&str>>> = parser::parse(&val);
+                match res {
+                    Ok(parsed) => parsed_vector.push(parsed),
+                    Err(mes) => println!("{}", mes),
+                }
+            },
+            Err(mes) => println!("could not find file"),
+        };
     }
 let myfile: Vec<&PathBuf> = matches.get_many::<PathBuf>("file")
 .expect("files are needed!")

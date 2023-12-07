@@ -19,8 +19,9 @@ pub struct LinkError {
 
 }
 
+/*
 pub fn link(parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(LabelRecog, Vec<Operation>), LinkError> {
     for code in parsed_instr.iter() {
 
     }
-}
+}*/

@@ -14,13 +14,21 @@ mod translator;
 use clap::{Arg, Command};
 use clap::value_parser;
 use clap::ArgAction;
+use std::path::Path;
+use std::string;
 use std::{fs, path::PathBuf};
+use std::fs::File;
+use std::io::prelude::*;
+use std::io::Write;
 
+
+use crate::parser::LabelRecog;
+use crate::parser::Operation;
 use crate::parser::Instruction;
 
 fn main() {
     //let src = "addi $3, $3, 1";
-    let matches = Command::new("Test")
+    let matches = Command::new("Assembler Input")
     .arg(Arg::new("file")
                 .value_parser(value_parser!(PathBuf))
                 .action(ArgAction::Set)
@@ -35,21 +43,65 @@ fn main() {
     .expect("`file`is required")
     .collect();
     
-    let parsed_vector: Vec<(LabelRecog, Vec<Operation>)>;
+    let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
+
+    let mut string_vector: Vec<String> = vec![];
 
     for file in vals {
         let contents = fs::read_to_string(file.as_path());
         match contents {
-            Ok(val) => {
-                let res: Result<(&str, Vec<Instruction>), nom::Err<nom::error::Error<&str>>> = parser::parse(&val);
-                match res {
-                    Ok(parsed) => parsed_vector.push(parsed),
-                    Err(mes) => println!("{}", mes),
-                }
-            },
-            Err(mes) => println!("could not find file"),
+            Ok(val) => string_vector.push(val),
+            Err(_) => panic!("File error"),
         };
     }
+
+    for val in string_vector.as_slice() {
+        let val = parser::parse(&val);
+        match val {
+            Ok(val) => parsed_vector.push(val.1),
+            Err(_) => panic!("Parser error"),
+        }
+    }
+
+    /*let linked_vector: (LabelRecog, Vec<Operation>);
+        let res = linker::link(parsed_vector);
+        match res{
+            Ok(linked) => linked_vector  = linked,
+            Err(mes) => println!("could not link the assembler files"),
+        }*/
+
+
+
+    let assembler_output = Command::new("Assembler Output")
+    .arg(Arg::new("destination")
+                .value_parser(value_parser!(PathBuf))
+                .action(clap::ArgAction::Append)
+                 .short('d')
+                 .num_args(1..=10)
+                 .required(false)
+                 .long("destination")
+                 .help("The destination for the output file"))
+    .get_matches();
+
+    let mut filename;
+    match assembler_output.get_one::<PathBuf>("destination"){
+        None => filename = Path::new("./a.bin"),
+        Some(assembler_output) => filename = assembler_output,
+    }
+    let f = File::create(filename);
+    //f.write_all(.as_byteArray());  Translator ausgabe muss eingefügt werden
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        /*
 let myfile: Vec<&PathBuf> = matches.get_many::<PathBuf>("file")
 .expect("files are needed!")
 .collect();
@@ -78,7 +130,7 @@ END:
         Ok(parsed) => println!("{:?}", parsed.1),
         Err(_) => (),
     }
-
+*/
     
 
 }

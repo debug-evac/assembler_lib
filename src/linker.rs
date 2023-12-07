@@ -62,7 +62,7 @@ fn replace_label(code: (LabelRecog, Vec<Operation>), new_label: String) -> () {
 pub fn link(parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(LabelRecog, Vec<Operation>), LinkError> {
     let mut gl_symbol_map = LabelRecog::new();
     let mut total_code: Vec<Operation> = vec![];
-    let mut offset: usize = 0;
+    let mut offset: Vec<usize> = vec![0; parsed_instr.len()];
     let mut total_label = 0;
 
     for code in parsed_instr {
@@ -76,6 +76,7 @@ pub fn link(parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(LabelRec
         return Err(LinkError {})
     }
 
+    let mut file_counter: usize = 0;
     let mut conflict_counter: u128 = 0;
 
     for code in parsed_instr {
@@ -104,26 +105,37 @@ pub fn link(parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(LabelRec
                 conflict_counter = conflict_counter + 1;
             }
             total_code.extend(code.1);
+            file_counter += 1;
+            offset[file_counter] = offset[file_counter - 1] + code.1.len();
         } else {
             return Err(LinkError {  })
         }
     }
 
-    let mut counter = 0;
-    let mut offset = 0;
+    file_counter -= 1;
 
     // Optimization possibility? Check which labels overlap and only rename those
     // that overlap (local to local)
-    while counter < parsed_instr.len() {
-        let symbol_map = parsed_instr[counter].0;
-        for labl in symbol_map.get_ldefs().into_iter() {
-            gl_symbol_map.insert_def(false, Cow::from(labl));
-            symbol_map.get_pos_vec(labl); // Get label positions, change labels at positions and
+    while file_counter > 0 {
+        let symbol_map = parsed_instr[file_counter].0;
+        for labl in symbol_map.get_adefs().into_iter() {
+            //gl_symbol_map.insert_def(false, Cow::from(labl));
+            let vector = match symbol_map.get_pos_vec(labl) {
+                Some(vec_pos) => vec_pos,
+                None => {
+                    let vector: Vec<usize> = vec![];
+                    &vector
+                },
+            }; // Get label positions, change labels at positions and
                                           // add offset to pos
+            *vector = vector.iter().map(|&x| x + offset[file_counter]).collect();
         }
-
-        counter += 1;
+        file_counter -= 1;
     }
 
-    todo!("TODO!")
+    /*for labl in gl_symbol_map.get_gdefs() {
+
+    }*/
+
+    Ok((gl_symbol_map, total_code))
 }

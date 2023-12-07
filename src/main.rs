@@ -29,11 +29,11 @@ fn main() {
                  .help("A cool file, use \"...\""))
     .get_matches();
 
-    for file in matches{
+    for file in matches {
         let res = parser::parse(file);
         match res {
-            Ok(parsed) => println!("{:?}", parsed.1[0]),
-            Err(mes) => println!("{ could not find file", mes),
+            Ok(parsed) => println!("{:?}", parsed.1.0),
+            Err(mes) => println!("{} could not find file", mes),
         }
     }
 let myfile: Vec<&PathBuf> = matches.get_many::<PathBuf>("file")

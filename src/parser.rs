@@ -296,6 +296,13 @@ impl LabelRecog {
         new_set
     }
 
+    pub fn get_adefs(&self) -> HashSet<LabelStr> {
+        let mut new_set: HashSet<LabelStr> = HashSet::new();
+        new_set.union(&self.get_ldefs());
+        new_set.union(&self.get_gdefs());
+        new_set
+    }
+
     pub fn get_pos_vec(&self, label: LabelStr) -> Option<&Vec<usize>> {
         self.label_map.get(label.as_str())
     }

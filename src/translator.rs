@@ -121,18 +121,18 @@ impl Instruction {
     Divi(Reg, Reg, Imm),
     Divci(Reg, Reg, Imm),
 
-    Slti(Reg, Reg, Imm),
-    Sltiu(Reg, Reg, Imm),
+    Instruction::Slti(Reg, Reg, Imm) => Imm << 20 + (Reg2 as u8)<<15 + (Reg1 as u8)<<7 + 0b0010011 + 0b110_00000_00000,
+    Instruction::Sltiu(Reg, Reg, Imm) => Imm << 20 + (Reg2 as u8)<<15 + (Reg1 as u8)<<7 + 0b0010011 + 0b110_00000_00000, todo!("Zero extends")
 
     Instruction::XorI(Reg, Reg, Imm) => Imm << 20 + (Reg2 as u8)<<15 + (Reg1 as u8) << 7 + 0b0010011 + 0b1000_00000_00000,
     Instruction::OrI(Reg, Reg, Imm) => Imm << 20 + (Reg2 as u8)<<15 + (Reg1 as u8) << 7 + 0b0010011 + 0b1100_00000_00000,
     Instruction::AndI(Reg, Reg, Imm) => Imm << 20 + (Reg2 as u8)<<15 + (Reg1 as u8) << 7 + 0b0010011 + 0b1110_00000_00000,
 
     // 3 Regs
-    Addn(Reg, Reg, Reg),
+    Instruction::Addn(Reg3, Reg1, Reg2) => (Reg1 as u8) << 20 + (Reg2 as u8) << 15 + (Reg3 as u8) << 7 + 0b0110011,
     Addcn(Reg, Reg, Reg),
 
-    Subn(Reg, Reg, Reg),
+    Instruction::Subn(Reg3, Reg1, Reg2) => 0b100000 << 25 + (Reg1 as u8) << 20 + (Reg2 as u8) << 15 + (Reg3 as u8) << 7 + 0b0110011,
     Subcn(Reg, Reg, Reg),
 
     Muln(Reg, Reg, Reg),
@@ -141,16 +141,18 @@ impl Instruction {
     Divn(Reg, Reg, Reg),
     Divcn(Reg, Reg, Reg),
 
-    Xor(Reg, Reg, Reg),
-    Or(Reg, Reg, Reg),
-    And(Reg, Reg, Reg),
-    Xnor(Reg, Reg, Reg),
-    Nor(Reg, Reg, Reg),
+    Instruction::Xor(Reg3, Reg1, Reg2) => (Reg1 as u8) << 20 + (Reg2 as u8) << 15 + 0b1000_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
+    Instruction::Or(Reg3, Reg1, Reg2) => (Reg1 as u8) << 20 + (Reg2 as u8) << 15 + 0b1100_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
+    Instruction::And(Reg3, Reg1, Reg2) => (Reg1 as u8) << 20 + (Reg2 as u8) << 15 + 0b1110_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
+    Instruction::Xnor(Reg3, Reg1, Reg2) => -1,
+    Instruction::Nor(Reg3, Reg1, Reg2) => -1,
 
-    Slt(Reg, Reg, Reg),
-    Sltu(Reg, Reg, Reg),
-        }
-
-    }
+    Instruction::Slt(Reg3, Reg1, Reg2) => (Reg1 as u8) << 20 + (Reg2 as u8) << 15 + 0b100_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
+    Instruction::Sltu(Reg, Reg, Reg) => (Reg1 as u8) << 20 + (Reg2 as u8) << 15 + 0b110_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
+    
+    Instruction::Sll(Reg3, Reg1, Reg2) => (Reg1 as u8) <<20 + (Reg2 as u8) <<15 + 0b0110011 + 0b10_00000_00000,
+    Instruction::Srl(Reg3, Reg1, Reg2) => (Reg1 as u8) <<20 + (Reg2 as u8) <<15 + 0b0110011 + 0b1010_00000_00000,
+    Instruction::Sra(Reg3, Reg1, Reg2) => 0b100000 << 25 + (Reg1 as u8) <<20 + (Reg2 as u8) <<15 + 0b0110011 + 0b1010_00000_00000,
+    Instruction::Sla(Reg3, Reg1, Reg2) => -1,
 }
 */

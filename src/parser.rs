@@ -30,10 +30,10 @@ use nom::{
         separated_pair,
     },
 };
-use std::{collections::{
+use std::collections::{
     HashMap,
     HashSet
-}, borrow::Borrow};
+};
 use std::borrow::Cow;
 
 pub type Label = str;
@@ -189,6 +189,7 @@ pub enum Instruction {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Operation <'a> {
+    Namespace(Cow<'a, Label>),
     Instr(Instruction),
     LablInstr(Cow<'a, Label>, Instruction),
     Labl(Cow<'a, Label>)
@@ -200,11 +201,12 @@ impl <'a> From<Instruction> for Operation <'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LabelRecog {
     // local labels are preceded with a dot (.)
     //label_map: Box<HashMap<LabelStr, u128>>,
 
+    offset: u128,
     label_map: Box<HashMap<LabelStr, Vec<usize>>>,
     local_definitions: Box<HashSet<LabelStr>>,
     global_definitions: Box<HashSet<LabelStr>>,
@@ -212,6 +214,7 @@ pub struct LabelRecog {
 
 impl LabelRecog {
     pub fn new() -> LabelRecog {
+        let offset = 0;
         let label_map: Box<HashMap<LabelStr, Vec<usize>>> =
         Box::new(HashMap::new());
         let local_definitions: Box<HashSet<LabelStr>> =
@@ -220,6 +223,7 @@ impl LabelRecog {
         Box::new(HashSet::new());
 
         LabelRecog {
+            offset,
             label_map,
             local_definitions,
             global_definitions
@@ -251,8 +255,8 @@ impl LabelRecog {
         };
     }
 
-    pub fn get_poss(&self, label: LabelStr) -> &[usize] {
-        match self.label_map.get(&label) {
+    pub fn get_poss(&self, label: &LabelStr) -> &[usize] {
+        match self.label_map.get(label) {
             Some(list) => list,
             None => &[0 as usize],
         }
@@ -261,15 +265,15 @@ impl LabelRecog {
     pub fn redefine_def(&mut self, scope: bool, remove_label: &String, insert_label: String) -> () {
         if scope {
             self.global_definitions.remove(remove_label);
-            self.global_definitions.insert(insert_label);
+            self.global_definitions.insert(insert_label.clone());
         } else {
             self.local_definitions.remove(remove_label);
-            self.local_definitions.insert(insert_label);
+            self.local_definitions.insert(insert_label.clone());
         }
 
         match self.label_map.get(remove_label) {
                 Some(list) => {
-                    self.label_map.insert(insert_label, *list);
+                    self.label_map.insert(insert_label, list.clone());
                     self.label_map.remove(remove_label);
                 },
                 None => (),
@@ -285,36 +289,50 @@ impl LabelRecog {
     }
 
     pub fn get_ldefs(&self) -> HashSet<LabelStr> {
-        let mut new_set: HashSet<LabelStr> = HashSet::new();
-        new_set.union(&self.local_definitions);
-        new_set
+        *self.local_definitions.clone()
     }
 
     pub fn get_gdefs(&self) -> HashSet<LabelStr> {
-        let mut new_set: HashSet<LabelStr> = HashSet::new();
-        new_set.union(&self.global_definitions);
-        new_set
+        *self.global_definitions.clone()
     }
 
     pub fn get_adefs(&self) -> HashSet<LabelStr> {
-        let mut new_set: HashSet<LabelStr> = HashSet::new();
-        new_set.union(&self.get_ldefs());
-        new_set.union(&self.get_gdefs());
-        new_set
+        let loc_defs = self.get_ldefs();
+        let gl_defs = self.get_gdefs();
+        loc_defs.union(&gl_defs).map(|x| x.clone()).collect()
     }
 
-    pub fn get_pos_vec(&self, label: LabelStr) -> Option<&Vec<usize>> {
-        self.label_map.get(label.as_str())
+    pub fn get_pos_vec(&mut self, label: LabelStr) -> Option<&mut Vec<usize>> {
+        self.label_map.get_mut(label.as_str())
+    }
+
+    pub fn extend_pos_vec(&mut self, label: LabelStr, vec_pos: Vec<usize>) -> () {
+        match self.get_pos_vec(label.clone()) {
+            Some(val) => {
+                val.extend(vec_pos);
+            },
+            None => {
+                self.label_map.insert(label, vec_pos);
+            },
+        };
     }
 
     pub fn extend_gdefs(&mut self, other: &LabelRecog) -> () {
-        let gdefs_union = self.global_definitions.union(&other.global_definitions).map(|x| *x);
+        let gdefs_union = self.global_definitions.union(&other.global_definitions).map(|x| x.clone());
         self.global_definitions = Box::new(gdefs_union.collect());
     }
 
     pub fn extend_ldefs(&mut self, other: &LabelRecog) -> () {
-        let gdefs_union = self.global_definitions.union(&other.global_definitions).map(|x| *x);
-        self.global_definitions = Box::new(gdefs_union.collect());
+        let ldefs_union = self.local_definitions.union(&other.local_definitions).map(|x| x.clone());
+        self.local_definitions = Box::new(ldefs_union.collect());
+    }
+
+    pub fn set_offset(&mut self, offset: u128) -> () {
+        self.offset = offset;
+    }
+
+    pub fn get_offset(&self) -> u128 {
+        self.offset
     }
 
     /*

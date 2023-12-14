@@ -13,129 +13,169 @@
 // absolute addresses.
 // Linked files need to be specified and ordered from flags or a
 // particular file (probably flags only, but we'll see).
-use std::borrow::Cow;
-//use std::collections::HashSet;
-use crate::parser::{LabelRecog, Instruction, Operation};
+use std::{
+    borrow::Cow,
+    collections::{
+        HashMap,
+        HashSet,
+    },
+};
+use crate::parser::{LabelStr, LabelRecog, Operation};
 
+#[derive(Debug, PartialEq)]
+pub struct Namespaces {
+    global_definitions: Box<HashSet<LabelStr>>,
+    namespaces: Box<HashSet<LabelStr>>,
+    ind_symbol_sets: Box<HashMap<LabelStr, LabelRecog>>,
+}
+
+impl Namespaces {
+    pub fn new() -> Namespaces {
+        let global_definitions: Box<HashSet<LabelStr>> =
+        Box::new(HashSet::new());
+        let namespaces: Box<HashSet<LabelStr>> =
+        Box::new(HashSet::new());
+        let ind_symbol_sets: Box<HashMap<LabelStr, LabelRecog>> =
+        Box::new(HashMap::new());
+
+        Namespaces {
+            global_definitions,
+            namespaces,
+            ind_symbol_sets
+        }
+    }
+
+    pub fn insert_recog(&mut self, space: &LabelStr, recog: LabelRecog) -> Result<String, LinkError> {
+        if self.global_definitions.is_disjoint(&recog.get_gdefs()) &&
+        self.global_definitions.is_disjoint(&recog.get_ldefs()) && !self.namespaces.contains(space) {
+            self.global_definitions.extend(recog.get_gdefs());
+            self.namespaces.insert(space.clone());
+            self.ind_symbol_sets.insert(space.clone(), recog);
+
+            Ok("Purfect".to_string())
+        } else {
+            Err(LinkError { })
+        }
+    }
+
+    pub fn get_recog(&mut self, space: &LabelStr) -> Option<&LabelRecog> {
+        self.ind_symbol_sets.get(space)
+    }
+
+    pub fn get_namespaces(&self) -> HashSet<LabelStr> {
+        *self.namespaces.clone()
+    }
+}
+
+#[derive(Debug)]
 pub struct LinkError {
 
 }
 
-/*
-fn check_link_possible(code1: &LabelRecog, code2: &LabelRecog) -> bool {
-    code1.def_shadow(code2)
-}*/
-
-// TODO: Move to parser
-fn replace_label(code: (LabelRecog, Vec<Operation>), new_label: String) -> () {
-    for pos in code.0.get_poss(new_label) {
-        code.1[*pos] = match code.1[*pos] {
-            Operation::Instr(instr) => {
-                let new_instr = match instr {
-                    Instruction::VJmp(_) => Instruction::VJmp(new_label),
-                    Instruction::VBt(_) => Instruction::VBt(new_label),
-                    Instruction::VBf(_) => Instruction::VBf(new_label),
-
-                    // TODO: Virtual instructions
-
-                    instr => instr,
-                };
-                Operation::Instr(new_instr)
-            },
-            Operation::Labl(_) => Operation::Labl(Cow::from(new_label)),
-            Operation::LablInstr(_, instr) => {
-                let new_instr = match instr {
-                    Instruction::VJmp(_) => Instruction::VJmp(new_label),
-                    Instruction::VBt(_) => Instruction::VBt(new_label),
-                    Instruction::VBf(_) => Instruction::VBf(new_label),
-
-                    // TODO: Virtual instructions
-
-                    instr => instr,
-                };
-                Operation::LablInstr(Cow::from(new_label), new_instr)
-            },
-        }
-    }
-}
-
-pub fn link(parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(LabelRecog, Vec<Operation>), LinkError> {
-    let mut gl_symbol_map = LabelRecog::new();
-    let mut total_code: Vec<Operation> = vec![];
-    let mut offset: Vec<usize> = vec![0; parsed_instr.len()];
-    let mut total_label = 0;
-
-    for code in parsed_instr {
-        total_label += code.0.get_gdefs().len();
-        gl_symbol_map.extend_gdefs(&code.0);
-    }
-
-    let after_union = gl_symbol_map.get_gdefs().into_iter().count();
-
-    if after_union != total_label {
-        return Err(LinkError {})
-    }
+pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Namespaces, Vec<Operation>), LinkError> {
+    let mut new_code: (Namespaces, Vec<Operation>) = (Namespaces::new(), vec![]);
+    let mut offset: Vec<usize> = vec![0; parsed_instr.len() + 1];
 
     let mut file_counter: usize = 0;
-    let mut conflict_counter: u128 = 0;
 
-    for code in parsed_instr {
-        if gl_symbol_map.gllc_def_shadowing(&code.0) {
-            if gl_symbol_map.lclc_def_shadowing(&code.0) {
-                // trivial, both sets are disjoint
-                gl_symbol_map.extend_ldefs(&code.0);
-            } else {
-                // non-trivial, both sets contain some labels that are equal
-                let gllc_labels = gl_symbol_map.get_ldefs();
-                let lclc_labels = code.0.get_ldefs();
-                let labelunion = gllc_labels.union(&lclc_labels);
-                for label in labelunion {
-                    let mut gl_new_label = label.to_string();
-                    gl_new_label.push_str("_");
-                    let mut lc_new_label = gl_new_label.clone();
-                    gl_new_label.push_str(&conflict_counter.to_string());
-                    replace_label(code, lc_new_label);
-                    let local_conflict_counter = conflict_counter + 1;
-                    lc_new_label.push_str(&local_conflict_counter.to_string());
-                    gl_symbol_map.redefine_def(false, label, gl_new_label);
-                    code.0.redefine_def(false, label, lc_new_label);
-                    replace_label(code, lc_new_label);
-                }
-                gl_symbol_map.extend_ldefs(&code.0);
-                conflict_counter = conflict_counter + 1;
-            }
-            total_code.extend(code.1);
-            file_counter += 1;
-            offset[file_counter] = offset[file_counter - 1] + code.1.len();
-        } else {
-            return Err(LinkError {  })
-        }
+    // Break out into multiple functions?
+    for code in parsed_instr.iter_mut() {
+        match offset.get(file_counter) {
+            Some(val) => code.0.set_offset(*val as u128),
+            None => code.0.set_offset(0),
+        };
+        let _ = new_code.0.insert_recog(&file_counter.to_string(), code.0.clone());
+        new_code.1.push(Operation::Namespace(Cow::from(file_counter.to_string())));
+        new_code.1.extend(code.1.clone());
+        offset.insert(file_counter + 1, code.1.len());
+        file_counter = file_counter + 1;
     }
 
-    file_counter -= 1;
+    Ok(new_code)
+}
 
-    // Optimization possibility? Check which labels overlap and only rename those
-    // that overlap (local to local)
-    while file_counter > 0 {
-        let symbol_map = parsed_instr[file_counter].0;
-        for labl in symbol_map.get_adefs().into_iter() {
-            //gl_symbol_map.insert_def(false, Cow::from(labl));
-            let vector = match symbol_map.get_pos_vec(labl) {
-                Some(vec_pos) => vec_pos,
-                None => {
-                    let vector: Vec<usize> = vec![];
-                    &vector
-                },
-            }; // Get label positions, change labels at positions and
-                                          // add offset to pos
-            *vector = vector.iter().map(|&x| x + offset[file_counter]).collect();
-        }
-        file_counter -= 1;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::Instruction;
+
+    #[test]
+    fn test_correct_link() {
+        let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
+        let mut operation_vec_one: Vec<Operation> = vec![];
+        operation_vec_one.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::VJmp("END".to_string())));
+        operation_vec_one.push(Operation::Labl(Cow::from("END")));
+
+        let mut label_recog_one = LabelRecog::new();
+        let _ = label_recog_one.insert_def(true, Cow::from("SEHR_SCHOEN"));
+        let _ = label_recog_one.insert_def(false, Cow::from("END"));
+
+        label_recog_one.insert_pos("SEHR_SCHOEN".to_string(), &(0 as usize));
+        label_recog_one.insert_pos("END".to_string(), &(0 as usize));
+        label_recog_one.insert_pos("END".to_string(), &(1 as usize));
+
+        /*
+            Assembly file one:
+
+            SEHR_SCHOEN: jmp END
+            .END:
+        */
+
+        parsed_vector.push((label_recog_one.clone(), operation_vec_one));
+
+        let mut operation_vec_two: Vec<Operation> = vec![];
+
+        operation_vec_two.push(Operation::Instr(Instruction::VJmp("SEHR_SCHOEN".to_string())));
+        operation_vec_two.push(Operation::Labl(Cow::from("END")));
+
+        let mut label_recog_two = LabelRecog::new();
+        let _ = label_recog_two.insert_def(false, Cow::from("END"));
+
+        /*
+            Assembly file two:
+
+            jmp SEHR_SCHOEN
+            .END:
+        */
+
+        label_recog_two.insert_pos("SEHR_SCHOEN".to_string(), &(0 as usize));
+        label_recog_two.insert_pos("END".to_string(), &(1 as usize));
+
+        parsed_vector.push((label_recog_two.clone(), operation_vec_two));
+
+        // ####################################################################
+
+        let mut label_recog_ver1 = label_recog_one;
+        let mut label_recog_ver2 = label_recog_two;
+
+        label_recog_ver1.set_offset(0);
+        label_recog_ver2.set_offset(2);
+
+        let mut namespace_ver = Namespaces::new();
+
+        let _ = namespace_ver.insert_recog(&"0".to_string(), label_recog_ver1);
+        let _ = namespace_ver.insert_recog(&"1".to_string(), label_recog_ver2);
+
+        /*
+            Resulting assembly file:
+
+            SEHR_SCHOEN: jmp END
+            .END:
+            jmp SEHR_SCHOEN
+            .END:
+        */
+
+        let mut operation_vec_ver: Vec<Operation> = vec![];
+
+        operation_vec_ver.push(Operation::Namespace(Cow::from("0")));
+        operation_vec_ver.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::VJmp("END".to_string())));
+        operation_vec_ver.push(Operation::Labl(Cow::from("END")));
+        operation_vec_ver.push(Operation::Namespace(Cow::from("1")));
+        operation_vec_ver.push(Operation::Instr(Instruction::VJmp("SEHR_SCHOEN".to_string())));
+        operation_vec_ver.push(Operation::Labl(Cow::from("END")));
+
+        assert_eq!((namespace_ver, operation_vec_ver), link(parsed_vector).unwrap());
     }
 
-    /*for labl in gl_symbol_map.get_gdefs() {
-
-    }*/
-
-    Ok((gl_symbol_map, total_code))
+    // TODO: Add more test cases
 }

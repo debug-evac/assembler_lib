@@ -11,6 +11,7 @@ mod linker;
 mod optimizer;
 mod translator;
 
+/*
 use clap::{Arg, Command};
 use clap::value_parser;
 use clap::ArgAction;
@@ -82,3 +83,4 @@ END:
     
 
 }
+*/

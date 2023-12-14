@@ -11,13 +11,12 @@
 // has been parsed, linked and potentially optimized.
 use std::fs::File;
 use std::io::BufWriter;
-use regex::Regex;
 use crate::parser::{LabelRecog, Instruction, Operation, Imm};
 
 impl <'a> Operation<'a> {
 
 }
-/*
+
 impl Instruction {
     fn imm_stype(imm:i32) -> u32{
        let upper =  imm & 0b11111_10000i32;
@@ -25,7 +24,7 @@ impl Instruction {
        let mid = imm & 0b1_11110_00000_00000 <<3;
        upper << 25;
        lower << 7;
-       (upper+ mid + lower) as u32
+       (upper + mid + lower) as u32
     }
 
     fn imm_btype(imm:i32) -> u32{
@@ -43,137 +42,152 @@ impl Instruction {
         (result << shift) as u32
      }
 
+     /*
      fn sign_extend(imm:u32) -> u32{
-         mask_length = 31 - imm.length();
+         let mask_length = 31 - imm.len();
          if imm.start() == 0 {
-            mask = 0b00_00000_00000_00000_00000_00000_00000;
-            let result = (imm + mask) as u32
+            let mask = 0b00_00000_00000_00000_00000_00000_00000;
+            let result = (imm + mask) as u32;
          }
          else {
-            mask = 0b11_11111_11111_11111_11111_11111_11111;
+            let mask = 0b11_11111_11111_11111_11111_11111_11111;
             for imm.length() > 0{
-               mask = mask & (0 << (imm.length - 1));
+               let mask = mask & (0 << (imm.length - 1));
             }
-            let result = (imm + mask) as u32
+            let result = (imm + mask) as u32;
          }
+         result
      }
+     */
 
-    fn translate(self) -> u32{
+    fn translate_instruction(self) -> u32{
         match self {
-           Instruction::NA => 
-           Instruction::nop => 
+           Instruction::NA => todo!("impl"),
+          // Instruction::Noop => todo!("impl"),
 
-    // 1 Imm
-    Instruction::Jmp(Imm) => todo!("impl"),
-    Bt(Imm),
-    Bf(Imm),
+    // 1 imm
+    Instruction::Jmp(imm) => todo!("impl"),
+    Instruction::Bt(imm) => todo!("impl"),
+    Instruction::Bf(imm)=> todo!("impl"),
 
-    VJmp(LabelStr),
-    VBt(LabelStr),
-    VBf(LabelStr),
+    Instruction::VJmp(_) => 0,
+    Instruction::VBt(_) => 0,
+    Instruction::VBf(_) => 0,
 
 
-    // Imm is the address!
-    Instruction::Beq(Reg1, Reg2, Imm) => imm_btype(Imm) + (Reg2 as u8) << 20 + (Reg1 as u8) << 15 +  0b1100011, // Branch if equal 
-    Instruction::Bne(Reg1, Reg2, Imm) => imm_btype(Imm) + (Reg2 as u8) << 20 + (Reg1 as u8) << 15 +  0b1100011 + 0b10_00000_00000, // Branch if not equal
-    Instruction::Blt(Reg1, Reg2, Imm) => imm_btype(Imm) + (Reg2 as u8) << 20 + (Reg1 as u8) << 15 +  0b1100011 + 0b1000_00000_00000, // Branch if less than
-    Instruction::Bltu(Reg1, Reg2, Imm) => imm_btype(Imm) + (Reg2 as u8) << 20 + (Reg1 as u8) << 15 +  0b1100011 + 0b1100_00000_00000,
-    Instruction::Bge(Reg1, Reg2, Imm) => imm_btype(Imm) + (Reg2 as u8) << 20 + (Reg1 as u8) << 15 +  0b1100011 + 0b1010_00000_00000, // Branch if greater or equal
-    Instruction::Bgeu(Reg1, Reg2, Imm)=> imm_btype(Imm) + (Reg2 as u8) << 20 + (Reg1 as u8) << 15 +  0b1100011 + 0b1110_00000_00000,
+    // imm is the address!
+    Instruction::Beq(reg1, reg2, imm) => Instruction::imm_btype(imm) + (reg2 as u32) << 20 + (reg1 as u8) << 15 +  0b1100011_u32, // Branch if equal 
+    Instruction::Bne(reg1, reg2, imm) => Instruction::imm_btype(imm) + (reg2 as u32) << 20 + (reg1 as u8) << 15 +  0b1100011_u32 + 0b10_00000_00000_u32, // Branch if not equal
+    Instruction::Blt(reg1, reg2, imm) => Instruction::imm_btype(imm) + (reg2 as u32) << 20 + (reg1 as u8) << 15 +  0b1100011_u32 + 0b1000_00000_00000_u32, // Branch if less than
+    Instruction::Bltu(reg1, reg2, imm) => Instruction::imm_btype(imm) + (reg2 as u32) << 20 + (reg1 as u8) << 15 +  0b1100011_u32 + 0b1100_00000_00000_u32,
+    Instruction::Bge(reg1, reg2, imm) => Instruction::imm_btype(imm) + (reg2 as u32) << 20 + (reg1 as u8) << 15 +  0b1100011_u32 + 0b1010_00000_00000_u32, // Branch if greater or equal
+    Instruction::Bgeu(reg1, reg2, imm)=> Instruction::imm_btype(imm) + (reg2 as u32) << 20 + (reg1 as u8) << 15 +  0b1100011_u32 + 0b1110_00000_00000_u32,
 
     // LabelStr is the address
-    Instruction::VBeq(Reg1, Reg2, LabelStr) => -1,
-    Instruction::VBne(Reg1, Reg2, LabelStr) => -1,
-    Instruction::VBlt(Reg1, Reg2, LabelStr) => -1,
-    Instruction::VBltu(Reg1, Reg2, LabelStr) => -1,
-    Instruction::VBge(Reg1, Reg2, LabelStr) => -1,
-    Instruction::VBgeu(Reg1, Reg2, LabelStr) => -1,
+    Instruction::VBeq(_, _, _) => 0,
+    Instruction::VBne(_, _, _) => 0,
+    Instruction::VBlt(_, _, _) => 0,
+    Instruction::VBltu(_, _, _) => 0,
+    Instruction::VBge(_, _, _) => 0,
+    Instruction::VBgeu(_, _, _) => 0,
 
-    // 1 Reg & 1 Imm
+    // 1 reg & 1 imm
     // Need VLd and VSt as well for variables
 
-    Instruction::Lb(Reg, Imm) => Imm << 15 + (Reg as u8) << 7 + 0b0000011, //Load byte
-    Instruction::Lh(Reg, Imm) => Imm << 15 + (Reg as u8) << 7 + 0b0000011 + 0b10_00000_00000, //Load half
-    Instruction::Lw(Reg, Imm) => Imm << 15 + (Reg as u8) << 7 + 0b0000011 + 0b100_00000_00000, //Load word
-    Instruction::Sb(Reg, Imm) => imm_stype(Imm) + (Reg as u8) << 20 + 0b0100011, //Store byte
-    Instruction::Sh(Reg, Imm) => imm_stype(Imm) + (Reg as u8) << 20 + 0b0100011 + 0b10_00000_00000, //Store half
-    Instruction::Sw(Reg, Imm) => imm_stype(Imm) + (Reg as u8) << 20 + 0b0100011 + 0b100_00000_00000, //Store word
-    Instruction::Lui(Reg, Imm) => Imm << 12 + (Reg as u8) << 7 + 0b0110111,
-    Instruction::Auipc(Reg, Imm) => Imm << 12 + (Reg as u8) << 7 + 0b0010111,
+    Instruction::Lb(reg, imm) => (imm as u32) << 15 + (reg as u32) << 7 + 0b0000011_u32, //Load byte
+    Instruction::Lh(reg, imm) => (imm as u32) << 15 + (reg as u32) << 7 + 0b0000011_u32 + 0b10_00000_00000_u32, //Load half
+    Instruction::Lw(reg, imm) => (imm as u32) << 15 + (reg as u32) << 7 + 0b0000011_u32 + 0b100_00000_00000_u32, //Load word
+    Instruction::Sb(reg, imm) => Instruction::imm_stype(imm) + (reg as u32) << 20 + 0b0100011_u32, //Store byte
+    Instruction::Sh(reg, imm) => Instruction::imm_stype(imm) + (reg as u32) << 20 + 0b0100011_u32 + 0b10_00000_00000_u32, //Store half
+    Instruction::Sw(reg, imm) => Instruction::imm_stype(imm) + (reg as u32) << 20 + 0b0100011_u32 + 0b100_00000_00000_u32, //Store word
+    Instruction::Lui(reg, imm) => (imm as u32) << 12 + (reg as u8) << 7 + 0b0110111_u32,
+    Instruction::Auipc(reg, imm) => (imm as u32) << 12 + (reg as u8) << 7 + 0b0010111_u32,
 
-    Instruction::Lbu(Reg, Imm) => Imm << 15 + (Reg as u8) << 7 + 0b0000011 + 0b1000_00000_00000,
-    Instruction::Lhu(Reg, Imm) => Imm << 15 + (Reg as u8) << 7 + 0b0000011 + 0b1010_00000_00000,
+    Instruction::Lbu(reg, imm) => (imm as u32) << 15 + (reg as u32) << 7 + 0b0000011_u32 + 0b1000_00000_00000_u32,
+    Instruction::Lhu(reg, imm) => (imm as u32) << 15 + (reg as u32) << 7 + 0b0000011_u32 + 0b1010_00000_00000_u32,
 
-    Movu(Reg, Imm),
-    Movl(Reg, Imm),
+    Instruction::Movu(reg, imm) => todo!("impl"),
+    Instruction::Movl(reg, imm) => todo!("impl"),
 
     // Shift left|right logical|arithmetic|rotate
-    Instruction::Slli(Reg1, Reg2, Imm) => mask(Imm, 20, 4) + (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b0110011 + 0b10_00000_00000,
-    Instruction::Srli(Reg1, Reg2, Imm) => mask(Imm, 20, 4) + (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b0110011 + 0b1010_00000_00000,
-    Instruction::Srai(Reg1, Reg2, Imm) => mask(Imm, 20, 4) + (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b0110011 + 0b1010_00000_00000 + 0x20 << 25,
-    Instruction::Slai(Reg, Reg, Imm) => -1,
+    Instruction::Slli(reg1, reg2, imm) => Instruction::mask(imm, 20, 4) + (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b0110011_u32 + 0b10_00000_00000,
+    Instruction::Srli(reg1, reg2, imm) => Instruction::mask(imm, 20, 4) + (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b0110011_u32 + 0b1010_00000_00000,
+    Instruction::Srai(reg1, reg2, imm) => Instruction::mask(imm, 20, 4) + (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b0110011_u32 + 0b1010_00000_00000 + 0x20 << 25,
+    Instruction::Slai(_, _, _) => 0,
 
-    Srr(Reg, Imm),
-    Slr(Reg, Imm),
+    Instruction::Srr(reg1, reg2, imm) => todo!("impl"),
+    Instruction::Slr(reg1, reg2, imm) => todo!("impl"),
 
 
-    // 2 Regs
-    Cmpe(Reg, Reg),
-    Instruction::Cmpg(Reg1, Reg2) => (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b100_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
-    Instruction::Cmpl(Reg1, Reg2) => (Reg1 as u8) << 20 + (Reg2 as u8) << 15 + 0b100_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
+    // 2 regs
+    Instruction::Cmpe(reg2, reg1) => todo!("impl"),
+    Instruction::Cmpg(reg3, reg1, reg2) => (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b100_00000_00000_u32 + (reg3 as u32) << 7 + 0b0110011_u32,
+    Instruction::Cmpl(reg3, reg1, reg2) => (reg1 as u32) << 20 + (reg2 as u32) << 15 + 0b100_00000_00000_u32 + (reg3 as u32) << 7 + 0b0110011_u32,
 
-    Mov(Reg, Reg),
+    Instruction::Mov(reg2, reg1) => todo!("impl"),
 
-    // 2 Regs & 1 Imm
-    Instruction::Addi(Reg1, Reg2, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011,
+    // 2 regs & 1 imm
+    Instruction::Addi(reg1, reg2, imm) => (imm as u32) << 20 + (reg2 as u32) << 15 + (reg1 as u32) << 7 + 0b0010011_u32,
 
-    Addci(Reg, Reg, Imm),
+    Instruction::Addci(_, _, _) => 0,
 
-    Subi(Reg, Reg, Imm),
-    Subci(Reg, Reg, Imm),
+    Instruction::Subi(_, _, _) => 0,
+    Instruction::Subci(_, _, _) => 0,
 
-    Muli(Reg, Reg, Imm),
-    Mulci(Reg, Reg, Imm),
+    Instruction::Muli(_, _, _) => 0,
+    Instruction::Mulci(_, _, _) => 0,
 
-    Divi(Reg, Reg, Imm),
-    Divci(Reg, Reg, Imm),
+    Instruction::Divi(_, _, _) => 0,
+    Instruction::Divci(_, _, _) => 0,
 
-    Instruction::Slti(Reg1, Reg2, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b110_00000_00000,
-    Instruction::Sltiu(Reg1, Reg2, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b110_00000_00000, todo!("Zero extends")
+    Instruction::Slti(reg1, reg2, imm) => (imm as u32) << 20 + (reg2 as u32) << 15 + (reg1 as u32) << 7 + 0b0010011_u32 + 0b110_00000_00000_u32,
+    Instruction::Sltiu(reg1, reg2, imm) => (imm as u32) << 20 + (reg2 as u32) << 15 + (reg1 as u32) << 7 + 0b0010011_u32 + 0b110_00000_00000_u32, 
 
-    Instruction::XorI(Reg1, Reg2, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b1000_00000_00000,
-    Instruction::OrI(Reg1, Reg2, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b1100_00000_00000,
-    Instruction::AndI(Reg1, Reg2, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b1110_00000_00000,
+    Instruction::XorI(reg1, reg2, imm) => (imm as u32) << 20 + (reg2 as u32) << 15 + (reg1 as u32) << 7 + 0b0010011_u32 + 0b1000_00000_00000_u32,
+    Instruction::OrI(reg1, reg2, imm) => (imm as u32) << 20 + (reg2 as u32) << 15 + (reg1 as u32) << 7 + 0b0010011_u32 + 0b1100_00000_00000_u32,
+    Instruction::AndI(reg1, reg2, imm) => (imm as u32) << 20 + (reg2 as u32) << 15 + (reg1 as u32) << 7 + 0b0010011_u32 + 0b1110_00000_00000_u32,
 
-    // 3 Regs
-    Instruction::Addn(Reg3, Reg1, Reg2) => (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + (Reg3 as u8) << 7 + 0b0110011,
-    Addcn(Reg, Reg, Reg),
+    // 3 regs
+    Instruction::Addn(reg3, reg1, reg2) => (reg2 as u32) << 20 + (reg1 as u32) << 15 + (reg3 as u32) << 7 + 0b0110011_u32,
+    Instruction::Addcn(_, _, _) => 0,
 
-    Instruction::Subn(Reg3, Reg1, Reg2) => 0b100000 << 25 + (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + (Reg3 as u8) << 7 + 0b0110011,
-    Subcn(Reg, Reg, Reg),
+    Instruction::Subn(reg3, reg1, reg2) => 0b100000_u32 << 25 + (reg2 as u32) << 20 + (reg1 as u32) << 15 + (reg3 as u32) << 7 + 0b0110011_u32,
+    Instruction::Subcn(_, _, _) => 0,
 
-    Muln(Reg, Reg, Reg),
-    Mulcn(Reg, Reg, Reg),
+    Instruction::Muln(_, _, _) => 0,
+    Instruction::Mulcn(_, _, _) => 0,
 
-    Divn(Reg, Reg, Reg),
-    Divcn(Reg, Reg, Reg),
+    Instruction::Divn(_, _, _) => 0,
+    Instruction::Divcn(_, _, _) => 0,
 
-    Instruction::Xor(Reg3, Reg1, Reg2) => (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b1000_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
-    Instruction::Or(Reg3, Reg1, Reg2) => (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b1100_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
-    Instruction::And(Reg3, Reg1, Reg2) => (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b1110_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
-    Instruction::Xnor(Reg3, Reg1, Reg2) => -1,
-    Instruction::Nor(Reg3, Reg1, Reg2) => -1,
+    Instruction::Xor(reg3, reg1, reg2) => (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b1000_00000_00000_u32 + (reg3 as u32) << 7 + 0b0110011_u32,
+    Instruction::Or(reg3, reg1, reg2) => (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b1100_00000_00000_u32 + (reg3 as u32) << 7 + 0b0110011_u32,
+    Instruction::And(reg3, reg1, reg2) => (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b1110_00000_00000_u32 + (reg3 as u32) << 7 + 0b0110011_u32,
+    Instruction::Xnor(_, _, _) => 0,
+    Instruction::Nor(_, _, _) => 0,
 
-    Instruction::Slt(Reg3, Reg1, Reg2) => (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b100_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
-    Instruction::Sltu(Reg3, Reg1, Reg2) => (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b110_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
+    Instruction::Slt(reg3, reg1, reg2) => (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b100_00000_00000_u32 + (reg3 as u32) << 7 + 0b0110011_u32,
+    Instruction::Sltu(reg3, reg1, reg2) => (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b110_00000_00000_u32 + (reg3 as u32) << 7 + 0b0110011_u32,
     
-    Instruction::Sll(Reg3, Reg1, Reg2) => (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b0110011 + 0b10_00000_00000,
-    Instruction::Srl(Reg3, Reg1, Reg2) => (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b0110011 + 0b1010_00000_00000,
-    Instruction::Sra(Reg3, Reg1, Reg2) => 0b100000 << 25 + (Reg1 as u8) << 20 + (Reg2 as u8) << 15 + 0b0110011 + 0b1010_00000_00000,
-    Instruction::Sla(Reg3, Reg1, Reg2) => -1,
+    Instruction::Sll(reg3, reg1, reg2) => (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b0110011_u32 + (reg3 as u32) << 7 + 0b10_00000_00000_u32,
+    Instruction::Srl(reg3, reg1, reg2) => (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b0110011_u32 + (reg3 as u32) << 7 + 0b1010_00000_00000_u32,
+    Instruction::Sra(reg3, reg1, reg2) => 0b100000_u32 << 25 + (reg1 as u32) << 20 + (reg2 as u32) << 15 + 0b0110011_u32 + (reg3 as u32) << 7 + 0b1010_00000_00000_u32,
+    Instruction::Sla(_, _, _) => 0,
 
     
 }
+}
+}
 
 
-*/
+pub fn translate(input: Vec<Instruction>) -> Vec<u32> {
+    let mut output: Vec<u32> = vec![];
+    for instr in input.iter(){
+
+        output.push(Instruction::translate_instruction(instr.clone()));
+
+    }
+    
+    output
+}
+

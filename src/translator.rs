@@ -60,7 +60,8 @@ impl Instruction {
 
     fn translate(self) -> u32{
         match self {
-           Instruction::NA =>  todo!("ausfüllen"),
+           Instruction::NA => 
+           Instruction::nop => 
 
     // 1 Imm
     Instruction::Jmp(Imm) => todo!("impl"),
@@ -170,5 +171,9 @@ impl Instruction {
     Instruction::Srl(Reg3, Reg1, Reg2) => (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b0110011 + 0b1010_00000_00000,
     Instruction::Sra(Reg3, Reg1, Reg2) => 0b100000 << 25 + (Reg1 as u8) << 20 + (Reg2 as u8) << 15 + 0b0110011 + 0b1010_00000_00000,
     Instruction::Sla(Reg3, Reg1, Reg2) => -1,
+
+    
 }
+
+
 */

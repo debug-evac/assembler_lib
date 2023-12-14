@@ -118,8 +118,8 @@ impl Instruction {
 
     // 2 Regs
     Cmpe(Reg, Reg),
-    Cmpg(Reg, Reg),
-    Cmpl(Reg, Reg),
+    Instruction::Cmpg(Reg1, Reg2) => (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + 0b100_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
+    Instruction::Cmpl(Reg1, Reg2) => (Reg1 as u8) << 20 + (Reg2 as u8) << 15 + 0b100_00000_00000 + (Reg3 as u8) << 7 + 0b0110011,
 
     Mov(Reg, Reg),
 
@@ -137,12 +137,12 @@ impl Instruction {
     Divi(Reg, Reg, Imm),
     Divci(Reg, Reg, Imm),
 
-    Instruction::Slti(Reg, Reg, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b110_00000_00000,
-    Instruction::Sltiu(Reg, Reg, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b110_00000_00000, todo!("Zero extends")
+    Instruction::Slti(Reg1, Reg2, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b110_00000_00000,
+    Instruction::Sltiu(Reg1, Reg2, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b110_00000_00000, todo!("Zero extends")
 
-    Instruction::XorI(Reg, Reg, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b1000_00000_00000,
-    Instruction::OrI(Reg, Reg, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b1100_00000_00000,
-    Instruction::AndI(Reg, Reg, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b1110_00000_00000,
+    Instruction::XorI(Reg1, Reg2, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b1000_00000_00000,
+    Instruction::OrI(Reg1, Reg2, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b1100_00000_00000,
+    Instruction::AndI(Reg1, Reg2, Imm) => Imm << 20 + (Reg2 as u8) << 15 + (Reg1 as u8) << 7 + 0b0010011 + 0b1110_00000_00000,
 
     // 3 Regs
     Instruction::Addn(Reg3, Reg1, Reg2) => (Reg2 as u8) << 20 + (Reg1 as u8) << 15 + (Reg3 as u8) << 7 + 0b0110011,

@@ -19,7 +19,7 @@ use std::{
 };
 use crate::parser::{LabelRecog, Operation, LabelElem};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Namespaces {
     global_definitions: Box<HashMap<String, usize>>,
     global_namespace: Box<Vec<LabelElem>>,

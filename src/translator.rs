@@ -11,7 +11,6 @@
 // has been parsed, linked and potentially optimized.
 use std::fs::File;
 use std::io::BufWriter;
-use regex::Regex;
 use crate::parser::{LabelRecog, Instruction, Operation, Imm};
 
 impl <'a> Operation<'a> {

@@ -229,7 +229,7 @@ mod tests {
         let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
         let mut operation_vec_one: Vec<Operation> = vec![];
         operation_vec_one.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::Addn(Reg::G0, Reg::G0, Reg::G1)));
-        operation_vec_one.push(Operation::Instr(Instruction::Ld(Reg::G11, 56)));
+        operation_vec_one.push(Operation::Instr(Instruction::Lb(Reg::G11, 56)));
         operation_vec_one.push(Operation::Instr(Instruction::Mov(Reg::G1, Reg::G11)));
 
         let mut label_recog_one = LabelRecog::new();

@@ -231,6 +231,7 @@ pub enum Instruction {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Operation <'a> {
+    Namespace(Cow<'a, Label>),
     Instr(Instruction),
     LablInstr(Cow<'a, Label>, Instruction),
     Labl(Cow<'a, Label>)
@@ -242,105 +243,210 @@ impl <'a> From<Instruction> for Operation <'a> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+// Scope for locality: true for global; false for local
+pub struct LabelElem {
+    name: String,
+    definition: i128,
+    scope: bool,
+    references: Box<HashSet<usize>>,
+}
+
+impl LabelElem {
+    pub fn new() -> LabelElem {
+        let name = String::new();
+        let definition: i128 = -1;
+        let scope = false;
+        let references: Box<HashSet<usize>> = Box::from(HashSet::new());
+
+        LabelElem {
+            name,
+            definition,
+            scope, 
+            references 
+        }
+    }
+
+    pub fn new_def(name: String, definition: i128) -> LabelElem {
+        let mut elem = LabelElem::new();
+        elem.set_name(name);
+        elem.set_def(definition);
+        elem
+    }
+
+    pub fn new_ref(name: String, reference: usize) -> LabelElem {
+        let mut elem = LabelElem::new();
+        elem.set_name(name);
+        elem.add_ref(reference);
+        elem
+    }
+
+    // TODO: Custom error struct
+    pub fn combine(&mut self, other: &LabelElem, offset: usize) -> Result<&str, &str> {
+        assert!(self.name.eq(&other.name));
+        assert!(self.scope == other.scope);
+
+        if self.definition != -1 && other.definition != -1 {
+            return Err("Global label defined in two files!");
+        } else if self.definition == -1 && other.definition != -1 {
+            self.definition = other.definition;
+        }
+
+        let other_refs: HashSet<usize> = other.references.iter()
+                .map(|line| line + offset).collect();
+
+        let union = self.references.union(&other_refs).map(|&val| val);
+        self.references = Box::from(union.collect::<HashSet<usize>>());
+        Ok("Labels combined!")
+    }
+
+    pub fn set_name(&mut self, name: String) -> () {
+        self.name = name;
+    }
+
+    pub fn get_name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn set_scope(&mut self, scope: bool) -> () {
+        self.scope = scope;
+    }
+
+    pub fn get_scope(&self) -> bool {
+        self.scope
+    }
+
+    pub fn set_def(&mut self, definition: i128) -> () {
+        self.definition = definition;
+    }
+
+    pub fn get_def(&self) -> &i128 {
+        &self.definition
+    }
+
+    pub fn add_ref(&mut self, reference: usize) -> () {
+        self.references.insert(reference);
+    }
+
+    pub fn rem_ref(&mut self, reference: usize) -> () {
+        self.references.remove(&reference);
+    }
+
+    pub fn replace_ref(&mut self, old: &usize, new: usize) -> bool {
+        if self.references.remove(old) {
+            self.references.insert(new);
+            return true;
+        }
+        return false;
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct LabelRecog {
-    // local labels are preceded with a dot (.)
-    //label_map: Box<HashMap<LabelStr, u128>>,
-
-    label_map: Box<HashMap<LabelStr, Vec<usize>>>,
-    local_definitions: Box<HashSet<LabelStr>>,
-    global_definitions: Box<HashSet<LabelStr>>,
+    offset: usize,
+    label_map: Box<HashMap<String, usize>>,
+    label_list: Box<Vec<LabelElem>>,
 }
 
 impl LabelRecog {
     pub fn new() -> LabelRecog {
-        let label_map: Box<HashMap<LabelStr, Vec<usize>>> =
-        Box::new(HashMap::new());
-        let local_definitions: Box<HashSet<LabelStr>> =
-        Box::new(HashSet::new());
-        let global_definitions: Box<HashSet<LabelStr>> =
-        Box::new(HashSet::new());
+        let offset = 0;
+        let label_list: Box<Vec<LabelElem>> = Box::from(vec![]);
+        let label_map: Box<HashMap<String, usize>> =
+        Box::from(HashMap::new());
 
         LabelRecog {
+            offset,
+            label_list,
             label_map,
-            local_definitions,
-            global_definitions
         }
     }
 
-    pub fn insert_def(&mut self, scope: bool, label: Cow<Label>) -> Result<bool, LabelInsertError> {
-        let element = self.global_definitions.get(label.as_ref());
-        let element2 = self.local_definitions.get(label.as_ref());
-        if element.is_some() || element2.is_some() {
-            return Err(LabelInsertError { label: label.to_string() })
-        }
-        if scope {
-            self.global_definitions.insert(label.to_string());
+    pub fn insert_label(&mut self, label: LabelElem) -> Result<&str, &str> {
+        if self.label_map.contains_key(label.get_name()) {
+            Err("Label already exists!")
         } else {
-            self.local_definitions.insert(label.to_string());
+            let elem = self.label_list.len();
+            self.label_map.insert(label.get_name().clone(), elem);
+            self.label_list.push(label);
+            Ok("Added label!")
         }
-        Ok(true)
     }
 
-    pub fn insert_pos(&mut self, label: LabelStr, pos: &usize) -> () {
-        match self.label_map.get_mut(label.as_str()) {
-            Some(val) => val.push(*pos),
-            None => {
-                let mut list: Vec<usize> = vec![];
-                list.push(*pos);
-                self.label_map.insert(label, list);
+    pub fn get_label(&mut self, label_str: &String) -> Option<&mut LabelElem> {
+        match self.label_map.get(label_str) {
+            Some(val) => self.label_list.get_mut(*val),
+            None => None,
+        }
+    }
+
+    pub fn crt_or_def_label(&mut self, label_str: &String, scope: bool, definition: i128) -> () {
+        match self.get_label(label_str) {
+            Some(label) => {
+                label.set_def(definition);
+                label.set_scope(scope);
             },
-        };
+            None => {
+                let mut label = LabelElem::new();
+                label.set_name(label_str.clone());
+                label.set_def(definition);
+                label.set_scope(scope);
+                let _ = self.insert_label(label);
+            },
+        }
     }
 
-    /*pub fn merge(&self, other: &LabelRecog) -> Result<LabelRecog, _> {
-        let global_disjoint = self.global_definitions.is_disjoint(
-            &*other.global_definitions);
-        let gl_local_disjoint = self.global_definitions.is_disjoint(
-            &*other.local_definitions);
-        let local_disjoint = self.local_definitions.is_disjoint(
-            &*other.local_definitions);
-
-        if global_disjoint && gl_local_disjoint && local_disjoint {
-            // no conflict
-            let mut new_labelmap: HashMap<LabelStr, u128> = HashMap::new();
-            let mut new_labelresmap: HashMap<LabelStr, Vec<usize>> = HashMap::new();
-
-            for (local1, local2) in self.local_definitions.iter().zip(other.local_definitions.iter()) {
-                let line = self.label_map.get(local1).expect("[Self] Label map does not include local label!");
-                new_labelmap.insert(*local1, *line);
-                let vec = self.label_res_map.get(local1);
-                match vec {
-                    Some(val) => {
-                        new_labelresmap.insert(*local1, *val);
-                    },
-                    None => (),
-                };
-                let line = other.label_map.get(local2).expect("[Other] Label map does not include local label!");
-                new_labelmap.insert(*local2, *line);
-                let vec = other.label_res_map.get(local2);
-                match vec {
-                    Some(val) => {
-                        new_labelresmap.insert(*local2, *val);
-                    },
-                    None => (),
-                };
-            };
-
-            let label_map = Box::new(new_labelmap);
-            let label_res_map = Box::new(new_labelresmap);
-
+    // Creates a label, if it does not exist already with the name label_str, scope and the reference.
+    // Returns true, if there is already a definition, else false.
+    pub fn crt_or_ref_label(&mut self, label_str: &String, scope: bool, reference: usize) -> bool {
+        match self.get_label(label_str) {
+            Some(label) => {
+                label.add_ref(reference);
+                if !label.get_scope() {
+                    *label.get_def() != -1
+                } else {
+                    false
+                }
+            },
+            None => {
+                let mut label = LabelElem::new();
+                label.set_name(label_str.clone());
+                label.add_ref(reference);
+                label.set_scope(scope);
+                let _ = self.insert_label(label);
+                false
+            },
         }
-       Ok(*self)
-        //if self.label_definitions.is_disjoint(&*other.label_definitions) {
+    }
 
-        //} else {
+    pub fn get_local_labels(&self) -> Box<Vec<&LabelElem>> {
+        let mut local_labels: Box<Vec<&LabelElem>> = Box::from(vec![]);
+        for label in self.label_list.iter() {
+            if !label.get_scope() {
+                local_labels.push(label);
+            }
+        }
+        local_labels
+    }
 
-        //}
-    }*/
+    pub fn get_global_labels(&self) -> Box<Vec<&LabelElem>> {
+        let mut global_labels: Box<Vec<&LabelElem>> = Box::from(vec![]);
+        for label in self.label_list.iter() {
+            if label.get_scope() {
+                global_labels.push(label);
+            }
+        }
+        global_labels
+    }
+
+    pub fn set_offset(&mut self, offset: usize) -> () {
+        self.offset = offset;
+    }
+
+    pub fn get_offset(&self) -> usize {
+        self.offset
+    }
 }
-
-
 
 fn parse_label_name(input: &str) -> IResult<&str, Cow<str>> {
     let (rest, parsed) = alpha1(input)?;
@@ -668,28 +774,6 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Instruction> {
     Ok((rest, instr))
 }
 
-/*
-fn parse_instr(input: &str) -> IResult<&str, Instruction> {
-    let (rest, parsed) = alt((
-        value(Instr1Imm::Jmp(0), tag("jmp")),
-        value(Instr1Reg1Imm::Ld(Reg::NA, 0), tag("ld"))
-    ))(input)?;
-
-    match parsed {
-        Instruction::Muli(_, _, _) | Instruction::Muln(_, _, _) |
-        Instruction::Mulcn(_, _, _) | Instruction::Mulci(_, _, _)
-        => eprintln!("Warning! Mul and derivatives are not implemented yet!"),
-
-        Instruction::Divi(_, _, _) | Instruction::Divn(_, _, _) |
-        Instruction::Divcn(_, _, _) | Instruction::Divci(_, _, _)
-        => eprintln!("Warning! Div and derivatives are not implemented yet!"),
-
-        _ => (),
-    };
-
-    Ok((rest, parsed))
-}*/
-
 fn parse_instruction(input: &str) -> IResult<&str, Instruction> {
     alt((
         parse_inst_1imm,
@@ -713,75 +797,8 @@ fn parse_line(input: &str) -> IResult<&str, (Option<Cow<Label>>, Option<Instruct
     }
 }
 
-/*
-fn correct_label_instr<'a>(
-    label_map: &HashMap<String, u128>,
-    label_res_map: &mut HashMap<LabelStr, Vec<usize>>,
-    stack_pos: &usize,
-    instr: &'a Instruction)
--> (Option<Instruction>, Option<&'a Instruction>) {
-    match instr {
-        Instruction::VJmp(label) => {
-            let addr = label_map.get(label);
-            match addr {
-                Some(addr) => (Some(Instruction::Jmp(*addr as i32)), None),
-                None => {
-                    match label_res_map.get_mut(label) {
-                        Some(val) => val.push(*stack_pos),
-                        None => {
-                            let mut list: Vec<usize> = vec![];
-                            list.push(*stack_pos);
-                            label_res_map.insert(label.clone(), list);
-                        },
-                    };
-                    (None, Some(instr))
-                },
-            }
-        },
-        Instruction::VBt(label) => {
-            let addr = label_map.get(label);
-            match addr {
-                Some(addr) => (Some(Instruction::Bt(*addr as i32)), None),
-                None => {
-                    match label_res_map.get_mut(label) {
-                        Some(val) => val.push(*stack_pos),
-                        None => {
-                            let mut list: Vec<usize> = vec![];
-                            list.push(*stack_pos);
-                            label_res_map.insert(label.clone(), list);
-                        },
-                    };
-                    (None, Some(instr))
-                },
-            }
-        },
-        Instruction::VBf(label) => {
-            let addr = label_map.get(label);
-            match addr {
-                Some(addr) => (Some(Instruction::Bf(*addr as i32)), None),
-                None => {
-                    match label_res_map.get_mut(label) {
-                        Some(val) => val.push(*stack_pos),
-                        None => {
-                            let mut list: Vec<usize> = vec![];
-                            list.push(*stack_pos);
-                            label_res_map.insert(label.clone(), list);
-                        },
-                    };
-                    (None, Some(instr))
-                },
-            }
-        },
-        _ => (None, Some(instr)),
-    }
-    // TODO: Refactor
-}
-*/
-
 pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
-
-    //let mut label_res_map: HashMap<LabelStr, Vec<usize>> = HashMap::new();
-    //let mut label_map: HashMap<LabelStr, u128> = HashMap::new();
+    let mut local_ref_not_def: HashSet<String> = HashSet::new();
     let mut symbol_map = LabelRecog::new();
     let mut instr_list: Vec<Operation> = vec![];
     let mut rest = input;
@@ -797,86 +814,83 @@ pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
             Err(_) => todo!("Custom parser error!"),
         };
 
+        let instr_counter = instr_list.len();
+
         match parsed {
             (Some(label), Some(instr)) => {
                 let _ = match label.strip_prefix(".") {
-                    Some(label) => symbol_map.insert_def(false, Cow::from(label)),
-                    None => symbol_map.insert_def(true, label.to_owned()),
+                    Some(label) => {
+                        // Local label; Track definitions and references!
+                        let label_string = &label.to_string();
+                        // TODO: Evaluate if .unwrap is appropriate!
+                        symbol_map.crt_or_def_label(label_string, false, instr_counter.try_into().unwrap());
+                        local_ref_not_def.remove(label_string);
+                    },
+                    None => {
+                        // Global label; Do not track definitions and references!
+                        // TODO: Evaluate if .unwrap is appropriate!
+                        symbol_map.crt_or_def_label(&label.to_string(), true, instr_counter.try_into().unwrap())
+                    },
                 };
 
-                let pos = instr_list.len();
-
                 match &instr {
-                    Instruction::VJmp(labl) => symbol_map.insert_pos(labl.to_string(), &pos),
-                    Instruction::VBt(labl) => symbol_map.insert_pos(labl.to_string(), &pos),
-                    Instruction::VBf(labl) => symbol_map.insert_pos(labl.to_string(), &pos),
+                    Instruction::VJmp(labl) => {
+                        if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
+                            local_ref_not_def.insert(labl.clone());
+                        }
+                    },
+                    Instruction::VBt(labl) => {
+                        if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
+                            local_ref_not_def.insert(labl.clone());
+                        }
+                    },
+                    Instruction::VBf(labl) => {
+                        if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
+                            local_ref_not_def.insert(labl.clone());
+                        }
+                    },
                     _ => (),
                 }
 
-                /*let addr = instr_list.len() as u128 * 4;
-                label_map.insert(label.to_string(), addr);
-                match label_res_map.get_mut(label.as_ref()) {
-                    Some(val) => {
-                        for pos in val.as_slice() {
-                            match instr_list[*pos] {
-                                Instruction::VJmp(_) => instr_list[*pos] = Instruction::Jmp(addr as i32),
-                                Instruction::VBt(_) => instr_list[*pos] = Instruction::Bt(addr as i32),
-                                Instruction::VBf(_) => instr_list[*pos] = Instruction::Bf(addr as i32),
-                                _ => (),
-                            }
-                        };
-                        val.clear();
-                    }
-                    None => (),
-                }
-                let option_instr = correct_label_instr(&label_map, &mut label_res_map, &instr_list.len(), &instr);
-                if option_instr.0.is_some() {
-                    instr_list.push(option_instr.0.expect("Instruction 0 was None!"));
-                } else {
-                    instr_list.push(option_instr.1.expect("Instruction 1 was None!").clone());
-                }*/
                 instr_list.push(Operation::LablInstr(label, instr));
             },
             (None, Some(instr)) => {
-                let pos = instr_list.len();
-
                 match &instr {
-                    Instruction::VJmp(labl) => symbol_map.insert_pos(labl.to_string(), &pos),
-                    Instruction::VBt(labl) => symbol_map.insert_pos(labl.to_string(), &pos),
-                    Instruction::VBf(labl) => symbol_map.insert_pos(labl.to_string(), &pos),
+                    Instruction::VJmp(labl) => {
+                        if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
+                            local_ref_not_def.insert(labl.clone());
+                        }
+                    },
+                    Instruction::VBt(labl) => {
+                        if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
+                            local_ref_not_def.insert(labl.clone());
+                        }
+                    },
+                    Instruction::VBf(labl) => {
+                        if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
+                            local_ref_not_def.insert(labl.clone());
+                        }
+                    },
                     _ => (),
                 }
 
-                /*let option_instr = correct_label_instr(&label_map, &mut label_res_map, &instr_list.len(), &instr);
-                if option_instr.0.is_some() {
-                    instr_list.push(option_instr.0.expect("Instruction 0 was None!"));
-                } else {
-                    instr_list.push(option_instr.1.expect("Instruction 1 was None!").clone());
-                }*/
                 instr_list.push(Operation::Instr(instr));
             },
             (Some(label), None) => {
                 let _ = match label.strip_prefix(".") {
-                    Some(label) => symbol_map.insert_def(false, Cow::from(label)),
-                    None => symbol_map.insert_def(true, label.to_owned()),
+                    Some(label) => {
+                        // Local label; Track definitions and references!
+                        let label_string = &label.to_string();
+                        // TODO: Evaluate if .unwrap is appropriate!
+                        symbol_map.crt_or_def_label(label_string, false, instr_counter.try_into().unwrap());
+                        local_ref_not_def.remove(label_string);
+                    },
+                    None => {
+                        // Global label; Do not track definitions and references!
+                        // TODO: Evaluate if .unwrap is appropriate!
+                        symbol_map.crt_or_def_label(&label.to_string(), true, instr_counter.try_into().unwrap())
+                    },
                 };
-
-                /*let addr = instr_list.len() as u128 * 4 + 4;
-                label_map.insert(label.to_string(), addr);
-                match label_res_map.get_mut(label.as_ref()) {
-                    Some(val) => {
-                        for pos in val.as_slice() {
-                            match instr_list[*pos] {
-                                Instruction::VJmp(_) => instr_list[*pos] = Instruction::Jmp(addr as i32),
-                                Instruction::VBt(_) => instr_list[*pos] = Instruction::Bt(addr as i32),
-                                Instruction::VBf(_) => instr_list[*pos] = Instruction::Bf(addr as i32),
-                                _ => (),
-                            }
-                        };
-                        val.clear();
-                    }
-                    None => (),
-                }*/
                 instr_list.push(Operation::Labl(label));
             },
             (None, None) => (),
@@ -887,7 +901,7 @@ pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
         }
     }
 
-    // NO! T ODO: If labels are still in the hashmap, return a custom parser error!
+    // NO! TODO: If labels are still in the hashset, return a custom parser error!
 
     Ok(("", (symbol_map, instr_list)))
 }
@@ -1030,11 +1044,21 @@ mod tests {
     jmp START
 END:
 "#;
+
         let mut symbols = LabelRecog::new();
-        let _ = symbols.insert_def(true, Cow::from("START"));
-        let _ = symbols.insert_def(true, Cow::from("END"));
-        symbols.insert_pos("START".to_string(), &(6 as usize));
-        symbols.insert_pos("END".to_string(), &(3 as usize));
+        let mut label = LabelElem::new();
+        label.set_name("START".to_string());
+        label.set_scope(true);
+        label.set_def(0);
+        label.add_ref(6);
+        let _ = symbols.insert_label(label);
+
+        label = LabelElem::new();
+        label.set_name("END".to_string());
+        label.set_scope(true);
+        label.set_def(7);
+        label.add_ref(3);
+        let _ = symbols.insert_label(label);
 
         let correct_vec: Vec<Operation> = vec![
                                                  Operation::LablInstr(Cow::from("START"), Instruction::Movu(Reg::G3, 16)),
@@ -1052,6 +1076,20 @@ END:
 
         // TODO: Probably more test cases!
     }
+
+    /*
+    #[test]
+    fn test_labelrecog() {
+        let mut symbols = LabelRecog::new();
+        let mut label = LabelElem::new();
+
+        let label_name = "HELLO".to_string();
+        label.set_name(label_name.clone());
+
+        let _ = symbols.insert_label(label.clone());
+
+        assert_eq!(symbols.label_map.get(&label_name), Some(&0));
+    }*/
 }
 
 // Lokale und globale Labels

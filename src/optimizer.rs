@@ -21,14 +21,12 @@
 // another flag).
 
 use crate::parser::Instruction;
-
+/* 
 
 fn replace_instruction(input:Instruction) -> Vec<Instruction>{
     let mut output: Vec<Instruction> = vec![];
     match input {
         Instruction::Muln(Reg3, Reg1, Reg2) =>  output = mul_subroutine(),
-
-        input => input,
     }
 
     output
@@ -40,4 +38,4 @@ fn mul_subroutine() -> Vec<Instruction>{
     output.push(Instruction::Lw(Reg4, 10))
 
     output
-}
+} */

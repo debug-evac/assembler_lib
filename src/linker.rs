@@ -13,10 +13,8 @@
 // absolute addresses.
 // Linked files need to be specified and ordered from flags or a
 // particular file (probably flags only, but we'll see).
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-};
+use std::collections::HashMap;
+use std::borrow::Cow;
 use crate::parser::{LabelRecog, Operation, LabelElem};
 
 #[derive(Debug, PartialEq)]
@@ -84,6 +82,24 @@ impl Namespaces {
     pub fn get_global_labels(&self) -> Box<Vec<LabelElem>> {
         self.global_namespace.clone()
     }
+
+    pub fn get_label(&mut self, label: String, space: Option<usize>) -> Option<&mut LabelElem> {
+        match self.global_definitions.get(&label) {
+            Some(pos) => {
+                self.global_namespace.get_mut(*pos)
+            },
+            None => {
+                if let Some(pos) = space {
+                    match self.namespaces.get_mut(pos) {
+                        Some(recog) => recog.get_label(&label),
+                        None => None,
+                    }
+                } else {
+                    None
+                }
+            },
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -107,7 +123,7 @@ pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Name
             Ok(_) => (),
             Err(e) => return Err(e),
         }
-        new_code.1.push(Operation::Namespace(file_counter as i128));
+        new_code.1.push(Operation::Namespace(file_counter));
         new_code.1.extend(code.1.clone());
         offset.insert(file_counter + 1, code.1.len());
         file_counter = file_counter + 1;

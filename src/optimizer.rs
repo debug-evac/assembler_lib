@@ -20,22 +20,58 @@
 // restructuring the assembly code (can be suppressed by
 // another flag).
 
-use crate::parser::Instruction;
-/* 
+use crate::{
+    parser::Instruction, 
+    parser::Operation, 
+    linker::Namespaces
+};
 
-fn replace_instruction(input:Instruction) -> Vec<Instruction>{
-    let mut output: Vec<Instruction> = vec![];
-    match input {
-        Instruction::Muln(Reg3, Reg1, Reg2) =>  output = mul_subroutine(),
+fn translate_label(label: String, namespaces: &mut Namespaces, space: usize) -> i32 {
+    match namespaces.get_label(label, Some(space)) {
+        Some(label_elem) => <i128 as TryInto<i32>>::try_into(*label_elem.get_def()).unwrap(),
+        None => i32::MIN,
     }
-
-    output
 }
 
-fn mul_subroutine() -> Vec<Instruction>{
-    let mut output: Vec<Instruction> = vec![];
-    output.push() // Jump subroutine
-    output.push(Instruction::Lw(Reg4, 10))
+fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction> {
+    let mut instructions: Vec<Instruction> = vec![];
+    let mut namespace: usize = 0;
 
-    output
-} */
+    for operation in code.1 {
+        match operation {
+            Operation::Namespace(space) => namespace = space,
+            Operation::Instr(instr) | Operation::LablInstr(_, instr) => {
+                let tr_instr = match instr {
+                    Instruction::VJmp(labl) => Instruction::Jmp(translate_label(labl, &mut code.0, namespace)),
+                    Instruction::VBt(labl) => Instruction::Bt(translate_label(labl, &mut code.0, namespace)),
+                    Instruction::VBf(labl) => Instruction::Bf(translate_label(labl, &mut code.0, namespace)),
+                    Instruction::VBeq(reg1, reg2, labl) => Instruction::Beq(reg1, reg2, 
+                        translate_label(labl, &mut code.0, namespace)),
+                    Instruction::VBne(reg1, reg2, labl) => Instruction::Bne(reg1, reg2, 
+                        translate_label(labl, &mut code.0, namespace)),
+                    Instruction::VBlt(reg1, reg2, labl) => Instruction::Blt(reg1, reg2, 
+                        translate_label(labl, &mut code.0, namespace)),
+                    Instruction::VBltu(reg1, reg2, labl) => Instruction::Bltu(reg1, reg2, 
+                        translate_label(labl, &mut code.0, namespace)),
+                    Instruction::VBge(reg1, reg2, labl) => Instruction::Bge(reg1, reg2, 
+                        translate_label(labl, &mut code.0, namespace)),
+                    Instruction::VBgeu(reg1, reg2, labl) => Instruction::Bgeu(reg1, reg2, 
+                        translate_label(labl, &mut code.0, namespace)),
+
+                    _ => instr,
+                };
+
+                instructions.push(tr_instr)
+            },
+            Operation::Labl(_) => (),
+        };
+    }
+
+    return instructions;
+}
+
+pub fn optimize(code: (Namespaces, Vec<Operation>)) -> Vec<Instruction> {
+    return substitute_labels(code);
+}
+
+// TODO: Tests here

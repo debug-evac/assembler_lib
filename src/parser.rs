@@ -127,7 +127,6 @@ pub enum Instruction {
     VBt(LabelStr),
     VBf(LabelStr),
 
-
     // Imm is the address!
     Beq(Reg, Reg, Imm), // Branch if equal 
     Bne(Reg, Reg, Imm), // Branch if not equal
@@ -162,8 +161,6 @@ pub enum Instruction {
 
     Movu(Reg, Imm),
     Movl(Reg, Imm),
-
-
 
     // 2 Regs
     Cmpe(Reg, Reg),
@@ -233,7 +230,7 @@ pub enum Instruction {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Operation <'a> {
-    Namespace(i128),
+    Namespace(usize),
     Instr(Instruction),
     LablInstr(Cow<'a, Label>, Instruction),
     Labl(Cow<'a, Label>)

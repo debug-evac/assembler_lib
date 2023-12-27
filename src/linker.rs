@@ -107,7 +107,7 @@ pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Name
             Ok(_) => (),
             Err(e) => return Err(e),
         }
-        new_code.1.push(Operation::Namespace(Cow::from(file_counter.to_string())));
+        new_code.1.push(Operation::Namespace(file_counter as i128));
         new_code.1.extend(code.1.clone());
         offset.insert(file_counter + 1, code.1.len());
         file_counter = file_counter + 1;
@@ -214,10 +214,10 @@ mod tests {
 
         let mut operation_vec_ver: Vec<Operation> = vec![];
 
-        operation_vec_ver.push(Operation::Namespace(Cow::from("0")));
+        operation_vec_ver.push(Operation::Namespace(0));
         operation_vec_ver.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::VJmp("END".to_string())));
         operation_vec_ver.push(Operation::Labl(Cow::from("END")));
-        operation_vec_ver.push(Operation::Namespace(Cow::from("1")));
+        operation_vec_ver.push(Operation::Namespace(1));
         operation_vec_ver.push(Operation::Instr(Instruction::VJmp("SEHR_SCHOEN".to_string())));
         operation_vec_ver.push(Operation::Labl(Cow::from("END")));
 
@@ -229,7 +229,7 @@ mod tests {
         let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
         let mut operation_vec_one: Vec<Operation> = vec![];
         operation_vec_one.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::Addn(Reg::G0, Reg::G0, Reg::G1)));
-        operation_vec_one.push(Operation::Instr(Instruction::Lb(Reg::G11, 56)));
+        operation_vec_one.push(Operation::Instr(Instruction::Lb(Reg::G11, Reg::G12, 56)));
         operation_vec_one.push(Operation::Instr(Instruction::Mov(Reg::G1, Reg::G11)));
 
         let mut label_recog_one = LabelRecog::new();
@@ -354,11 +354,11 @@ mod tests {
 
         let mut operation_vec_ver: Vec<Operation> = vec![];
 
-        operation_vec_ver.push(Operation::Namespace(Cow::from("0")));
+        operation_vec_ver.push(Operation::Namespace(0));
         operation_vec_ver.push(Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)));
         operation_vec_ver.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
         operation_vec_ver.push(Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G12)));
-        operation_vec_ver.push(Operation::Namespace(Cow::from("1")));
+        operation_vec_ver.push(Operation::Namespace(1));
         operation_vec_ver.push(Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)));
         operation_vec_ver.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
         operation_vec_ver.push(Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G12)));

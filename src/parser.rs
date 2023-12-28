@@ -110,6 +110,51 @@ impl Reg {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum MacroInstr {
+    Beq(Reg, Reg, LabelStr),
+    Bne(Reg, Reg, LabelStr),
+    Blt(Reg, Reg, LabelStr),
+    Bltu(Reg, Reg, LabelStr),
+    Bge(Reg, Reg, LabelStr),
+    Bgeu(Reg, Reg, LabelStr),
+
+    Mov(Reg, Reg),
+
+    // If there is time and someone has nothing to do..
+    //Subi(Reg, Reg, Imm),
+    //Muli(Reg, Reg, Imm),
+    //Divi(Reg, Reg, Imm),
+
+    // Not strictly needed, but nice to have
+    Srr(Reg, Reg, Imm),
+    Slr(Reg, Reg, Imm),
+    
+    // Should be done.
+    Divn(Reg, Reg, Reg),
+    Muln(Reg, Reg, Reg),
+
+    // Not needed. But can be done, for user experience
+    //Divcn(Reg, Reg, Reg),
+    //Mulcn(Reg, Reg, Reg),
+    //Subcn(Reg, Reg, Reg),
+    //Addcn(Reg, Reg, Reg),
+
+    Xnor(Reg, Reg, Reg),
+    Nor(Reg, Reg, Reg),
+
+    Lb(Reg, Reg, LabelStr), //Load byte
+    Lh(Reg, Reg, LabelStr), //Load half
+    Lw(Reg, Reg, LabelStr), //Load word
+
+    Lbu(Reg, Reg, LabelStr),
+    Lhu(Reg, Reg, LabelStr),
+
+    Sb(Reg, Reg, LabelStr), //Store byte
+    Sh(Reg, Reg, LabelStr), //Store half
+    Sw(Reg, Reg, LabelStr), //Store word
+}
+
 // Possibly split Instruction to instruction enums with 1 imm, 1 reg and 1 imm and so on
 // and implement a trait Instruction that must be implemented by all enums
 // Then could parse only the instruction and the args separately thus greatly reducing
@@ -118,70 +163,21 @@ impl Reg {
 pub enum Instruction {
     NA,
 
-    // 1 Imm
-    Jmp(Imm),
-    Bt(Imm),
-    Bf(Imm),
+    Addn(Reg, Reg, Reg),
+    Subn(Reg, Reg, Reg),
+    
+    Xor(Reg, Reg, Reg),
+    Or(Reg, Reg, Reg),
+    And(Reg, Reg, Reg),
 
-    VJmp(LabelStr),
-    VBt(LabelStr),
-    VBf(LabelStr),
+    Sll(Reg, Reg, Reg),
+    Srl(Reg, Reg, Reg),
+    Sra(Reg, Reg, Reg),
 
-    // Imm is the address!
-    Beq(Reg, Reg, Imm), // Branch if equal 
-    Bne(Reg, Reg, Imm), // Branch if not equal
-    Blt(Reg, Reg, Imm), // Branch if less than
-    Bltu(Reg, Reg, Imm),
-    Bge(Reg, Reg, Imm), // Branch if greater or equal
-    Bgeu(Reg, Reg, Imm),
-
-    // LabelStr is the address
-    VBeq(Reg, Reg, LabelStr),
-    VBne(Reg, Reg, LabelStr),
-    VBlt(Reg, Reg, LabelStr),
-    VBltu(Reg, Reg, LabelStr),
-    VBge(Reg, Reg, LabelStr),
-    VBgeu(Reg, Reg, LabelStr),
-
-    // 1 Reg & 1 Imm
-    // Need VLd and VSt as well for variables
-    Lb(Reg, Reg, Imm), //Load byte
-    Lh(Reg, Reg, Imm), //Load half
-    Lw(Reg, Reg, Imm), //Load word
-
-    Sb(Reg, Reg, Imm), //Store byte
-    Sh(Reg, Reg, Imm), //Store half
-    Sw(Reg, Reg, Imm), //Store word
-
-    Lui(Reg, Imm),
-    Auipc(Reg, Imm),
-
-    Lbu(Reg, Reg, Imm), // ??
-    Lhu(Reg, Reg, Imm), // ??
-
-    Movu(Reg, Imm),
-    Movl(Reg, Imm),
-
-    // 2 Regs
-    Cmpe(Reg, Reg),
-
-    Mov(Reg, Reg),
-
-    // 2 Regs & 1 Imm
+    Slt(Reg, Reg, Reg),
+    Sltu(Reg, Reg, Reg),
+    // ------------------
     Addi(Reg, Reg, Imm),
-    Addci(Reg, Reg, Imm),
-
-    Subi(Reg, Reg, Imm),
-    Subci(Reg, Reg, Imm),
-
-    Muli(Reg, Reg, Imm),
-    Mulci(Reg, Reg, Imm),
-
-    Divi(Reg, Reg, Imm),
-    Divci(Reg, Reg, Imm),
-
-    Slti(Reg, Reg, Imm),
-    Sltiu(Reg, Reg, Imm),
 
     XorI(Reg, Reg, Imm),
     OrI(Reg, Reg, Imm),
@@ -191,47 +187,78 @@ pub enum Instruction {
     Slli(Reg, Reg, Imm),
     Srli(Reg, Reg, Imm),
     Srai(Reg, Reg, Imm),
-    Slai(Reg, Reg, Imm),
 
-    Srr(Reg, Reg, Imm),
-    Slr(Reg, Reg, Imm),
+    Slti(Reg, Reg, Imm),
+    Sltiu(Reg, Reg, Imm),
+    // ------------------
+    Lb(Reg, Reg, Imm), //Load byte
+    Lh(Reg, Reg, Imm), //Load half
+    Lw(Reg, Reg, Imm), //Load word
+
+    Lbu(Reg, Reg, Imm),
+    Lhu(Reg, Reg, Imm),
+    // ------------------
+    Sb(Reg, Reg, Imm), //Store byte
+    Sh(Reg, Reg, Imm), //Store half
+    Sw(Reg, Reg, Imm), //Store word
+    // ------------------
+    // Imm is the address!
+    Beq(Reg, Reg, Imm), // Branch if equal 
+    Bne(Reg, Reg, Imm), // Branch if not equal
+    Blt(Reg, Reg, Imm), // Branch if less than
+    Bltu(Reg, Reg, Imm),
+    Bge(Reg, Reg, Imm), // Branch if greater or equal
+    Bgeu(Reg, Reg, Imm),
+    // ------------------    
+    Jal(Reg, Imm),
+    Jalr(Reg, Reg, Imm),
+    // ------------------
+    Lui(Reg, Imm),
+    Auipc(Reg, Imm),
+    
+    // 1 Imm
+    //Jmp(Imm),
+    //Bt(Imm),
+    //Bf(Imm),
+
+    //VJmp(LabelStr),
+    //VBt(LabelStr),
+    //VBf(LabelStr),
+
+    // 1 Reg & 1 Imm
+
+    //Movu(Reg, Imm),
+    //Movl(Reg, Imm),
+
+    // 2 Regs
+    //Cmpe(Reg, Reg),
+
+    // 2 Regs & 1 Imm
+
+    // Not needed.
+    //Addci(Reg, Reg, Imm),
+    //Subci(Reg, Reg, Imm),
+    //Mulci(Reg, Reg, Imm),
+    //Divci(Reg, Reg, Imm),
+
+    // What is that? Shift left arithmetic immediate? Not needed.
+    //Slai(Reg, Reg, Imm),
 
     // 3 Regs
-    Addn(Reg, Reg, Reg),
-    Addcn(Reg, Reg, Reg),
 
-    Subn(Reg, Reg, Reg),
-    Subcn(Reg, Reg, Reg),
-
-    Muln(Reg, Reg, Reg),
-    Mulcn(Reg, Reg, Reg),
-
-    Divn(Reg, Reg, Reg),
-    Divcn(Reg, Reg, Reg),
-
-    Xor(Reg, Reg, Reg),
-    Or(Reg, Reg, Reg),
-    And(Reg, Reg, Reg),
-    Xnor(Reg, Reg, Reg),
-    Nor(Reg, Reg, Reg),
-
-    Slt(Reg, Reg, Reg),
-    Sltu(Reg, Reg, Reg),
-
-    Cmpg(Reg, Reg, Reg),
-    Cmpl(Reg, Reg, Reg),
-
-    Sll(Reg, Reg, Reg),
-    Srl(Reg, Reg, Reg),
-    Sra(Reg, Reg, Reg),
-    Sla(Reg, Reg, Reg),
-    
+    // Compare is branching
+    //Cmpg(Reg, Reg, Reg),
+    //Cmpl(Reg, Reg, Reg),
+    // Shift left arithmetic? Not needed. Only difference to logical shift is 
+    // that it triggers an arithmetic overflow
+    //Sla(Reg, Reg, Reg),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Operation <'a> {
     Namespace(usize),
     Instr(Instruction),
+    Macro(MacroInstr),
     LablInstr(Cow<'a, Label>, Instruction),
     Labl(Cow<'a, Label>)
 }

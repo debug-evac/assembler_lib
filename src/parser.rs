@@ -112,6 +112,8 @@ impl Reg {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MacroInstr {
+    NA,
+
     Beq(Reg, Reg, LabelStr),
     Bne(Reg, Reg, LabelStr),
     Blt(Reg, Reg, LabelStr),
@@ -120,6 +122,17 @@ pub enum MacroInstr {
     Bgeu(Reg, Reg, LabelStr),
 
     Mov(Reg, Reg),
+    Movi(Reg, Imm),
+
+    Jal(Reg, LabelStr),
+    Jalr(Reg, Reg, LabelStr),
+
+    Lui(Reg, LabelStr),
+    Auipc(Reg, LabelStr),
+
+    Slli(Reg, Reg, LabelStr),
+    Srli(Reg, Reg, LabelStr),
+    Srai(Reg, Reg, LabelStr),
 
     // If there is time and someone has nothing to do..
     //Subi(Reg, Reg, Imm),
@@ -259,6 +272,7 @@ pub enum Operation <'a> {
     Namespace(usize),
     Instr(Instruction),
     Macro(MacroInstr),
+    LablMacro(Cow<'a, Label>, MacroInstr),
     LablInstr(Cow<'a, Label>, Instruction),
     Labl(Cow<'a, Label>)
 }
@@ -266,6 +280,12 @@ pub enum Operation <'a> {
 impl <'a> From<Instruction> for Operation <'a> {
     fn from(item: Instruction) -> Self {
         Operation::Instr(item)
+    }
+}
+
+impl <'a> From<MacroInstr> for Operation <'a> {
+    fn from(item: MacroInstr) -> Self {
+        Operation::Macro(item)
     }
 }
 
@@ -545,72 +565,125 @@ fn parse_seper(input: &str) -> IResult<&str, &str> {
     Ok((rest, not_needed))
 }
 
-// jmp label
-fn parse_inst_1imm(input: &str) -> IResult<&str, Instruction> {
-    let (rest, instr) = alt((
-        value(Instruction::Jmp(0), tag("jmp")),
-        value(Instruction::Bt(0), tag("bt")),
-        value(Instruction::Bf(0), tag("bf")),
+fn parse_inst_1labl1reg(input: &str) -> IResult<&str, Operation> {
+    let (rest, macro_in) = alt((
+        value(MacroInstr::Lui(Reg::NA, String::new()), tag("lui")),
+        value(MacroInstr::Auipc(Reg::NA, String::new()), tag("auipc")),
+        value(MacroInstr::Jal(Reg::NA, String::new()), tag("jal")),
     ))(input)?;
     let (rest, _) = tag(" ")(rest)?;
-    let (rest, label) = parse_label_name(rest)?;
+    let (rest, args) = separated_pair(parse_reg, parse_seper, parse_label_name)(rest)?;
 
-    // TODO: Maybe also allow addresses and not only labels
-
-    //let (rest, imm) = parse_imm(rest)?;
-
-    let instr = match instr {
-        Instruction::Jmp(_) => Instruction::VJmp(label.to_string()),
-        Instruction::Bt(_) => Instruction::VBt(label.to_string()),
-        Instruction::Bf(_) => Instruction::VBf(label.to_string()),
-        _ => Instruction::NA
+    let instr = match macro_in {
+        MacroInstr::Lui(_, _) => MacroInstr::Lui(args.0, args.1.to_string()),
+        MacroInstr::Auipc(_, _) => MacroInstr::Auipc(args.0, args.1.to_string()),
+        MacroInstr::Jal(_, _) => MacroInstr::Jal(args.0, args.1.to_string()),
+        _ => MacroInstr::NA,
     };
 
-    Ok((rest, instr))
+    Ok((rest, instr.into()))
 }
 
 // ld $3, 0x30
-fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Instruction> {
-    let (rest, instr) = alt((
-        value(Instruction::Movu(Reg::NA, 0), tag("movu")),
-        value(Instruction::Movl(Reg::NA, 0), tag("movl")),
+fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Operation> {
+    let (rest, instr): (&str, Operation) = alt((
+        value(Instruction::Lui(Reg::NA, 0).into(), tag("lui")),
+        value(Instruction::Auipc(Reg::NA, 0).into(), tag("auipc")),
+        value(Instruction::Jal(Reg::NA, 0).into(), tag("jal")),
 
-        value(Instruction::Lui(Reg::NA, 0), tag("lui")),
-        value(Instruction::Auipc(Reg::NA, 0), tag("auipc")),
+        value(MacroInstr::Movi(Reg::NA, 0).into(), tag("movi")),
     ))(input)?;
     let (rest, _) = tag(" ")(rest)?;
     let (rest, args) = separated_pair(parse_reg, parse_seper, parse_imm)(rest)?;
 
     let instr = match instr {
-        Instruction::Movu(_, _) => Instruction::Movu(args.0, args.1),
-        Instruction::Movl(_, _) => Instruction::Movl(args.0, args.1),
+        Operation::Instr(Instruction::Lui(_, _)) => Operation::Instr(Instruction::Lui(args.0, args.1)),
+        Operation::Instr(Instruction::Auipc(_, _)) => Operation::Instr(Instruction::Auipc(args.0, args.1)),
+        Operation::Instr(Instruction::Jal(_, _)) => Operation::Instr(Instruction::Jal(args.0, args.1)),
 
-        Instruction::Lui(_, _) => Instruction::Lui(args.0, args.1),
-        Instruction::Auipc(_, _) => Instruction::Auipc(args.0, args.1),
-        _ => Instruction::NA
+        Operation::Macro(MacroInstr::Movi(_, _)) => Operation::Macro(MacroInstr::Movi(args.0, args.1)),
+
+        _ => Operation::Instr(Instruction::NA),
     };
 
     Ok((rest, instr))
 }
 
-fn parse_inst_2reg(input: &str) -> IResult<&str, Instruction> {
-    let (rest, instr) = alt((
-        value(Instruction::Cmpe(Reg::NA, Reg::NA), tag("cmpe")),
-        value(Instruction::Mov(Reg::NA, Reg::NA), tag("mov")),
-    ))(input)?;
+fn parse_inst_2reg(input: &str) -> IResult<&str, Operation> {
+    let (rest, instr) = (
+        value(MacroInstr::Mov(Reg::NA, Reg::NA), tag("mov"))
+    )(input)?;
     let (rest, _) = tag(" ")(rest)?;
     let (rest, args) = separated_pair(parse_reg, parse_seper, parse_reg)(rest)?;
 
-    let instr = match instr {
-        Instruction::Cmpe(_, _) => Instruction::Cmpe(args.0, args.1),
-        Instruction::Mov(_, _) => Instruction::Mov(args.0, args.1),
-        _ => Instruction::NA
-    };
+    if let MacroInstr::Mov(_, _) = instr {
+        let instr = MacroInstr::Mov(args.0, args.1);
+    } else {
+        let instr = MacroInstr::NA;
+    }
 
-    Ok((rest, instr))
+    Ok((rest, instr.into()))
 }
 
-fn parse_inst_1imm2reg_lw(input: &str) -> IResult<&str, Instruction> {
+fn parse_inst_1labl2reg(input: &str) -> IResult<&str, Operation> {
+    let (rest, instr) = alt((
+        value(MacroInstr::Beq(Reg::NA, Reg::NA, String::new()), tag("beq")),
+        value(MacroInstr::Bne(Reg::NA, Reg::NA, String::new()), tag("bne")),
+        value(MacroInstr::Blt(Reg::NA, Reg::NA, String::new()), tag("blt")),
+        value(MacroInstr::Bltu(Reg::NA, Reg::NA, String::new()), tag("bltu")),
+        value(MacroInstr::Bge(Reg::NA, Reg::NA, String::new()), tag("bge")),
+        value(MacroInstr::Bgeu(Reg::NA, Reg::NA, String::new()), tag("bgeu")),
+
+        value(MacroInstr::Jalr(Reg::NA, Reg::NA, String::new()), tag("jalr")),
+
+        value(MacroInstr::Slli(Reg::NA, Reg::NA, String::new()), tag("slli")),
+        value(MacroInstr::Srli(Reg::NA, Reg::NA, String::new()), tag("srli")),
+        value(MacroInstr::Srai(Reg::NA, Reg::NA, String::new()), tag("srai")),
+
+        value(MacroInstr::Sb(Reg::NA, Reg::NA, String::new()), tag("sb")),
+        value(MacroInstr::Sh(Reg::NA, Reg::NA, String::new()), tag("sh")),
+        value(MacroInstr::Sw(Reg::NA, Reg::NA, String::new()), tag("sw")),
+
+        value(MacroInstr::Lb(Reg::NA, Reg::NA, String::new()), tag("lb")),
+        value(MacroInstr::Lbu(Reg::NA, Reg::NA, String::new()), tag("lbu")),
+        value(MacroInstr::Lh(Reg::NA, Reg::NA, String::new()), tag("lh")),
+        value(MacroInstr::Lhu(Reg::NA, Reg::NA, String::new()), tag("lhu")),
+        value(MacroInstr::Lw(Reg::NA, Reg::NA, String::new()), tag("lw")),
+    ))(input)?;
+    let (rest, _) = tag(" ")(rest)?;
+    let (rest, args) = tuple((parse_reg, parse_seper, parse_reg, parse_seper, parse_label_name))(rest)?;
+
+    let instr = match instr {
+        MacroInstr::Beq(_, _, _) => MacroInstr::Beq(args.0, args.2, args.4.to_string()),
+        MacroInstr::Bne(_, _, _) => MacroInstr::Bne(args.0, args.2, args.4.to_string()),
+        MacroInstr::Blt(_, _, _) => MacroInstr::Blt(args.0, args.2, args.4.to_string()),
+        MacroInstr::Bltu(_, _, _) => MacroInstr::Bltu(args.0, args.2, args.4.to_string()),
+        MacroInstr::Bge(_, _, _) => MacroInstr::Bge(args.0, args.2, args.4.to_string()),
+        MacroInstr::Bgeu(_, _, _) => MacroInstr::Bgeu(args.0, args.2, args.4.to_string()),
+
+        MacroInstr::Jalr(_, _, _) => MacroInstr::Jalr(args.0, args.2, args.4.to_string()),
+
+        MacroInstr::Slli(_, _, _) => MacroInstr::Slli(args.0, args.2, args.4.to_string()),
+        MacroInstr::Srli(_, _, _) => MacroInstr::Srli(args.0, args.2, args.4.to_string()),
+        MacroInstr::Srai(_, _, _) => MacroInstr::Srai(args.0, args.2, args.4.to_string()),
+
+        MacroInstr::Sb(_, _, _) => MacroInstr::Sb(args.0, args.2, args.4.to_string()),
+        MacroInstr::Sh(_, _, _) => MacroInstr::Sh(args.0, args.2, args.4.to_string()),
+        MacroInstr::Sw(_, _, _) => MacroInstr::Sw(args.0, args.2, args.4.to_string()),
+
+        MacroInstr::Lb(_, _, _) => MacroInstr::Lb(args.0, args.2, args.4.to_string()),
+        MacroInstr::Lbu(_, _, _) => MacroInstr::Lbu(args.0, args.2, args.4.to_string()),
+        MacroInstr::Lh(_, _, _) => MacroInstr::Lh(args.0, args.2, args.4.to_string()),
+        MacroInstr::Lhu(_, _, _) => MacroInstr::Lhu(args.0, args.2, args.4.to_string()),
+        MacroInstr::Lw(_, _, _) => MacroInstr::Lw(args.0, args.2, args.4.to_string()),
+
+        _ => MacroInstr::NA
+    };
+
+    Ok((rest, instr.into()))
+}
+
+fn parse_inst_1imm2reg_lw(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
         value(Instruction::Beq(Reg::NA, Reg::NA, 0), tag("beq")),
         value(Instruction::Bne(Reg::NA, Reg::NA, 0), tag("bne")),
@@ -622,10 +695,6 @@ fn parse_inst_1imm2reg_lw(input: &str) -> IResult<&str, Instruction> {
         value(Instruction::Slli(Reg::NA, Reg::NA, 0), tag("slli")),
         value(Instruction::Srli(Reg::NA, Reg::NA, 0), tag("srli")),
         value(Instruction::Srai(Reg::NA, Reg::NA, 0), tag("srai")),
-        value(Instruction::Slai(Reg::NA, Reg::NA, 0), tag("slai")),
-
-        value(Instruction::Srr(Reg::NA, Reg::NA, 0), tag("srr")),
-        value(Instruction::Slr(Reg::NA, Reg::NA, 0), tag("slr")),
 
         value(Instruction::Sb(Reg::NA, Reg::NA, 0), tag("sb")),
         value(Instruction::Sh(Reg::NA, Reg::NA, 0), tag("sh")),
@@ -651,10 +720,6 @@ fn parse_inst_1imm2reg_lw(input: &str) -> IResult<&str, Instruction> {
         Instruction::Slli(_, _, _) => Instruction::Slli(args.0, args.2, args.4),
         Instruction::Srli(_, _, _) => Instruction::Srli(args.0, args.2, args.4),
         Instruction::Srai(_, _, _) => Instruction::Srai(args.0, args.2, args.4),
-        Instruction::Slai(_, _, _) => Instruction::Slai(args.0, args.2, args.4),
-
-        Instruction::Srr(_, _, _) => Instruction::Srr(args.0, args.2, args.4,),
-        Instruction::Slr(_, _, _) => Instruction::Slr(args.0, args.2, args.4),
 
         Instruction::Sb(_, _, _) => Instruction::Sb(args.0, args.2, args.4),
         Instruction::Sh(_, _, _) => Instruction::Sh(args.0, args.2, args.4),
@@ -669,40 +734,27 @@ fn parse_inst_1imm2reg_lw(input: &str) -> IResult<&str, Instruction> {
         _ => Instruction::NA
     };
 
-    Ok((rest, instr))
+    Ok((rest, instr.into()))
 }
 
-fn parse_inst_1imm2reg_up(input: &str) -> IResult<&str, Instruction> {
+fn parse_inst_1imm2reg_up(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
         value(Instruction::Addi(Reg::NA, Reg::NA, 0), tag("addi")),
-        //value(Instruction::Addci(Reg::NA, Reg::NA, 0), tag("addci")),
-        value(Instruction::Subi(Reg::NA, Reg::NA, 0), tag("subi")),
-        //value(Instruction::Subci(Reg::NA, Reg::NA, 0), tag("subci")),
-
-        value(Instruction::Muli(Reg::NA, Reg::NA, 0), tag("muli")),
-        //value(Instruction::Mulci(Reg::NA, Reg::NA, 0), tag("mulci")),
-        value(Instruction::Divi(Reg::NA, Reg::NA, 0), tag("divi")),
-        //value(Instruction::Divci(Reg::NA, Reg::NA, 0), tag("divci")),
 
         value(Instruction::Slti(Reg::NA, Reg::NA, 0), tag("slti")),
         value(Instruction::Sltiu(Reg::NA, Reg::NA, 0), tag("sltiu")),
+
         value(Instruction::XorI(Reg::NA, Reg::NA, 0), tag("xorI")),
         value(Instruction::OrI(Reg::NA, Reg::NA, 0), tag("orI")),
         value(Instruction::AndI(Reg::NA, Reg::NA, 0), tag("andI")),
+
+        value(Instruction::Jalr(Reg::NA, Reg::NA, 0), tag("jalr")),
     ))(input)?;
     let (rest, _) = tag(" ")(rest)?;
     let (rest, args) = tuple((parse_reg, parse_seper, parse_reg, parse_seper, parse_imm))(rest)?;
 
     let instr = match instr {
         Instruction::Addi(_, _, _) => Instruction::Addi(args.0, args.2, args.4),
-        Instruction::Addci(_, _, _) => Instruction::Addci(args.0, args.2, args.4),
-        Instruction::Subi(_, _, _) => Instruction::Subi(args.0, args.2, args.4),
-        Instruction::Subci(_, _, _) => Instruction::Subci(args.0, args.2, args.4),
-
-        Instruction::Muli(_, _, _) => Instruction::Muli(args.0, args.2, args.4),
-        Instruction::Mulci(_, _, _) => Instruction::Mulci(args.0, args.2, args.4),
-        Instruction::Divi(_, _, _) => Instruction::Divi(args.0, args.2, args.4),
-        Instruction::Divci(_, _, _) => Instruction::Divci(args.0, args.2, args.4),
 
         Instruction::Slti(_, _, _) => Instruction::Slti(args.0, args.2, args.4),
         Instruction::Sltiu(_, _, _) => Instruction::Sltiu(args.0, args.2, args.4),
@@ -710,112 +762,81 @@ fn parse_inst_1imm2reg_up(input: &str) -> IResult<&str, Instruction> {
         Instruction::OrI(_, _, _) => Instruction::OrI(args.0, args.2, args.4),
         Instruction::AndI(_, _, _) => Instruction::AndI(args.0, args.2, args.4),
 
-        _ => Instruction::NA
-    };
-
-    Ok((rest, instr))
-}
-
-fn parse_inst_1lbl2reg(input: &str)-> IResult<&str, Instruction> {
-    let (rest, instr) = alt((
-        value(Instruction::VBeq(Reg::NA, Reg::NA, 0.to_string()), tag("beq")),
-        value(Instruction::VBne(Reg::NA, Reg::NA, 0.to_string()), tag("bne")),
-        value(Instruction::VBlt(Reg::NA, Reg::NA, 0.to_string()), tag("blt")),
-        value(Instruction::VBltu(Reg::NA, Reg::NA, 0.to_string()), tag("bltu")),
-        value(Instruction::VBge(Reg::NA, Reg::NA, 0.to_string()), tag("bge")),
-        value(Instruction::VBgeu(Reg::NA, Reg::NA, 0.to_string()), tag("bgeu")),
-    ))(input)?;
-    let (rest, _) = tag(" ")(rest)?;
-    let (rest, args) = tuple((parse_reg, parse_seper, parse_reg, parse_seper, parse_label_name))(rest)?;
-
-    let instr = match instr {
-        Instruction::VBeq(_, _, _) => Instruction::VBeq(args.0, args.2, args.4.to_string()),
-        Instruction::VBne(_, _, _) => Instruction::VBne(args.0, args.2, args.4.to_string()),
-        Instruction::VBlt(_, _, _) => Instruction::VBlt(args.0, args.2, args.4.to_string()),
-        Instruction::VBltu(_, _, _) => Instruction::VBltu(args.0, args.2, args.4.to_string()),
-        Instruction::VBge(_, _, _) => Instruction::VBge(args.0, args.2, args.4.to_string()),
-        Instruction::VBgeu(_, _, _) => Instruction::VBgeu(args.0, args.2, args.4.to_string()),
+        Instruction::Jalr(_, _, _) => Instruction::Jalr(args.0, args.2, args.4),
 
         _ => Instruction::NA
     };
 
-    Ok((rest, instr))
+    Ok((rest, instr.into()))
 }
 
+fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
+    let (rest, instr): (&str, Operation) = alt((
+        value(Instruction::Addn(Reg::NA, Reg::NA, Reg::NA).into(), tag("add")),
+        value(Instruction::Subn(Reg::NA, Reg::NA, Reg::NA).into(), tag("sub")),
 
-fn parse_inst_3reg(input: &str) -> IResult<&str, Instruction> {
-    let (rest, instr) = alt((
-        value(Instruction::Addn(Reg::NA, Reg::NA, Reg::NA), tag("add")),
-        value(Instruction::Addcn(Reg::NA, Reg::NA, Reg::NA), tag("addc")),
+        value(Instruction::Xor(Reg::NA, Reg::NA, Reg::NA).into(), tag("xor")),
+        value(Instruction::Or(Reg::NA, Reg::NA, Reg::NA).into(), tag("or")),
+        value(Instruction::And(Reg::NA, Reg::NA, Reg::NA).into(), tag("and")),
 
-        value(Instruction::Subn(Reg::NA, Reg::NA, Reg::NA), tag("sub")),
-        value(Instruction::Subcn(Reg::NA, Reg::NA, Reg::NA), tag("subc")),
+        value(Instruction::Slt(Reg::NA, Reg::NA, Reg::NA).into(),tag("slt")),
+        value(Instruction::Sltu(Reg::NA, Reg::NA, Reg::NA).into(),tag("sltu")),
 
-        value(Instruction::Muln(Reg::NA, Reg::NA, Reg::NA), tag("mul")),
-        value(Instruction::Mulcn(Reg::NA, Reg::NA, Reg::NA), tag("mulc")),
+        value(Instruction::Sll(Reg::NA, Reg::NA, Reg::NA).into(), tag("sll")),
+        value(Instruction::Srl(Reg::NA, Reg::NA, Reg::NA).into(), tag("srl")),
+        value(Instruction::Sra(Reg::NA, Reg::NA, Reg::NA).into(), tag("sra")),
 
-        value(Instruction::Divn(Reg::NA, Reg::NA, Reg::NA), tag("div")),
-        value(Instruction::Divcn(Reg::NA, Reg::NA, Reg::NA), tag("divc")),
+        value(MacroInstr::Divn(Reg::NA, Reg::NA, Reg::NA).into(), tag("div")),
+        value(MacroInstr::Muln(Reg::NA, Reg::NA, Reg::NA).into(), tag("mul")),
 
-        value(Instruction::Xor(Reg::NA, Reg::NA, Reg::NA), tag("xor")),
-        value(Instruction::Or(Reg::NA, Reg::NA, Reg::NA), tag("or")),
-        value(Instruction::And(Reg::NA, Reg::NA, Reg::NA), tag("and")),
-        value(Instruction::Xnor(Reg::NA, Reg::NA, Reg::NA), tag("xnor")),
-        value(Instruction::Nor(Reg::NA, Reg::NA, Reg::NA), tag("nor")),
-
-        value(Instruction::Slt(Reg::NA, Reg::NA, Reg::NA),tag("slt")),
-        value(Instruction::Sltu(Reg::NA, Reg::NA, Reg::NA),tag("sltu")),
-
-        value(Instruction::Cmpg(Reg::NA, Reg::NA, Reg::NA), tag("cmpg")),
-        value(Instruction::Cmpl(Reg::NA, Reg::NA, Reg::NA), tag("cmpl")),
-
-        value(Instruction::Sll(Reg::NA, Reg::NA, Reg::NA), tag("sll")),
-        value(Instruction::Srl(Reg::NA, Reg::NA, Reg::NA), tag("srl")),
-        value(Instruction::Sra(Reg::NA, Reg::NA, Reg::NA), tag("sra")),
-        value(Instruction::Sla(Reg::NA, Reg::NA, Reg::NA), tag("sla")),
+        value(MacroInstr::Xnor(Reg::NA, Reg::NA, Reg::NA).into(), tag("xnor")),
+        value(MacroInstr::Nor(Reg::NA, Reg::NA, Reg::NA).into(), tag("nor")),
     ))(input)?;
     let (rest, _) = tag(" ")(rest)?;
     let (rest, args) = tuple((parse_reg, parse_seper, parse_reg, parse_seper, parse_reg))(rest)?;
 
-    let instr = match instr {
-        Instruction::Addn(_, _, _) => Instruction::Addn(args.0, args.2, args.4),
-        Instruction::Addcn(_, _, _) => Instruction::Addcn(args.0, args.2, args.4),
+    let instr: Operation = match instr {
+        Operation::Instr(instruct) => {
+            match instruct {
+                Instruction::Addn(_, _, _) => Instruction::Addn(args.0, args.2, args.4),
 
-        Instruction::Subn(_, _, _) => Instruction::Subn(args.0, args.2, args.4),
-        Instruction::Subcn(_, _, _) => Instruction::Subcn(args.0, args.2, args.4),
+                Instruction::Subn(_, _, _) => Instruction::Subn(args.0, args.2, args.4),
 
-        Instruction::Muln(_, _, _) => Instruction::Muln(args.0, args.2, args.4),
-        Instruction::Mulcn(_, _, _) => Instruction::Mulcn(args.0, args.2, args.4),
+                Instruction::Xor(_, _, _) => Instruction::Xor(args.0, args.2, args.4),
+                Instruction::Or(_, _, _) => Instruction::Or(args.0, args.2, args.4),
+                Instruction::And(_, _, _) => Instruction::And(args.0, args.2, args.4),
+                Instruction::Slt(_, _, _) => Instruction::Slt(args.0, args.2, args.4),
+                Instruction::Sltu(_, _, _) => Instruction::Sltu(args.0, args.2, args.4),
 
-        Instruction::Divn(_, _, _) => Instruction::Divn(args.0, args.2, args.4),
-        Instruction::Divcn(_, _, _) => Instruction::Divcn(args.0, args.2, args.4),
+                Instruction::Sll(_, _, _) => Instruction::Sll(args.0, args.2, args.4),
+                Instruction::Srl(_, _, _) => Instruction::Srl(args.0, args.2, args.4),
+                Instruction::Sra(_, _, _) => Instruction::Sra(args.0, args.2, args.4),
 
-        Instruction::Xor(_, _, _) => Instruction::Xor(args.0, args.2, args.4),
-        Instruction::Or(_, _, _) => Instruction::Or(args.0, args.2, args.4),
-        Instruction::And(_, _, _) => Instruction::And(args.0, args.2, args.4),
-        Instruction::Xnor(_, _, _) => Instruction::Xnor(args.0, args.2, args.4),
-        Instruction::Nor(_, _, _) => Instruction::Nor(args.0, args.2, args.4),
-        Instruction::Slt(_, _, _) => Instruction::Slt(args.0, args.2, args.4),
-        Instruction::Sltu(_, _, _) => Instruction::Sltu(args.0, args.2, args.4),
+                _ => Instruction::NA
+            }.into()
+        },
+        Operation::Macro(macro_in) => {
+            match macro_in {
+                MacroInstr::Divn(_, _, _) => MacroInstr::Divn(args.0, args.2, args.4),
+                MacroInstr::Muln(_, _, _) => MacroInstr::Muln(args.0, args.2, args.4),
 
-        Instruction::Cmpg(_, _, _) => Instruction::Cmpg(args.0, args.2, args.4),
-        Instruction::Cmpl(_, _, _) => Instruction::Cmpl(args.0, args.2, args.4),
+                MacroInstr::Xnor(_, _, _) => MacroInstr::Xnor(args.0, args.2, args.4),
+                MacroInstr::Nor(_, _, _) => MacroInstr::Nor(args.0, args.2, args.4),
 
-        Instruction::Sll(_, _, _) => Instruction::Sll(args.0, args.2, args.4),
-        Instruction::Srl(_, _, _) => Instruction::Srl(args.0, args.2, args.4),
-        Instruction::Sra(_, _, _) => Instruction::Sra(args.0, args.2, args.4),
-        Instruction::Sla(_, _, _) => Instruction::Sla(args.0, args.2, args.4),
-    
-        _ => Instruction::NA
+                _ => MacroInstr::NA,
+            }.into()
+        },
+        _ => Operation::Instr(Instruction::NA),
     };
 
-    Ok((rest, instr))
+    Ok((rest, instr.into()))
 }
 
-fn parse_instruction(input: &str) -> IResult<&str, Instruction> {
+fn parse_instruction(input: &str) -> IResult<&str, Operation> {
     alt((
-        parse_inst_1imm,
+        parse_inst_1labl1reg,
         parse_inst_1imm1reg,
+        parse_inst_1labl2reg,
         parse_inst_1imm2reg_up,
         parse_inst_1imm2reg_lw,
         parse_inst_2reg,
@@ -823,7 +844,7 @@ fn parse_instruction(input: &str) -> IResult<&str, Instruction> {
     ))(input)
 }
 
-fn parse_line(input: &str) -> IResult<&str, (Option<Cow<Label>>, Option<Instruction>)> {
+fn parse_line(input: &str) -> IResult<&str, (Option<Cow<Label>>, Option<Operation>)> {
     let (rest, _) = multispace0(input)?;
     let (rest, label) = opt(parse_label_definition)(rest)?;
     if label.is_some() {

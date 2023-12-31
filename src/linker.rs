@@ -15,7 +15,7 @@
 // particular file (probably flags only, but we'll see).
 use std::collections::HashMap;
 use std::borrow::Cow;
-use crate::parser::{LabelRecog, Operation, LabelElem, MacroInstr};
+use crate::common::{LabelRecog, Operation, LabelElem, MacroInstr};
 
 #[derive(Debug, PartialEq)]
 pub struct Namespaces {
@@ -142,7 +142,7 @@ pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Name
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::{Instruction, Reg};
+    use crate::common::{Instruction, Reg};
 
     #[test]
     fn test_correct_link() {

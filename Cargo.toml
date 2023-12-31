@@ -13,5 +13,4 @@ maintenance = { status = "experimental" }
 
 [dependencies]
 nom = "7.1.3"
-argparse = "0.2.2"
 clap = "4.4.8"

@@ -32,23 +32,18 @@ use nom::{
         separated_pair,
     },
 };
-use std::collections::{
-    HashMap,
-    HashSet
-};
+use std::collections::HashSet;
 use std::borrow::Cow;
 
-pub type Label = str;
-pub type LabelStr = String;
-pub type Imm = i32; // always less than 32
+use crate::common::*;
 
 #[derive(Debug, Clone)]
 pub struct LabelInsertError {
-    label: LabelStr,
+    label: String,
 }
 
 impl LabelInsertError {
-    pub fn new(label: LabelStr) -> LabelInsertError {
+    pub fn new(label: String) -> LabelInsertError {
         LabelInsertError { label }
     }
 }
@@ -57,281 +52,6 @@ impl std::fmt::Display for LabelInsertError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{} already exists!", self.label)
     }
-}
-
-#[repr(u8)]
-#[derive(Debug, Clone, PartialEq)]
-pub enum Reg {
-    G0, G1, G2, G3, G4, G5, G6, G7, G8, G9, G10, G11, G12, G13, G14, G15,
-    G16, G17, G18, G19, G20, G21, G22, G23, G24, G25, G26, G27, G28, G29,
-    G30, G31,
-    NA,
-}
-
-impl Reg {
-    pub fn num_to_enum(reg: &u8) -> Reg {
-        match *reg {
-            reg if reg == Reg::G0 as u8 => Reg::G0,
-            reg if reg == Reg::G1 as u8 => Reg::G1,
-            reg if reg == Reg::G2 as u8 => Reg::G2,
-            reg if reg == Reg::G3 as u8 => Reg::G3,
-            reg if reg == Reg::G4 as u8 => Reg::G4,
-            reg if reg == Reg::G5 as u8 => Reg::G5,
-            reg if reg == Reg::G6 as u8 => Reg::G6,
-            reg if reg == Reg::G7 as u8 => Reg::G7,
-            reg if reg == Reg::G8 as u8 => Reg::G8,
-            reg if reg == Reg::G9 as u8 => Reg::G9,
-            reg if reg == Reg::G10 as u8 => Reg::G10,
-            reg if reg == Reg::G11 as u8 => Reg::G11,
-            reg if reg == Reg::G12 as u8 => Reg::G12,
-            reg if reg == Reg::G13 as u8 => Reg::G13,
-            reg if reg == Reg::G14 as u8 => Reg::G14,
-            reg if reg == Reg::G15 as u8 => Reg::G15,
-            reg if reg == Reg::G16 as u8 => Reg::G16,
-            reg if reg == Reg::G17 as u8 => Reg::G17,
-            reg if reg == Reg::G18 as u8 => Reg::G18,
-            reg if reg == Reg::G19 as u8 => Reg::G19,
-            reg if reg == Reg::G20 as u8 => Reg::G20,
-            reg if reg == Reg::G21 as u8 => Reg::G21,
-            reg if reg == Reg::G22 as u8 => Reg::G22,
-            reg if reg == Reg::G23 as u8 => Reg::G23,
-            reg if reg == Reg::G24 as u8 => Reg::G24,
-            reg if reg == Reg::G25 as u8 => Reg::G25,
-            reg if reg == Reg::G26 as u8 => Reg::G26,
-            reg if reg == Reg::G27 as u8 => Reg::G27,
-            reg if reg == Reg::G28 as u8 => Reg::G28,
-            reg if reg == Reg::G29 as u8 => Reg::G29,
-            reg if reg == Reg::G30 as u8 => Reg::G30,
-            reg if reg == Reg::G31 as u8 => Reg::G31,
-            _ => Reg::NA,
-        }
-    }
-
-    pub fn str_to_enum(reg: &str) -> Result<Reg, &str> {
-        match reg {
-            "zero" => Ok(Reg::G0),
-            "ra" => Ok(Reg::G1),
-            "sp" => Ok(Reg::G2),
-            "gp" => Ok(Reg::G3),
-            "tp" => Ok(Reg::G4),
-            "t0" => Ok(Reg::G5),
-            "t1" => Ok(Reg::G6),
-            "t2" => Ok(Reg::G7),
-            "s0" | "fp" => Ok(Reg::G8),
-            "s1" => Ok(Reg::G9),
-            "a0" => Ok(Reg::G10),
-            "a1" => Ok(Reg::G11),
-            "a2" => Ok(Reg::G12),
-            "a3" => Ok(Reg::G13),
-            "a4" => Ok(Reg::G14),
-            "a5" => Ok(Reg::G15),
-            "a6" => Ok(Reg::G16),
-            "a7" => Ok(Reg::G17),
-            "s2" => Ok(Reg::G18),
-            "s3" => Ok(Reg::G19),
-            "s4" => Ok(Reg::G20),
-            "s5" => Ok(Reg::G21),
-            "s6" => Ok(Reg::G22),
-            "s7" => Ok(Reg::G23),
-            "s8" => Ok(Reg::G24),
-            "s9" => Ok(Reg::G25),
-            "s10" => Ok(Reg::G26),
-            "s11" => Ok(Reg::G27),
-            "t3" => Ok(Reg::G28),
-            "t4" => Ok(Reg::G29),
-            "t5" => Ok(Reg::G30),
-            "t6" => Ok(Reg::G31),
-
-            _ => Err("No Register with that name found!"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MacroInstr {
-    NA,
-
-    NOP,
-
-    Beq(Reg, Reg, LabelStr),
-    Bne(Reg, Reg, LabelStr),
-    Blt(Reg, Reg, LabelStr),
-    Bltu(Reg, Reg, LabelStr),
-    Bge(Reg, Reg, LabelStr),
-    Bgeu(Reg, Reg, LabelStr),
-
-    Mv(Reg, Reg),
-    Li(Reg, Imm),
-
-    Jal(Reg, LabelStr),
-    Jalr(Reg, Reg, LabelStr),
-
-    J(Imm),
-    Jl(LabelStr),
-    Jali(Imm),
-    Jall(LabelStr),
-    Jr(Reg),
-    Jalrs(Reg), 
-    Ret,
-    Calli(Imm),
-    Calll(LabelStr),
-    Taili(Imm),
-    Taill(LabelStr),
-
-    Lui(Reg, LabelStr),
-    Auipc(Reg, LabelStr),
-
-    Slli(Reg, Reg, LabelStr),
-    Srli(Reg, Reg, LabelStr),
-    Srai(Reg, Reg, LabelStr),
-
-    // If there is time and someone has nothing to do..
-    //Subi(Reg, Reg, Imm),
-    //Muli(Reg, Reg, Imm),
-    //Divi(Reg, Reg, Imm),
-
-    // Not strictly needed, but nice to have
-    Srr(Reg, Reg, Imm),
-    Slr(Reg, Reg, Imm),
-    
-    // Should be done.
-    Divn(Reg, Reg, Reg),
-    Muln(Reg, Reg, Reg),
-
-    // Not needed. But can be done, for user experience
-    //Divcn(Reg, Reg, Reg),
-    //Mulcn(Reg, Reg, Reg),
-    //Subcn(Reg, Reg, Reg),
-    //Addcn(Reg, Reg, Reg),
-
-    Xnor(Reg, Reg, Reg),
-    Nor(Reg, Reg, Reg),
-
-    Lb(Reg, Reg, LabelStr), //Load byte
-    Lh(Reg, Reg, LabelStr), //Load half
-    Lw(Reg, Reg, LabelStr), //Load word
-
-    Lbu(Reg, Reg, LabelStr),
-    Lhu(Reg, Reg, LabelStr),
-
-    Sb(Reg, Reg, LabelStr), //Store byte
-    Sh(Reg, Reg, LabelStr), //Store half
-    Sw(Reg, Reg, LabelStr), //Store word
-}
-
-impl MacroInstr {
-    pub fn lines(&self) -> usize {
-        0
-    }
-}
-
-// Possibly split Instruction to instruction enums with 1 imm, 1 reg and 1 imm and so on
-// and implement a trait Instruction that must be implemented by all enums
-// Then could parse only the instruction and the args separately thus greatly reducing
-// code length and multiplication.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Instruction {
-    NA,
-
-    Addn(Reg, Reg, Reg),
-    Subn(Reg, Reg, Reg),
-    
-    Xor(Reg, Reg, Reg),
-    Or(Reg, Reg, Reg),
-    And(Reg, Reg, Reg),
-
-    Sll(Reg, Reg, Reg),
-    Srl(Reg, Reg, Reg),
-    Sra(Reg, Reg, Reg),
-
-    Slt(Reg, Reg, Reg),
-    Sltu(Reg, Reg, Reg),
-    // ------------------
-    Addi(Reg, Reg, Imm),
-
-    Xori(Reg, Reg, Imm),
-    Ori(Reg, Reg, Imm),
-    Andi(Reg, Reg, Imm),
-
-    // Shift left|right logical|arithmetic|rotate
-    Slli(Reg, Reg, Imm),
-    Srli(Reg, Reg, Imm),
-    Srai(Reg, Reg, Imm),
-
-    Slti(Reg, Reg, Imm),
-    Sltiu(Reg, Reg, Imm),
-    // ------------------
-    Lb(Reg, Reg, Imm), //Load byte
-    Lh(Reg, Reg, Imm), //Load half
-    Lw(Reg, Reg, Imm), //Load word
-
-    Lbu(Reg, Reg, Imm),
-    Lhu(Reg, Reg, Imm),
-    // ------------------
-    Sb(Reg, Reg, Imm), //Store byte
-    Sh(Reg, Reg, Imm), //Store half
-    Sw(Reg, Reg, Imm), //Store word
-    // ------------------
-    // Imm is the address!
-    Beq(Reg, Reg, Imm), // Branch if equal 
-    Bne(Reg, Reg, Imm), // Branch if not equal
-    Blt(Reg, Reg, Imm), // Branch if less than
-    Bltu(Reg, Reg, Imm),
-    Bge(Reg, Reg, Imm), // Branch if greater or equal
-    Bgeu(Reg, Reg, Imm),
-    // ------------------    
-    Jal(Reg, Imm),
-    Jalr(Reg, Reg, Imm),
-    // ------------------
-    Lui(Reg, Imm),
-    Auipc(Reg, Imm),
-    
-    // 1 Imm
-    //Jmp(Imm),
-    //Bt(Imm),
-    //Bf(Imm),
-
-    //VJmp(LabelStr),
-    //VBt(LabelStr),
-    //VBf(LabelStr),
-
-    // 1 Reg & 1 Imm
-
-    //Movu(Reg, Imm),
-    //Movl(Reg, Imm),
-
-    // 2 Regs
-    //Cmpe(Reg, Reg),
-
-    // 2 Regs & 1 Imm
-
-    // Not needed.
-    //Addci(Reg, Reg, Imm),
-    //Subci(Reg, Reg, Imm),
-    //Mulci(Reg, Reg, Imm),
-    //Divci(Reg, Reg, Imm),
-
-    // What is that? Shift left arithmetic immediate? Not needed.
-    //Slai(Reg, Reg, Imm),
-
-    // 3 Regs
-
-    // Compare is branching
-    //Cmpg(Reg, Reg, Reg),
-    //Cmpl(Reg, Reg, Reg),
-    // Shift left arithmetic? Not needed. Only difference to logical shift is 
-    // that it triggers an arithmetic overflow
-    //Sla(Reg, Reg, Reg),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Operation <'a> {
-    Namespace(usize),
-    Instr(Instruction),
-    Macro(MacroInstr),
-    LablMacro(Cow<'a, Label>, MacroInstr),
-    LablInstr(Cow<'a, Label>, Instruction),
-    Labl(Cow<'a, Label>)
 }
 
 impl <'a> From<Instruction> for Operation <'a> {
@@ -343,215 +63,6 @@ impl <'a> From<Instruction> for Operation <'a> {
 impl <'a> From<MacroInstr> for Operation <'a> {
     fn from(item: MacroInstr) -> Self {
         Operation::Macro(item)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-// Scope for locality: true for global; false for local
-pub struct LabelElem {
-    name: String,
-    definition: i128,
-    scope: bool,
-    references: Box<HashSet<usize>>,
-}
-
-impl LabelElem {
-    pub fn new() -> LabelElem {
-        let name = String::new();
-        let definition: i128 = -1;
-        let scope = false;
-        let references: Box<HashSet<usize>> = Box::from(HashSet::new());
-
-        LabelElem {
-            name,
-            definition,
-            scope, 
-            references 
-        }
-    }
-
-    pub fn new_def(name: String, definition: i128) -> LabelElem {
-        let mut elem = LabelElem::new();
-        elem.set_name(name);
-        elem.set_def(definition);
-        elem
-    }
-
-    pub fn new_ref(name: String, reference: usize) -> LabelElem {
-        let mut elem = LabelElem::new();
-        elem.set_name(name);
-        elem.add_ref(reference);
-        elem
-    }
-
-    // TODO: Custom error struct
-    pub fn combine(&mut self, other: &LabelElem, offset: usize) -> Result<&str, &str> {
-        assert!(self.name.eq(&other.name));
-        assert!(self.scope == other.scope);
-
-        if self.definition != -1 && other.definition != -1 {
-            return Err("Global label defined in two files!");
-        } else if self.definition == -1 && other.definition != -1 {
-            self.definition = other.definition;
-        }
-
-        let other_refs: HashSet<usize> = other.references.iter()
-                .map(|line| line + offset).collect();
-
-        let union = self.references.union(&other_refs).map(|&val| val);
-        self.references = Box::from(union.collect::<HashSet<usize>>());
-        Ok("Labels combined!")
-    }
-
-    pub fn set_name(&mut self, name: String) -> () {
-        self.name = name;
-    }
-
-    pub fn get_name(&self) -> &String {
-        &self.name
-    }
-
-    pub fn set_scope(&mut self, scope: bool) -> () {
-        self.scope = scope;
-    }
-
-    pub fn get_scope(&self) -> bool {
-        self.scope
-    }
-
-    pub fn set_def(&mut self, definition: i128) -> () {
-        self.definition = definition;
-    }
-
-    pub fn get_def(&self) -> &i128 {
-        &self.definition
-    }
-
-    pub fn add_ref(&mut self, reference: usize) -> () {
-        self.references.insert(reference);
-    }
-
-    pub fn rem_ref(&mut self, reference: usize) -> () {
-        self.references.remove(&reference);
-    }
-
-    pub fn replace_ref(&mut self, old: &usize, new: usize) -> bool {
-        if self.references.remove(old) {
-            self.references.insert(new);
-            return true;
-        }
-        return false;
-    }
-    /*
-    pub fn get_refs(&self) -> Vec<usize> {
-        self.references.clone().into_iter().collect()
-    }*/
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct LabelRecog {
-    offset: usize,
-    label_map: Box<HashMap<String, usize>>,
-    label_list: Box<Vec<LabelElem>>,
-}
-
-impl LabelRecog {
-    pub fn new() -> LabelRecog {
-        let offset = 0;
-        let label_list: Box<Vec<LabelElem>> = Box::from(vec![]);
-        let label_map: Box<HashMap<String, usize>> =
-        Box::from(HashMap::new());
-
-        LabelRecog {
-            offset,
-            label_list,
-            label_map,
-        }
-    }
-
-    pub fn insert_label(&mut self, label: LabelElem) -> Result<&str, &str> {
-        if self.label_map.contains_key(label.get_name()) {
-            Err("Label already exists!")
-        } else {
-            let elem = self.label_list.len();
-            self.label_map.insert(label.get_name().clone(), elem);
-            self.label_list.push(label);
-            Ok("Added label!")
-        }
-    }
-
-    pub fn get_label(&mut self, label_str: &String) -> Option<&mut LabelElem> {
-        match self.label_map.get(label_str) {
-            Some(val) => self.label_list.get_mut(*val),
-            None => None,
-        }
-    }
-
-    pub fn crt_or_def_label(&mut self, label_str: &String, scope: bool, definition: i128) -> () {
-        match self.get_label(label_str) {
-            Some(label) => {
-                label.set_def(definition);
-                label.set_scope(scope);
-            },
-            None => {
-                let mut label = LabelElem::new();
-                label.set_name(label_str.clone());
-                label.set_def(definition);
-                label.set_scope(scope);
-                let _ = self.insert_label(label);
-            },
-        }
-    }
-
-    // Creates a label, if it does not exist already with the name label_str, scope and the reference.
-    // Returns true, if there is already a definition, else false.
-    pub fn crt_or_ref_label(&mut self, label_str: &String, scope: bool, reference: usize) -> bool {
-        match self.get_label(label_str) {
-            Some(label) => {
-                label.add_ref(reference);
-                if !label.get_scope() {
-                    *label.get_def() != -1
-                } else {
-                    false
-                }
-            },
-            None => {
-                let mut label = LabelElem::new();
-                label.set_name(label_str.clone());
-                label.add_ref(reference);
-                label.set_scope(scope);
-                let _ = self.insert_label(label);
-                false
-            },
-        }
-    }
-
-    pub fn get_local_labels(&self) -> Box<Vec<&LabelElem>> {
-        let mut local_labels: Box<Vec<&LabelElem>> = Box::from(vec![]);
-        for label in self.label_list.iter() {
-            if !label.get_scope() {
-                local_labels.push(label);
-            }
-        }
-        local_labels
-    }
-
-    pub fn get_global_labels(&self) -> Box<Vec<&LabelElem>> {
-        let mut global_labels: Box<Vec<&LabelElem>> = Box::from(vec![]);
-        for label in self.label_list.iter() {
-            if label.get_scope() {
-                global_labels.push(label);
-            }
-        }
-        global_labels
-    }
-
-    pub fn set_offset(&mut self, offset: usize) -> () {
-        self.offset = offset;
-    }
-
-    pub fn get_offset(&self) -> usize {
-        self.offset
     }
 }
 
@@ -988,7 +499,7 @@ fn parse_instruction(input: &str) -> IResult<&str, Operation> {
     ))(input)
 }
 
-fn parse_line(input: &str) -> IResult<&str, (Option<Cow<Label>>, Option<Operation>)> {
+fn parse_line(input: &str) -> IResult<&str, (Option<Cow<str>>, Option<Operation>)> {
     let (rest, _) = multispace0(input)?;
     let (rest, label) = opt(parse_label_definition)(rest)?;
     if label.is_some() {
@@ -1005,7 +516,9 @@ pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
     let mut local_ref_not_def: HashSet<String> = HashSet::new();
     let mut symbol_map = LabelRecog::new();
     let mut instr_list: Vec<Operation> = vec![];
+
     let mut rest = input;
+    let mut instr_counter: usize = 0;
 
     loop {
         let res = parse_line(rest);
@@ -1017,8 +530,6 @@ pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
             },
             Err(_) => todo!("Custom parser error!"),
         };
-
-        let instr_counter = instr_list.len();
 
         match parsed {
             (Some(label), Some(instr)) => {
@@ -1078,10 +589,12 @@ pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
                             },
                             _ => (),
                         }
+                        instr_counter = instr_counter + macro_in.lines();
 
                         instr_list.push(Operation::LablMacro(label, macro_in.to_owned()));
                     },
                     Operation::Instr(instr_in) => {
+                        instr_counter = instr_counter + 1;
                         instr_list.push(Operation::LablInstr(label, instr_in.to_owned()));
                     }
                     _ => (),
@@ -1129,8 +642,10 @@ pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
                             },
                             _ => (),
                         }
+
+                        instr_counter = instr_counter + macro_in.lines();
                     },
-                    _ => (),
+                    _ => instr_counter = instr_counter + 1,
                 }
 
                 instr_list.push(instr);
@@ -1150,6 +665,7 @@ pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
                         symbol_map.crt_or_def_label(&label.to_string(), true, instr_counter.try_into().unwrap())
                     },
                 };
+                instr_counter = instr_counter + 1;
                 instr_list.push(Operation::Labl(label));
             },
             (None, None) => (),
@@ -1360,6 +876,7 @@ mod tests {
                    Ok(("", (Some(Cow::from("label")), Some(MacroInstr::Divn(Reg::G14, Reg::G13, Reg::G10).into())))));
     }
 
+    //#[ignore = "Currently failing, since Muln is not correctly defined"]
     #[test]
     fn test_parse() {
         let source_code = r#"START:
@@ -1382,15 +899,15 @@ END:
         label = LabelElem::new();
         label.set_name("MUL".to_string());
         label.set_scope(true);
-        label.set_def(2);
-        label.add_ref(5);
+        label.set_def(3);
+        label.add_ref(9);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new();
         label.set_name("END".to_string());
         label.set_scope(true);
-        label.set_def(6);
-        label.add_ref(2);
+        label.set_def(10);
+        label.add_ref(3);
         let _ = symbols.insert_label(label);
 
         let correct_vec: Vec<Operation> = vec![

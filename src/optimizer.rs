@@ -21,7 +21,7 @@
 // another flag).
 
 use crate::{
-    parser::{Instruction, Operation, MacroInstr, Reg}, 
+    common::{Instruction, Operation, MacroInstr, Reg}, 
     linker::Namespaces
 };
 
@@ -62,8 +62,8 @@ impl MacroInstr {
             MacroInstr::Mv(reg1, reg2) => instructions.push(Instruction::Addi(reg1.to_owned(), reg2.to_owned(), 0)),
             MacroInstr::Li(reg, imm) => {
                 // TODO: Evaluate better strategy?
-                instructions.push(Instruction::Addi(reg.to_owned(), Reg::G0, *imm));
                 instructions.push(Instruction::Lui(reg.to_owned(), imm >> 12));
+                instructions.push(Instruction::Addi(reg.to_owned(), reg.to_owned(), *imm));
             },
 
             MacroInstr::Jal(reg, labl) => {
@@ -131,15 +131,45 @@ impl MacroInstr {
                 instructions.push(Instruction::Srai(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
-            MacroInstr::Srr(reg1, reg2, imm) => todo!("About to implement!"),
-            MacroInstr::Slr(reg1, reg2, imm) => todo!("About to implement!"),
+            // Imm == a1 == G11
+            MacroInstr::Srr(reg1, reg2, imm) => {
+                let lines = (instructions.len() as i32) - translate_label("_SRR".to_string(), namespace, *current_space);
 
-            MacroInstr::Divn(reg1, reg2, reg3) => todo!("About to implement!"),
-            MacroInstr::Muln(reg1, reg2, reg3) => todo!("About to implement!"),
+                instructions.push(Instruction::Addi(Reg::G10, reg2.to_owned(), 0));
+                instructions.push(Instruction::Addi(Reg::G11, Reg::G0, *imm));
+                instructions.push(Instruction::Jal(Reg::G1, lines));
+                instructions.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0));
+            },
+            MacroInstr::Slr(reg1, reg2, imm) => {
+                let lines = (instructions.len() as i32) - translate_label("_SLR".to_string(), namespace, *current_space);
+
+                instructions.push(Instruction::Addi(Reg::G10, reg2.to_owned(), 0));
+                instructions.push(Instruction::Addi(Reg::G11, Reg::G0, *imm));
+                instructions.push(Instruction::Jal(Reg::G1, lines));
+                instructions.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0));
+            },
+
+            MacroInstr::Divn(reg1, reg2, reg3) => {
+                let lines = (instructions.len() as i32) - translate_label("_DIV".to_string(), namespace, *current_space);
+
+                instructions.push(Instruction::Addi(Reg::G10, reg2.to_owned(), 0));
+                instructions.push(Instruction::Addi(Reg::G11, reg3.to_owned(), 0));
+                instructions.push(Instruction::Jal(Reg::G1, lines));
+                instructions.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0));
+            },
+            MacroInstr::Muln(reg1, reg2, reg3) => {
+                let lines = (instructions.len() as i32) - translate_label("_MUL".to_string(), namespace, *current_space);
+
+                instructions.push(Instruction::Addi(Reg::G10, reg2.to_owned(), 0));
+                instructions.push(Instruction::Addi(Reg::G11, reg3.to_owned(), 0));
+                instructions.push(Instruction::Jal(Reg::G1, lines));
+                instructions.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0));
+            },
 
             MacroInstr::Xnor(reg1, reg2, reg3) => todo!("Not implemented yet!"),
             MacroInstr::Nor(reg1, reg2, reg3) => todo!("Not implemented yet!"),
 
+            // TODO: Evaluate if this is right? Spec paper seems to add upper half of symbol to PC (needed for our case?)
             MacroInstr::Lb(reg1, reg2, labl) => {
                 let lines = (instructions.len() as i32) - translate_label(labl.to_owned(), namespace, *current_space);
                 instructions.push(Instruction::Lb(reg1.to_owned(), reg2.to_owned(), lines));
@@ -184,45 +214,32 @@ fn translate_label(label: String, namespaces: &mut Namespaces, current_space: us
     }
 }
 
+fn nop_insertion(mut code: (Namespaces, Vec<Operation>)) -> (Namespaces, Vec<Operation>) {
+    todo!("About to be implemented!");
+}
+
 fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction> {
     let mut instructions: Vec<Instruction> = vec![];
     let mut namespace: usize = 0;
 
-    /*
     for operation in code.1 {
         match operation {
             Operation::Namespace(space) => namespace = space,
             Operation::Macro(instr) | Operation::LablMacro(_, instr) => {
-                let tr_instr = match instr {
-                    Instruction::VJmp(labl) => Instruction::Jmp(translate_label(labl, &mut code.0, namespace)),
-                    Instruction::VBt(labl) => Instruction::Bt(translate_label(labl, &mut code.0, namespace)),
-                    Instruction::VBf(labl) => Instruction::Bf(translate_label(labl, &mut code.0, namespace)),
-                    Instruction::VBeq(reg1, reg2, labl) => Instruction::Beq(reg1, reg2, 
-                        translate_label(labl, &mut code.0, namespace)),
-                    Instruction::VBne(reg1, reg2, labl) => Instruction::Bne(reg1, reg2, 
-                        translate_label(labl, &mut code.0, namespace)),
-                    Instruction::VBlt(reg1, reg2, labl) => Instruction::Blt(reg1, reg2, 
-                        translate_label(labl, &mut code.0, namespace)),
-                    Instruction::VBltu(reg1, reg2, labl) => Instruction::Bltu(reg1, reg2, 
-                        translate_label(labl, &mut code.0, namespace)),
-                    Instruction::VBge(reg1, reg2, labl) => Instruction::Bge(reg1, reg2, 
-                        translate_label(labl, &mut code.0, namespace)),
-                    Instruction::VBgeu(reg1, reg2, labl) => Instruction::Bgeu(reg1, reg2, 
-                        translate_label(labl, &mut code.0, namespace)),
-
-                    _ => instr,
-                };
-
-                instructions.push(tr_instr)
+                instr.translate(&mut code.0, &namespace, &mut instructions);
             },
+            Operation::Instr(instr) | Operation::LablInstr(_, instr) => {
+                instructions.push(instr);
+            }
             Operation::Labl(_) => (),
         };
-    }*/
+    }
 
     return instructions;
 }
 
 pub fn optimize(code: (Namespaces, Vec<Operation>)) -> Vec<Instruction> {
+    //let nop_code = nop_insertion(code);
     return substitute_labels(code);
 }
 

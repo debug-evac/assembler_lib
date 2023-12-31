@@ -10,6 +10,7 @@ mod parser;
 mod linker;
 mod optimizer;
 mod translator;
+mod common;
 
 use clap::{Arg, Command};
 use clap::value_parser;
@@ -18,29 +19,28 @@ use std::path::Path;
 use std::{fs, path::PathBuf};
 use std::fs::File;
 
-use crate::parser::LabelRecog;
-use crate::parser::Operation;
+use crate::common::{LabelRecog, Operation};
 
 // TODO
-static MUL_SUB: &str = r#"
+pub static MUL_SUB: &str = r#"
 "#;
-static DIV_SUB: &str = r#"
+pub static DIV_SUB: &str = r#"
 "#;
 
-static SRR_SUB: &str = r#"
+pub static SRR_SUB: &str = r#"
 _SRR:
-    srl  a2, a0, a1
-    sub  a4, zero, a1
-    sll  a3, a0, a4
-    or   a0, a2, a3
+    sub a4, zero, a1
+    srl a2, a0, a1
+    sll a3, a0, a4
+    or a0, a2, a3
     ret
 "#;
-static SLR_SUB: &str = r#"
+pub static SLR_SUB: &str = r#"
 _SLR:
-    sll  a2, a0, a1
-    sub  a4, zero, a1
-    srl  a3, a0, a4
-    or   a0, a2, a3
+    sub a4, zero, a1
+    sll a2, a0, a1
+    srl a3, a0, a4
+    or a0, a2, a3
     ret
 "#;
 

@@ -11,7 +11,7 @@
 // has been parsed, linked and potentially optimized.
 use std::fs::File;
 use std::io::BufWriter;
-use crate::parser::{LabelRecog, Instruction, Operation, Reg, Imm};
+use crate::common::{LabelRecog, Instruction, Operation, Reg, Imm};
 
 fn btype_instr(rs1: Reg, rs2: Reg, imm: Imm) -> u32 {
    let u12 =  imm & 0b10_00000_00000i32 >> 1;

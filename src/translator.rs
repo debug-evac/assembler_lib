@@ -37,13 +37,21 @@ fn rtype_instr(rd: Reg, rs1: Reg, rs2: Reg) -> u32 {
 }
 
 fn utype_instr(rd: Reg, imm: Imm) -> u32 {
-   ((imm as u32) << 12) + ((rd as u32) << 7)
+   (((imm as u32) >> 12) << 12) + ((rd as u32) << 7)
+}
+
+fn jtype_instr(rd: Reg, imm: Imm) -> u32 {
+   let ten_to_one = (imm & 0b11111_11110_i32) << 1;
+   let nineteen_to_twelve = (imm & 0b1111_11110_00000_00000_i32) >> 1;
+   let eleven = (imm & 0b1_00000_00000_i32) >> 2;
+   let twenty = imm & 0b10000_00000_00000_00000_i32;
+
+   (ten_to_one | nineteen_to_twelve | eleven | twenty) as u32 + ((rd as u32) << 7) + 0b1101111_u32
 }
 
 impl Instruction {
-   fn mask(imm: i32, shift: u8, mask: u8) -> u32 {
-      let result = imm & (2_i32.pow((mask + 1) as u32) - 1);
-      (result << shift) as u32
+   fn mask(imm: i32, mask: u8) -> i32 {
+      imm & 2_i32.pow(((mask + 1) as u32) - 1)
    }
 
      /*
@@ -73,8 +81,8 @@ impl Instruction {
       match self {
          Instruction::NA => panic!("NA Instruction received! Fatal error!"),
 
-         Instruction::Jal(reg1, imm) => todo!("Not implemented!"),
-         Instruction::Jalr(reg1, reg2, imm) => todo!("Not implemented!"),
+         Instruction::Jal(reg, imm) => jtype_instr(reg, imm),
+         Instruction::Jalr(reg1, reg2, imm) => itype_instr(reg1, reg2, imm) + 0b1100111_u32,
 
          // B-Type instruction ; imm is the address!
          Instruction::Beq(reg1, reg2, imm) => btype_instr(reg1, reg2, imm), // Branch if equal 
@@ -89,15 +97,7 @@ impl Instruction {
          // U-Type instruction
          Instruction::Lui(reg, imm) => utype_instr(reg, imm) + 0b0110111_u32,
          Instruction::Auipc(reg, imm) => utype_instr(reg, imm) + 0b0010111_u32,
-         
-         // Shift left|right logical|arithmetic|rotate
-         //Instruction::Slli(reg1, reg2, imm) => Instruction::mask(imm, 20, 4) + (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b0110011_u32 + 0b10_00000_00000,
-         //Instruction::Srli(reg1, reg2, imm) => Instruction::mask(imm, 20, 4) + (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b0110011_u32 + 0b1010_00000_00000,
-         //Instruction::Srai(reg1, reg2, imm) => Instruction::mask(imm, 20, 4) + (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b0110011_u32 + 0b1010_00000_00000 + 0x20 << 25,
-         
-         //Instruction::Slti(reg1, reg2, imm) => (imm as u32) << 20 + (reg2 as u32) << 15 + (reg1 as u32) << 7 + 0b0010011_u32 + 0b110_00000_00000_u32,
-         //Instruction::Sltiu(reg1, reg2, imm) => (imm as u32) << 20 + (reg2 as u32) << 15 + (reg1 as u32) << 7 + 0b0010011_u32 + 0b110_00000_00000_u32, 
-         
+
          // I-Type instruction; reg1 == rd
          Instruction::Addi(reg1, reg2, imm) => itype_instr(reg1, reg2, imm) + 0b0010011_u32,
          
@@ -111,6 +111,14 @@ impl Instruction {
          
          Instruction::Lbu(reg1, reg2, imm) => itype_instr(reg1, reg2, imm) + 0b0000011_u32 + 0b1000_00000_00000_u32, // ??
          Instruction::Lhu(reg1, reg2, imm) => itype_instr(reg1, reg2, imm) + 0b0000011_u32 + 0b1010_00000_00000_u32, // ??
+
+         // Shift left|right logical|arithmetic|rotate
+         Instruction::Slli(reg1, reg2, imm) => itype_instr(reg1, reg2, Instruction::mask(imm, 4)) + 0b0110011_u32 + 0b10_00000_00000,
+         Instruction::Srli(reg1, reg2, imm) => itype_instr(reg1, reg2, Instruction::mask(imm, 4)) + 0b0110011_u32 + 0b1010_00000_00000,
+         Instruction::Srai(reg1, reg2, imm) => itype_instr(reg1, reg2, Instruction::mask(imm, 4)) + 0b0110011_u32 + 0b1010_00000_00000 + (0x20 << 25),
+
+         Instruction::Slti(reg1, reg2, imm) => itype_instr(reg1, reg2, imm) + 0b0010011_u32 + 0b100_00000_00000_u32,
+         Instruction::Sltiu(reg1, reg2, imm) => itype_instr(reg1, reg2, imm) + 0b0010011_u32 + 0b110_00000_00000_u32, 
 
          // S-Type instruction
          Instruction::Sb(reg1, reg2, imm) => stype_instr(reg1, reg2, imm), //Store byte
@@ -128,11 +136,11 @@ impl Instruction {
          Instruction::Slt(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + 0b100_00000_00000_u32,
          Instruction::Sltu(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + 0b110_00000_00000_u32,
          
-         //Instruction::Sll(reg3, reg1, reg2) => (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b0110011_u32 + (reg3 as u32) << 7 + 0b10_00000_00000_u32,
-         //Instruction::Srl(reg3, reg1, reg2) => (reg2 as u32) << 20 + (reg1 as u32) << 15 + 0b0110011_u32 + (reg3 as u32) << 7 + 0b1010_00000_00000_u32,
-         //Instruction::Sra(reg3, reg1, reg2) => 0b100000_u32 << 25 + (reg1 as u32) << 20 + (reg2 as u32) << 15 + 0b0110011_u32 + (reg3 as u32) << 7 + 0b1010_00000_00000_u32,
+         Instruction::Sll(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + 0b10_00000_00000_u32,
+         Instruction::Srl(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + 0b1010_00000_00000_u32,
+         Instruction::Sra(reg3, reg1, reg2) => (0b100000_u32 << 25) + rtype_instr(reg3, reg1, reg2) + 0b1010_00000_00000_u32,
          
-         _ => todo!("Testing"),
+         //_ => todo!("Testing"),
       }
    }
 }

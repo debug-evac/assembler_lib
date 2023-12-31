@@ -54,29 +54,6 @@ impl Instruction {
       imm & 2_i32.pow(((mask + 1) as u32) - 1)
    }
 
-     /*
-     fn sign_extend(imm:u32) -> u32{
-         let mask_length = 31 - imm.len();
-         if imm.start() == 0 {
-            let mask = 0b00_00000_00000_00000_00000_00000_00000;
-            let result = (imm + mask) as u32;
-         }
-         else {
-            let mask = 0b11_11111_11111_11111_11111_11111_11111;
-            for imm.length() > 0{
-               let mask = mask & (0 << (imm.length - 1));
-            }
-            let result = (imm + mask) as u32;
-         }
-         result
-     }
-     */
-
-    /*
-    Jal(Reg, Imm),
-    Jalr(Reg, Reg, Imm),
-     */
-
    fn translate_instruction(self) -> u32{
       match self {
          Instruction::NA => panic!("NA Instruction received! Fatal error!"),
@@ -139,19 +116,15 @@ impl Instruction {
          Instruction::Sll(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + 0b10_00000_00000_u32,
          Instruction::Srl(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + 0b1010_00000_00000_u32,
          Instruction::Sra(reg3, reg1, reg2) => (0b100000_u32 << 25) + rtype_instr(reg3, reg1, reg2) + 0b1010_00000_00000_u32,
-         
-         //_ => todo!("Testing"),
       }
    }
 }
 
-
 pub fn translate(input: Vec<Instruction>) -> Vec<u32> {
    let mut output: Vec<u32> = vec![];
+
    for instr in input.iter(){
-
       output.push(Instruction::translate_instruction(instr.clone()));
-
    }
 
    output

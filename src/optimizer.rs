@@ -37,10 +37,11 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction>
     let mut instructions: Vec<Instruction> = vec![];
     let mut namespace: usize = 0;
 
+    /*
     for operation in code.1 {
         match operation {
             Operation::Namespace(space) => namespace = space,
-            Operation::Instr(instr) | Operation::LablInstr(_, instr) => {
+            Operation::Macro(instr) | Operation::LablMacro(_, instr) => {
                 let tr_instr = match instr {
                     Instruction::VJmp(labl) => Instruction::Jmp(translate_label(labl, &mut code.0, namespace)),
                     Instruction::VBt(labl) => Instruction::Bt(translate_label(labl, &mut code.0, namespace)),
@@ -65,7 +66,7 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction>
             },
             Operation::Labl(_) => (),
         };
-    }
+    }*/
 
     return instructions;
 }

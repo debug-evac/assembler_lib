@@ -15,7 +15,7 @@
 // particular file (probably flags only, but we'll see).
 use std::collections::HashMap;
 use std::borrow::Cow;
-use crate::parser::{LabelRecog, Operation, LabelElem};
+use crate::parser::{LabelRecog, Operation, LabelElem, MacroInstr};
 
 #[derive(Debug, PartialEq)]
 pub struct Namespaces {
@@ -148,7 +148,7 @@ mod tests {
     fn test_correct_link() {
         let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
         let mut operation_vec_one: Vec<Operation> = vec![];
-        operation_vec_one.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::VJmp("END".to_string())));
+        operation_vec_one.push(Operation::LablMacro(Cow::from("SEHR_SCHOEN"), MacroInstr::Jl("END".to_string())));
         operation_vec_one.push(Operation::Labl(Cow::from("END")));
 
         let mut label_recog_one = LabelRecog::new();
@@ -179,7 +179,7 @@ mod tests {
 
         let mut operation_vec_two: Vec<Operation> = vec![];
 
-        operation_vec_two.push(Operation::Instr(Instruction::VJmp("SEHR_SCHOEN".to_string())));
+        operation_vec_two.push(Operation::Macro(MacroInstr::Jl("SEHR_SCHOEN".to_string())));
         operation_vec_two.push(Operation::Labl(Cow::from("END")));
 
         let mut label_recog_two = LabelRecog::new();
@@ -231,10 +231,10 @@ mod tests {
         let mut operation_vec_ver: Vec<Operation> = vec![];
 
         operation_vec_ver.push(Operation::Namespace(0));
-        operation_vec_ver.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::VJmp("END".to_string())));
+        operation_vec_ver.push(Operation::LablMacro(Cow::from("SEHR_SCHOEN"), MacroInstr::Jl("END".to_string())));
         operation_vec_ver.push(Operation::Labl(Cow::from("END")));
         operation_vec_ver.push(Operation::Namespace(1));
-        operation_vec_ver.push(Operation::Instr(Instruction::VJmp("SEHR_SCHOEN".to_string())));
+        operation_vec_ver.push(Operation::Macro(MacroInstr::Jl("SEHR_SCHOEN".to_string())));
         operation_vec_ver.push(Operation::Labl(Cow::from("END")));
 
         assert_eq!((namespace_ver, operation_vec_ver), link(parsed_vector).unwrap());
@@ -246,7 +246,7 @@ mod tests {
         let mut operation_vec_one: Vec<Operation> = vec![];
         operation_vec_one.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::Addn(Reg::G0, Reg::G0, Reg::G1)));
         operation_vec_one.push(Operation::Instr(Instruction::Lb(Reg::G11, Reg::G12, 56)));
-        operation_vec_one.push(Operation::Instr(Instruction::Mov(Reg::G1, Reg::G11)));
+        operation_vec_one.push(Operation::Macro(MacroInstr::Mv(Reg::G1, Reg::G11)));
 
         let mut label_recog_one = LabelRecog::new();
 
@@ -270,7 +270,7 @@ mod tests {
         let mut operation_vec_two: Vec<Operation> = vec![];
 
         operation_vec_two.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::Subn(Reg::G0, Reg::G0, Reg::G0)));
-        operation_vec_two.push(Operation::Instr(Instruction::VJmp("SEHR_SCHOEN".to_string())));
+        operation_vec_two.push(Operation::Macro(MacroInstr::Jl("SEHR_SCHOEN".to_string())));
 
         let mut label_recog_two = LabelRecog::new();
 

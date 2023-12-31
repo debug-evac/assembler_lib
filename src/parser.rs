@@ -114,6 +114,8 @@ impl Reg {
 pub enum MacroInstr {
     NA,
 
+    NOP,
+
     Beq(Reg, Reg, LabelStr),
     Bne(Reg, Reg, LabelStr),
     Blt(Reg, Reg, LabelStr),
@@ -121,11 +123,23 @@ pub enum MacroInstr {
     Bge(Reg, Reg, LabelStr),
     Bgeu(Reg, Reg, LabelStr),
 
-    Mov(Reg, Reg),
-    Movi(Reg, Imm),
+    Mv(Reg, Reg),
+    Li(Reg, Imm),
 
     Jal(Reg, LabelStr),
     Jalr(Reg, Reg, LabelStr),
+
+    J(Imm),
+    Jl(LabelStr),
+    Jali(Imm),
+    Jall(LabelStr),
+    Jr(Reg),
+    Jalrs(Reg), 
+    Ret,
+    Calli(Imm),
+    Calll(LabelStr),
+    Taili(Imm),
+    Taill(LabelStr),
 
     Lui(Reg, LabelStr),
     Auipc(Reg, LabelStr),
@@ -192,9 +206,9 @@ pub enum Instruction {
     // ------------------
     Addi(Reg, Reg, Imm),
 
-    XorI(Reg, Reg, Imm),
-    OrI(Reg, Reg, Imm),
-    AndI(Reg, Reg, Imm),
+    Xori(Reg, Reg, Imm),
+    Ori(Reg, Reg, Imm),
+    Andi(Reg, Reg, Imm),
 
     // Shift left|right logical|arithmetic|rotate
     Slli(Reg, Reg, Imm),
@@ -565,6 +579,75 @@ fn parse_seper(input: &str) -> IResult<&str, &str> {
     Ok((rest, not_needed))
 }
 
+fn parse_inst_noparm(input: &str) -> IResult<&str, Operation> {
+    let (rest, instr) = alt((
+        value(Operation::Macro(MacroInstr::NOP), tag("nop")),
+        value(Operation::Macro(MacroInstr::Ret), tag("ret")),
+    ))(input)?;
+
+    Ok((rest, instr))
+}
+
+fn parse_inst_1labl(input: &str) -> IResult<&str, Operation> {
+    let (rest, macro_in) = alt((
+        value(MacroInstr::Calll("".to_string()), tag("call")),
+        value(MacroInstr::Taill("".to_string()), tag("tail")),
+
+        value(MacroInstr::Jl("".to_string()), tag("j")),
+        value(MacroInstr::Jall("".to_string()), tag("jal")),
+    ))(input)?;
+    let (rest, _) = tag(" ")(rest)?;
+    let (rest, labl) = parse_label_name(rest)?;
+
+    let instr = match macro_in {
+        MacroInstr::Calll(_) => MacroInstr::Calll(labl.to_string()),
+        MacroInstr::Taill(_) => MacroInstr::Taill(labl.to_string()),
+        MacroInstr::Jl(_) => MacroInstr::Jl(labl.to_string()),
+        MacroInstr::Jall(_) => MacroInstr::Jall(labl.to_string()),
+        _ => MacroInstr::NA,
+    };
+
+    Ok((rest, instr.into()))
+}
+
+fn parse_inst_1imm(input: &str) -> IResult<&str, Operation> {
+    let (rest, macro_in) = alt((
+        value(MacroInstr::J(0), tag("j")),
+        value(MacroInstr::Jali(0), tag("jal")),
+        value(MacroInstr::Calli(0), tag("call")),
+        value(MacroInstr::Taili(0), tag("tail")),
+    ))(input)?;
+    let (rest, _) = tag(" ")(rest)?;
+    let (rest, imm) = parse_imm(rest)?;
+
+    let instr = match macro_in {
+        MacroInstr::J(_) => MacroInstr::J(imm),
+        MacroInstr::Jali(_) => MacroInstr::Jali(imm),
+        MacroInstr::Calli(_) => MacroInstr::Calli(imm),
+        MacroInstr::Taili(_) => MacroInstr::Taili(imm),
+        _ => MacroInstr::NA,
+    };
+
+    Ok((rest, instr.into()))
+}
+
+fn parse_inst_1reg(input: &str) -> IResult<&str, Operation> {
+    let (rest, macro_in) = alt((
+        value(MacroInstr::Jr(Reg::NA), tag("jr")),
+        value(MacroInstr::Jalrs(Reg::NA), tag("jalr")),
+    ))(input)?;
+    let (rest, _) = tag(" ")(rest)?;
+    let (rest, register) = parse_reg(rest)?;
+
+    let instr = match macro_in {
+        MacroInstr::Jr(_) => MacroInstr::Jr(register),
+        MacroInstr::Jalrs(_) => MacroInstr::Jalrs(register),
+        _ => MacroInstr::NA,
+    };
+
+    Ok((rest, instr.into()))
+}
+
 fn parse_inst_1labl1reg(input: &str) -> IResult<&str, Operation> {
     let (rest, macro_in) = alt((
         value(MacroInstr::Lui(Reg::NA, String::new()), tag("lui")),
@@ -591,7 +674,7 @@ fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Operation> {
         value(Instruction::Auipc(Reg::NA, 0).into(), tag("auipc")),
         value(Instruction::Jal(Reg::NA, 0).into(), tag("jal")),
 
-        value(MacroInstr::Movi(Reg::NA, 0).into(), tag("movi")),
+        value(MacroInstr::Li(Reg::NA, 0).into(), tag("li")),
     ))(input)?;
     let (rest, _) = tag(" ")(rest)?;
     let (rest, args) = separated_pair(parse_reg, parse_seper, parse_imm)(rest)?;
@@ -601,7 +684,7 @@ fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Operation> {
         Operation::Instr(Instruction::Auipc(_, _)) => Operation::Instr(Instruction::Auipc(args.0, args.1)),
         Operation::Instr(Instruction::Jal(_, _)) => Operation::Instr(Instruction::Jal(args.0, args.1)),
 
-        Operation::Macro(MacroInstr::Movi(_, _)) => Operation::Macro(MacroInstr::Movi(args.0, args.1)),
+        Operation::Macro(MacroInstr::Li(_, _)) => Operation::Macro(MacroInstr::Li(args.0, args.1)),
 
         _ => Operation::Instr(Instruction::NA),
     };
@@ -610,16 +693,16 @@ fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Operation> {
 }
 
 fn parse_inst_2reg(input: &str) -> IResult<&str, Operation> {
-    let (rest, instr) = (
-        value(MacroInstr::Mov(Reg::NA, Reg::NA), tag("mov"))
+    let (rest, mut instr) = (
+        value(MacroInstr::Mv(Reg::NA, Reg::NA), tag("mv"))
     )(input)?;
     let (rest, _) = tag(" ")(rest)?;
     let (rest, args) = separated_pair(parse_reg, parse_seper, parse_reg)(rest)?;
 
-    if let MacroInstr::Mov(_, _) = instr {
-        let instr = MacroInstr::Mov(args.0, args.1);
+    if let MacroInstr::Mv(_, _) = instr {
+        instr = MacroInstr::Mv(args.0, args.1);
     } else {
-        let instr = MacroInstr::NA;
+        instr = MacroInstr::NA;
     }
 
     Ok((rest, instr.into()))
@@ -738,36 +821,42 @@ fn parse_inst_1imm2reg_lw(input: &str) -> IResult<&str, Operation> {
 }
 
 fn parse_inst_1imm2reg_up(input: &str) -> IResult<&str, Operation> {
-    let (rest, instr) = alt((
-        value(Instruction::Addi(Reg::NA, Reg::NA, 0), tag("addi")),
+    let (rest, instr): (&str, Operation) = alt((
+        value(Instruction::Addi(Reg::NA, Reg::NA, 0).into(), tag("addi")),
 
-        value(Instruction::Slti(Reg::NA, Reg::NA, 0), tag("slti")),
-        value(Instruction::Sltiu(Reg::NA, Reg::NA, 0), tag("sltiu")),
+        value(Instruction::Slti(Reg::NA, Reg::NA, 0).into(), tag("slti")),
+        value(Instruction::Sltiu(Reg::NA, Reg::NA, 0).into(), tag("sltiu")),
 
-        value(Instruction::XorI(Reg::NA, Reg::NA, 0), tag("xorI")),
-        value(Instruction::OrI(Reg::NA, Reg::NA, 0), tag("orI")),
-        value(Instruction::AndI(Reg::NA, Reg::NA, 0), tag("andI")),
+        value(Instruction::Xori(Reg::NA, Reg::NA, 0).into(), tag("xori")),
+        value(Instruction::Ori(Reg::NA, Reg::NA, 0).into(), tag("ori")),
+        value(Instruction::Andi(Reg::NA, Reg::NA, 0).into(), tag("andi")),
 
-        value(Instruction::Jalr(Reg::NA, Reg::NA, 0), tag("jalr")),
+        value(Instruction::Jalr(Reg::NA, Reg::NA, 0).into(), tag("jalr")),
+
+        value(MacroInstr::Srr(Reg::NA, Reg::NA, 0).into(), tag("srr")),
+        value(MacroInstr::Slr(Reg::NA, Reg::NA, 0).into(), tag("slr"))
     ))(input)?;
     let (rest, _) = tag(" ")(rest)?;
     let (rest, args) = tuple((parse_reg, parse_seper, parse_reg, parse_seper, parse_imm))(rest)?;
 
     let instr = match instr {
-        Instruction::Addi(_, _, _) => Instruction::Addi(args.0, args.2, args.4),
+        Operation::Instr(Instruction::Addi(_, _, _)) => Operation::Instr(Instruction::Addi(args.0, args.2, args.4)),
 
-        Instruction::Slti(_, _, _) => Instruction::Slti(args.0, args.2, args.4),
-        Instruction::Sltiu(_, _, _) => Instruction::Sltiu(args.0, args.2, args.4),
-        Instruction::XorI(_, _, _) => Instruction::XorI(args.0, args.2, args.4),
-        Instruction::OrI(_, _, _) => Instruction::OrI(args.0, args.2, args.4),
-        Instruction::AndI(_, _, _) => Instruction::AndI(args.0, args.2, args.4),
+        Operation::Instr(Instruction::Slti(_, _, _)) => Operation::Instr(Instruction::Slti(args.0, args.2, args.4)),
+        Operation::Instr(Instruction::Sltiu(_, _, _)) => Operation::Instr(Instruction::Sltiu(args.0, args.2, args.4)),
+        Operation::Instr(Instruction::Xori(_, _, _)) => Operation::Instr(Instruction::Xori(args.0, args.2, args.4)),
+        Operation::Instr(Instruction::Ori(_, _, _)) => Operation::Instr(Instruction::Ori(args.0, args.2, args.4)),
+        Operation::Instr(Instruction::Andi(_, _, _)) => Operation::Instr(Instruction::Andi(args.0, args.2, args.4)),
 
-        Instruction::Jalr(_, _, _) => Instruction::Jalr(args.0, args.2, args.4),
+        Operation::Instr(Instruction::Jalr(_, _, _)) => Operation::Instr(Instruction::Jalr(args.0, args.2, args.4)),
 
-        _ => Instruction::NA
+        Operation::Macro(MacroInstr::Srr(_, _, _)) => Operation::Macro(MacroInstr::Srr(args.0, args.2, args.4)),
+        Operation::Macro(MacroInstr::Slr(_, _, _)) => Operation::Macro(MacroInstr::Slr(args.0, args.2, args.4)),
+
+        _ => Operation::Instr(Instruction::NA)
     };
 
-    Ok((rest, instr.into()))
+    Ok((rest, instr))
 }
 
 fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
@@ -834,6 +923,10 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
 
 fn parse_instruction(input: &str) -> IResult<&str, Operation> {
     alt((
+        parse_inst_noparm,
+        parse_inst_1labl,
+        parse_inst_1imm,
+        parse_inst_1reg,
         parse_inst_1labl1reg,
         parse_inst_1imm1reg,
         parse_inst_1labl2reg,
@@ -894,47 +987,102 @@ pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
                 };
 
                 match &instr {
-                    Instruction::VJmp(labl) => {
-                        if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
-                            local_ref_not_def.insert(labl.clone());
+                    Operation::Macro(macro_in) => {
+                        match macro_in {
+                            MacroInstr::Beq(_, _, labl) | 
+                            MacroInstr::Bne(_, _, labl) |
+                            MacroInstr::Blt(_, _, labl) |
+                            MacroInstr::Bltu(_, _, labl) |
+                            MacroInstr::Bge(_, _, labl) |
+                            MacroInstr::Bgeu(_, _, labl) |
+
+                            MacroInstr::Jal(_, labl) |
+                            MacroInstr::Jalr(_, _, labl) |
+
+                            MacroInstr::Jl(labl) |
+                            MacroInstr::Jall(labl) |
+                            MacroInstr::Calll(labl) |
+                            MacroInstr::Taill(labl) |
+
+                            MacroInstr::Lui(_, labl) |
+                            MacroInstr::Auipc(_, labl) |
+
+                            MacroInstr::Slli(_, _, labl) |
+                            MacroInstr::Srli(_, _, labl) |
+                            MacroInstr::Srai(_, _, labl) |
+
+                            MacroInstr::Lb(_, _, labl) |
+                            MacroInstr::Lh(_, _, labl) |
+                            MacroInstr::Lw(_, _, labl) |
+
+                            MacroInstr::Lbu(_, _, labl) |
+                            MacroInstr::Lhu(_, _, labl) |
+
+                            MacroInstr::Sb(_, _, labl) |
+                            MacroInstr::Sh(_, _, labl) |
+                            MacroInstr::Sw(_, _, labl) => {
+                                if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
+                                    local_ref_not_def.insert(labl.clone());
+                                }
+                            },
+                            _ => (),
                         }
+
+                        instr_list.push(Operation::LablMacro(label, macro_in.to_owned()));
                     },
-                    Instruction::VBt(labl) => {
-                        if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
-                            local_ref_not_def.insert(labl.clone());
-                        }
-                    },
-                    Instruction::VBf(labl) => {
-                        if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
-                            local_ref_not_def.insert(labl.clone());
-                        }
-                    },
+                    Operation::Instr(instr_in) => {
+                        instr_list.push(Operation::LablInstr(label, instr_in.to_owned()));
+                    }
                     _ => (),
                 }
-
-                instr_list.push(Operation::LablInstr(label, instr));
             },
             (None, Some(instr)) => {
                 match &instr {
-                    Instruction::VJmp(labl) => {
-                        if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
-                            local_ref_not_def.insert(labl.clone());
-                        }
-                    },
-                    Instruction::VBt(labl) => {
-                        if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
-                            local_ref_not_def.insert(labl.clone());
-                        }
-                    },
-                    Instruction::VBf(labl) => {
-                        if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
-                            local_ref_not_def.insert(labl.clone());
+                    Operation::Macro(macro_in) => {
+                        match macro_in {
+                            MacroInstr::Beq(_, _, labl) | 
+                            MacroInstr::Bne(_, _, labl) |
+                            MacroInstr::Blt(_, _, labl) |
+                            MacroInstr::Bltu(_, _, labl) |
+                            MacroInstr::Bge(_, _, labl) |
+                            MacroInstr::Bgeu(_, _, labl) |
+
+                            MacroInstr::Jal(_, labl) |
+                            MacroInstr::Jalr(_, _, labl) |
+
+                            MacroInstr::Jl(labl) |
+                            MacroInstr::Jall(labl) |
+                            MacroInstr::Calll(labl) |
+                            MacroInstr::Taill(labl) |
+
+                            MacroInstr::Lui(_, labl) |
+                            MacroInstr::Auipc(_, labl) |
+
+                            MacroInstr::Slli(_, _, labl) |
+                            MacroInstr::Srli(_, _, labl) |
+                            MacroInstr::Srai(_, _, labl) |
+
+                            MacroInstr::Lb(_, _, labl) |
+                            MacroInstr::Lh(_, _, labl) |
+                            MacroInstr::Lw(_, _, labl) |
+
+                            MacroInstr::Lbu(_, _, labl) |
+                            MacroInstr::Lhu(_, _, labl) |
+
+                            MacroInstr::Sb(_, _, labl) |
+                            MacroInstr::Sh(_, _, labl) |
+                            MacroInstr::Sw(_, _, labl) => {
+                                if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
+                                    local_ref_not_def.insert(labl.clone());
+                                }
+                            },
+                            _ => (),
                         }
                     },
                     _ => (),
                 }
 
-                instr_list.push(Operation::Instr(instr));
+                instr_list.push(instr);
             },
             (Some(label), None) => {
                 let _ = match label.strip_prefix(".") {
@@ -1006,105 +1154,166 @@ mod tests {
         assert_eq!(parse_seper(", "), Ok(("", ",")));
         assert_eq!(parse_seper(","), Ok(("", ",")));
     }
+    
+    #[test]
+    fn test_parse_instrnoparam() {
+        assert_ne!(parse_inst_noparm("invalid"), Ok(("", Operation::Macro(MacroInstr::NOP))));
+        assert_ne!(parse_inst_noparm("noop"), Ok(("", Operation::Macro(MacroInstr::NOP))));
+        assert_eq!(parse_inst_noparm("nop"), Ok(("", Operation::Macro(MacroInstr::NOP))));
+        assert_ne!(parse_inst_noparm("nop $1"), Ok(("", Operation::Macro(MacroInstr::NOP))));
+        assert_eq!(parse_inst_noparm("ret"), Ok(("", Operation::Macro(MacroInstr::Ret))));
+        assert_ne!(parse_inst_noparm("ret nop"), Ok(("", Operation::Macro(MacroInstr::Ret))));
+    }
+
+    #[test]
+    fn test_parse_instr1labl() {
+        assert_ne!(parse_inst_1labl("invalid"), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_1labl(" "), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_1labl(""), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_1labl("call"), Ok(("", MacroInstr::NA.into())));
+        assert_eq!(parse_inst_1labl("tail test"), Ok(("", MacroInstr::Taill("test".to_string()).into())));
+        assert_eq!(parse_inst_1labl("call HANS"), Ok(("", MacroInstr::Calll("HANS".to_string()).into())));
+        assert_ne!(parse_inst_1labl("call label  "), Ok(("", MacroInstr::Calll("label".to_string()).into())));
+    }
 
     #[test]
     fn test_parse_instr1imm() {
-        assert_ne!(parse_inst_1imm("invalid"), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_1imm(" "), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_1imm(""), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_1imm("jmp"), Ok(("", Instruction::NA)));
-        assert_eq!(parse_inst_1imm("jmp label"), Ok(("", Instruction::VJmp("label".to_string()))));
-        assert_eq!(parse_inst_1imm("bf label"), Ok(("", Instruction::VBf("label".to_string()))));
-        assert_ne!(parse_inst_1imm("jmp label    "), Ok(("", Instruction::VJmp("label".to_string()))));
+        assert_ne!(parse_inst_1imm("invalid"), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_1imm(" "), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_1imm(""), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_1imm("j"), Ok(("", MacroInstr::NA.into())));
+        assert_eq!(parse_inst_1imm("j 12"), Ok(("", MacroInstr::J(12).into())));
+        assert_eq!(parse_inst_1imm("call 0x10"), Ok(("", MacroInstr::Calli(16).into())));
+        assert_ne!(parse_inst_1imm("jal 125  "), Ok(("", MacroInstr::Jali(125).into())));
+    }
+
+    #[test]
+    fn test_parse_instr1reg() {
+        assert_ne!(parse_inst_1reg("invalid"), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_1reg(" "), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_1reg(""), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_1reg("jr"), Ok(("", MacroInstr::Jr(Reg::NA).into())));
+        assert_eq!(parse_inst_1reg("jalr $12"), Ok(("", MacroInstr::Jalrs(Reg::G12).into())));
+        assert_eq!(parse_inst_1reg("jr $18"), Ok(("", MacroInstr::Jr(Reg::G18).into())));
+        assert_ne!(parse_inst_1reg("jalr $19  "), Ok(("", MacroInstr::Jalrs(Reg::G19).into())));
+    }
+
+    #[test]
+    fn test_parse_instr1labl1reg() {
+        assert_ne!(parse_inst_1labl1reg(""), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_1labl1reg("lui"), Ok(("", MacroInstr::Lui(Reg::NA, "".to_string()).into())));
+        assert_eq!(parse_inst_1labl1reg("lui $12, stop"), Ok(("", MacroInstr::Lui(Reg::G12, "stop".to_string()).into())));
+        assert_eq!(parse_inst_1labl1reg("auipc $18, helloWorld"), Ok(("", MacroInstr::Auipc(Reg::G18, "helloWorld".to_string()).into())));
+        assert_eq!(parse_inst_1labl1reg("jal $20, test"), Ok(("", MacroInstr::Jal(Reg::G20, "test".to_string()).into())));
+        assert_ne!(parse_inst_1labl1reg("jal $19, train "), Ok(("", MacroInstr::Jal(Reg::G19, "train".to_string()).into())));
     }
 
     #[test]
     fn test_parse_instr1imm1reg() {
-        assert_ne!(parse_inst_1imm1reg("invalid"), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_1imm1reg(" "), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_1imm1reg(""), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_1imm1reg("ld"), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_1imm1reg("jmp label    "), Ok(("", Instruction::VJmp("label".to_string()))));
-        // TODO: More tests
+        assert_ne!(parse_inst_1imm1reg("invalid"), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_inst_1imm1reg(" "), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_inst_1imm1reg(""), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_inst_1imm1reg("ld"), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_inst_1imm1reg(""), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_inst_1imm1reg("lui"), Ok(("", Instruction::Lui(Reg::NA, 0).into())));
+        assert_eq!(parse_inst_1imm1reg("lui $12, 12"), Ok(("", Instruction::Lui(Reg::G12, 12).into())));
+        assert_eq!(parse_inst_1imm1reg("auipc $18, 0x20"), Ok(("", Instruction::Auipc(Reg::G18, 32).into())));
+        assert_eq!(parse_inst_1imm1reg("jal $20, 5"), Ok(("", Instruction::Jal(Reg::G20, 5).into())));
+        assert_ne!(parse_inst_1imm1reg("jal $19, 125 "), Ok(("", Instruction::Jal(Reg::G19, 125).into())));
     }
 
     #[test]
     fn test_parse_inst_2reg() {
-        assert_ne!(parse_inst_2reg("invalid"), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_2reg("   "), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_2reg("ld $1, 0xAA"), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_2reg("cmpe $1, 0xAA"), Ok(("", Instruction::NA)));
-        assert_eq!(parse_inst_2reg("cmpe $1, $4"), Ok(("", Instruction::Cmpe(Reg::G1, Reg::G4))));
-        assert_eq!(parse_inst_2reg("mov $1,$4"), Ok(("", Instruction::Mov(Reg::G1, Reg::G4))));
+        assert_ne!(parse_inst_2reg("invalid"), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_2reg("   "), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_2reg("ld $1, 0xAA"), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_2reg("mv $1, 0xAA"), Ok(("", MacroInstr::NA.into())));
+        assert_eq!(parse_inst_2reg("mv $1, $4"), Ok(("", MacroInstr::Mv(Reg::G1, Reg::G4).into())));
+        assert_eq!(parse_inst_2reg("mv $12,$4"), Ok(("", MacroInstr::Mv(Reg::G12, Reg::G4).into())));
+    }
+
+    fn test_parse_instr1labl2reg() {
+        assert_ne!(parse_inst_1labl2reg("invalid"), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_1labl2reg("   "), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_inst_1labl2reg("sb $1, $6"), Ok(("", MacroInstr::Sb(Reg::G1, Reg::G6, "".to_string()).into())));
+        assert_ne!(parse_inst_1labl2reg("lb $1, total"), Ok(("", MacroInstr::Lb(Reg::G1, Reg::NA, "total".to_string()).into())));
+        assert_eq!(parse_inst_1labl2reg("bgeu $1, $4, sTaRt"), Ok(("", MacroInstr::Bgeu(Reg::G1, Reg::G4, "sTaRt".to_string()).into())));
+        assert_ne!(parse_inst_1labl2reg("slli $1$4,eNND"), Ok(("", MacroInstr::Slli(Reg::G1, Reg::G4, "eNND".to_string()).into())));
+        assert_eq!(parse_inst_1labl2reg("Blt $10,$10, last"), Ok(("", MacroInstr::Blt(Reg::G10, Reg::G10, "last".to_string()).into())));
+        assert_ne!(parse_inst_1labl2reg("jalr $6,  $8,test"), Ok(("", MacroInstr::Jalr(Reg::G6, Reg::G8, "test".to_string()).into())));
+        assert_eq!(parse_inst_1labl2reg("lhu $1, $2, hans"), Ok(("", MacroInstr::Lhu(Reg::G1, Reg::G2, "hans".to_string()).into())));
+        assert_eq!(parse_inst_1labl2reg("sb $13,$15,loading"), Ok(("", MacroInstr::Sb(Reg::G13, Reg::G15, "loading".to_string()).into())));
+        assert_ne!(parse_inst_1labl2reg("beq$1$15,start"), Ok(("", MacroInstr::Beq(Reg::G1, Reg::G15, "start".to_string()).into())));
+        assert_ne!(parse_inst_1labl2reg("lbu $12, $15,  dasletzte"), Ok(("", MacroInstr::Lbu(Reg::G12, Reg::G15, "dasletzte".to_string()).into())));
     }
 
     #[test]
     fn test_parse_inst_1imm2reg() {
-        assert_ne!(parse_inst_1imm2reg_up("invalid"), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_1imm2reg_up("   "), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_1imm2reg_up("cmpe $1, $6"), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_1imm2reg_up("addi $1, 0xAA"), Ok(("", Instruction::NA)));
-        assert_eq!(parse_inst_1imm2reg_up("muli $1, $4, 5"), Ok(("", Instruction::Muli(Reg::G1, Reg::G4, 5))));
-        assert_ne!(parse_inst_1imm2reg_up("mulci $1$4,0x6"), Ok(("", Instruction::Mulci(Reg::G1, Reg::G4, 6))));
-        assert_eq!(parse_inst_1imm2reg_up("divi $10,$10, 51"), Ok(("", Instruction::Divi(Reg::G10, Reg::G10, 51))));
-        assert_ne!(parse_inst_1imm2reg_up("mulci $6,  $8,5"), Ok(("", Instruction::Mulci(Reg::G6, Reg::G8, 5))));
+        assert_ne!(parse_inst_1imm2reg_lw("invalid"), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_inst_1imm2reg_lw("   "), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_inst_1imm2reg_lw("addi $1, $6"), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_inst_1imm2reg_lw("lbu $1, 0xAA"), Ok(("", Instruction::Lbu(Reg::G1, Reg::NA, 0xAA).into())));
+        assert_eq!(parse_inst_1imm2reg_lw("blt $1, $4, 5"), Ok(("", Instruction::Blt(Reg::G1, Reg::G4, 5).into())));
+        assert_ne!(parse_inst_1imm2reg_lw("lb $1$4,0x6"), Ok(("", Instruction::Lb(Reg::G1, Reg::G4, 6).into())));
+        assert_eq!(parse_inst_1imm2reg_lw("sb $10,$10, 51"), Ok(("", Instruction::Sb(Reg::G10, Reg::G10, 51).into())));
+        assert_ne!(parse_inst_1imm2reg_lw("bge $6,  $8,5"), Ok(("", Instruction::Bge(Reg::G6, Reg::G8, 5).into())));
 
-        assert_eq!(parse_inst_1imm2reg_lw("sw $1, $2, 0xAA"), Ok(("", Instruction::Sw(Reg::G1, Reg::G2, 170))));
-        assert_eq!(parse_inst_1imm2reg_lw("sb $13,$15,6"), Ok(("", Instruction::Sb(Reg::G13, Reg::G15, 6))));
-        assert_ne!(parse_inst_1imm2reg_lw("sb$1$15,6"), Ok(("", Instruction::Sb(Reg::G1, Reg::G15, 6))));
-        assert_ne!(parse_inst_1imm2reg_lw("sb $12, $15,  6"), Ok(("", Instruction::Sb(Reg::G12, Reg::G15, 6))));
+        assert_eq!(parse_inst_1imm2reg_up("addi $1, $2, 0xAA"), Ok(("", Instruction::Addi(Reg::G1, Reg::G2, 0xAA).into())));
+        assert_eq!(parse_inst_1imm2reg_up("srr $13,$15,6"), Ok(("", MacroInstr::Srr(Reg::G13, Reg::G15, 6).into())));
+        assert_ne!(parse_inst_1imm2reg_up("slti$1$15,6"), Ok(("", Instruction::Slti(Reg::G1, Reg::G15, 6).into())));
+        assert_ne!(parse_inst_1imm2reg_up("slli $12, $15,  6"), Ok(("", Instruction::Slli(Reg::G12, Reg::G15, 6).into())));
         // TODO: More tests
     }
 
     #[test]
     fn test_parse_inst_3reg() {
-        assert_ne!(parse_inst_3reg("invalid"), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_3reg("   "), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_3reg("cmpe $1, $6"), Ok(("", Instruction::NA)));
-        assert_ne!(parse_inst_3reg("addi $1, 0xAA"), Ok(("", Instruction::NA)));
-        assert_eq!(parse_inst_3reg("mul $1, $4, $6"), Ok(("", Instruction::Muln(Reg::G1, Reg::G4, Reg::G6))));
-        assert_ne!(parse_inst_3reg("xor $10$14,$7"), Ok(("", Instruction::Xor(Reg::G10, Reg::G14, Reg::G7))));
-        assert_eq!(parse_inst_3reg("add $10,$11, $10"), Ok(("", Instruction::Addn(Reg::G10, Reg::G11, Reg::G10))));
-        assert_ne!(parse_inst_3reg("xnor $6,  $8,$5"), Ok(("", Instruction::Xnor(Reg::G6, Reg::G8, Reg::G5))));
-        assert_eq!(parse_inst_3reg("cmpl $6, $8, $14"), Ok(("", Instruction::Cmpl(Reg::G6, Reg::G8, Reg::G14))));
-        assert_ne!(parse_inst_3reg("cmpg $6,  $8, $14"), Ok(("", Instruction::Cmpg(Reg::G6, Reg::G8, Reg::G14))));
+        assert_ne!(parse_inst_3reg("invalid"), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_inst_3reg("   "), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_inst_3reg("addi $1, $6, 0xAA"), Ok(("", Instruction::Addi(Reg::G1, Reg::G6, 0xAA).into())));
+        assert_ne!(parse_inst_3reg("add $1, $2"), Ok(("", Instruction::Addn(Reg::G1, Reg::G2, Reg::NA).into())));
+        assert_eq!(parse_inst_3reg("mul $1, $4, $6"), Ok(("", MacroInstr::Muln(Reg::G1, Reg::G4, Reg::G6).into())));
+        assert_ne!(parse_inst_3reg("div $10$14,$7"), Ok(("", MacroInstr::Divn(Reg::G10, Reg::G14, Reg::G7).into())));
+        assert_eq!(parse_inst_3reg("xor $10,$11, $10"), Ok(("", Instruction::Xor(Reg::G10, Reg::G11, Reg::G10).into())));
+        assert_ne!(parse_inst_3reg("xnor $6,  $8,$5"), Ok(("", MacroInstr::Xnor(Reg::G6, Reg::G8, Reg::G5).into())));
+        assert_eq!(parse_inst_3reg("and $6, $8, $14"), Ok(("", Instruction::And(Reg::G6, Reg::G8, Reg::G14).into())));
+        assert_ne!(parse_inst_3reg("sll $6,  $8, $14"), Ok(("", Instruction::Sll(Reg::G6, Reg::G8, Reg::G14).into())));
     }
 
     #[test]
     fn test_parse_instruction() {
-        assert_eq!(parse_instruction("cmpe $1, $6"), Ok(("", Instruction::Cmpe(Reg::G1, Reg::G6))));
-        assert_ne!(parse_instruction("addi $1, 0xAA"), Ok(("", Instruction::NA)));
-        assert_eq!(parse_instruction("mul $1, $4, $6"), Ok(("", Instruction::Muln(Reg::G1, Reg::G4, Reg::G6))));
-        assert_ne!(parse_instruction("xor $10$14,$7"), Ok(("", Instruction::Xor(Reg::G10, Reg::G14, Reg::G7))));
-        assert_eq!(parse_instruction("add $10,$11, $10"), Ok(("", Instruction::Addn(Reg::G10, Reg::G11, Reg::G10))));
-        assert_ne!(parse_instruction("xnor $6,  $8,$5"), Ok(("", Instruction::Xnor(Reg::G6, Reg::G8, Reg::G5))));
-        assert_eq!(parse_instruction("srr $5, $8, 7"), Ok(("", Instruction::Srr(Reg::G5, Reg::G8, 7))));
+        assert_eq!(parse_instruction("mv $1, $6"), Ok(("", MacroInstr::Mv(Reg::G1, Reg::G6).into())));
+        assert_ne!(parse_instruction("addi $1, 0xAA"), Ok(("", Instruction::Addi(Reg::G1, Reg::NA, 0xAA).into())));
+        assert_eq!(parse_instruction("mul $1, $4, $6"), Ok(("", MacroInstr::Muln(Reg::G1, Reg::G4, Reg::G6).into())));
+        assert_ne!(parse_instruction("xor $10$14,$7"), Ok(("", Instruction::Xor(Reg::G10, Reg::G14, Reg::G7).into())));
+        assert_eq!(parse_instruction("add $10,$11, $10"), Ok(("", Instruction::Addn(Reg::G10, Reg::G11, Reg::G10).into())));
+        assert_ne!(parse_instruction("xnor $6,  $8,$5"), Ok(("", MacroInstr::Xnor(Reg::G6, Reg::G8, Reg::G5).into())));
+        assert_eq!(parse_instruction("srr $5, $8, 7"), Ok(("", MacroInstr::Srr(Reg::G5, Reg::G8, 7).into())));
+        // More tests?
     }
 
     #[test]
     fn test_parse_line() {
         assert_eq!(parse_line("label: add $1, $5, $6"),
-                   Ok(("", (Some(Cow::from("label")), Some(Instruction::Addn(Reg::G1, Reg::G5, Reg::G6))))));
+                   Ok(("", (Some(Cow::from("label")), Some(Instruction::Addn(Reg::G1, Reg::G5, Reg::G6).into())))));
         assert_eq!(parse_line("\ntest:\n\nsub $6, $5, $11"),
-                   Ok(("", (Some(Cow::from("test")), Some(Instruction::Subn(Reg::G6, Reg::G5, Reg::G11))))));
+                   Ok(("", (Some(Cow::from("test")), Some(Instruction::Subn(Reg::G6, Reg::G5, Reg::G11).into())))));
         assert_eq!(parse_line("\n\n\nreturn:\n"),
                    Ok(("", (Some(Cow::from("return")), None))));
-        assert_eq!(parse_line("movu $15, 0x05\nmovl $15, 0x05"),
-                   Ok(("\nmovl $15, 0x05", (None, Some(Instruction::Movu(Reg::G15, 5))))));
+        assert_eq!(parse_line("mv $15, $12\naddi $12, $10, 0x05"),
+                   Ok(("\naddi $12, $10, 0x05", (None, Some(MacroInstr::Mv(Reg::G15, Reg::G12).into())))));
         assert_eq!(parse_line("label:\ndiv $14, $13, $10"),
-                   Ok(("", (Some(Cow::from("label")), Some(Instruction::Divn(Reg::G14, Reg::G13, Reg::G10))))));
+                   Ok(("", (Some(Cow::from("label")), Some(MacroInstr::Divn(Reg::G14, Reg::G13, Reg::G10).into())))));
     }
 
     #[test]
     fn test_parse() {
         let source_code = r#"START:
-    movu $3, 16
-    movl $3, 16
-    cmpe $3, $4
-    bt END
-    movu $4, 16
-    movl $4, 16
-    jmp START
+    li $4, 16
+    mv $3, $4
+MUL: beq $3, $4, END
+    mul $6, $4, $3
+    lui $4, 0x16
+    j MUL
 END:
 "#;
 
@@ -1113,24 +1322,29 @@ END:
         label.set_name("START".to_string());
         label.set_scope(true);
         label.set_def(0);
-        label.add_ref(6);
+        let _ = symbols.insert_label(label);
+
+        label = LabelElem::new();
+        label.set_name("MUL".to_string());
+        label.set_scope(true);
+        label.set_def(2);
+        label.add_ref(5);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new();
         label.set_name("END".to_string());
         label.set_scope(true);
-        label.set_def(7);
-        label.add_ref(3);
+        label.set_def(6);
+        label.add_ref(2);
         let _ = symbols.insert_label(label);
 
         let correct_vec: Vec<Operation> = vec![
-                                                 Operation::LablInstr(Cow::from("START"), Instruction::Movu(Reg::G3, 16)),
-                                                 Operation::from(Instruction::Movl(Reg::G3, 16)),
-                                                 Operation::from(Instruction::Cmpe(Reg::G3, Reg::G4)),
-                                                 Operation::from(Instruction::VBt("END".to_string())),
-                                                 Operation::from(Instruction::Movu(Reg::G4, 16)),
-                                                 Operation::from(Instruction::Movl(Reg::G4, 16)),
-                                                 Operation::from(Instruction::VJmp("START".to_string())),
+                                                 Operation::LablMacro(Cow::from("START"), MacroInstr::Li(Reg::G4, 16)),
+                                                 Operation::from(MacroInstr::Mv(Reg::G3, Reg::G4)),
+                                                 Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
+                                                 Operation::from(MacroInstr::Muln(Reg::G6, Reg::G4, Reg::G3)),
+                                                 Operation::from(Instruction::Lui(Reg::G4, 0x16)),
+                                                 Operation::from(MacroInstr::Jl("MUL".to_string())),
                                                  Operation::Labl(Cow::from("END"))
                                                 ];
 

@@ -15,34 +15,12 @@ mod common;
 use clap::{Arg, Command};
 use clap::value_parser;
 use clap::ArgAction;
+use parser::Subroutines;
 use std::path::Path;
 use std::{fs, path::PathBuf};
 use std::fs::File;
 
 use crate::common::{LabelRecog, Operation};
-
-// TODO
-pub static MUL_SUB: &str = r#"
-"#;
-pub static DIV_SUB: &str = r#"
-"#;
-
-pub static SRR_SUB: &str = r#"
-_SRR:
-    sub a4, zero, a1
-    srl a2, a0, a1
-    sll a3, a0, a4
-    or a0, a2, a3
-    ret
-"#;
-pub static SLR_SUB: &str = r#"
-_SLR:
-    sub a4, zero, a1
-    sll a2, a0, a1
-    srl a3, a0, a4
-    or a0, a2, a3
-    ret
-"#;
 
 fn main() {
     //let src = "addi $3, $3, 1";
@@ -73,11 +51,21 @@ fn main() {
         };
     }
 
+    let mut subroutines = Subroutines::new();
+
     for val in string_vector.as_slice() {
-        let val = parser::parse(&val);
+        let val = parser::parse(&val, &mut Some(&mut subroutines));
         match val {
             Ok(val) => parsed_vector.push(val.1),
             Err(_) => panic!("Parser error"),
+        }
+    }
+
+    for code in subroutines.get_code().as_slice() {
+        let val = parser::parse(&code, &mut None);
+        match val {
+            Ok(res) => parsed_vector.push(res.1),
+            Err(_) => (),
         }
     }
 

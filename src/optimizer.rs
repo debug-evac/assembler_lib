@@ -131,7 +131,7 @@ impl MacroInstr {
                 instructions.push(Instruction::Srai(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
-            // Imm == a1 == G11
+            // Imm == a1 == G11; Probably nop insertions needed
             MacroInstr::Srr(reg1, reg2, imm) => {
                 let lines = (instructions.len() as i32) - translate_label("_SRR".to_string(), namespace, *current_space);
 

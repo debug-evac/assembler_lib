@@ -37,6 +37,67 @@ use std::borrow::Cow;
 
 use crate::common::*;
 
+pub struct Subroutines {
+    code_str_vec: HashSet<String>
+}
+
+impl Subroutines {
+    // TODO:
+    const MUL_SUB: &'static str = r#"
+_MUL:
+"#;
+    const DIV_SUB: &'static str = r#"
+_DIV:
+"#;
+
+    const SRR_SUB: &'static str = r#"
+_SRR:
+    sub a4, zero, a1
+    srl a2, a0, a1
+    sll a3, a0, a4
+    or a0, a2, a3
+    ret
+"#;
+    const SLR_SUB: &'static str = r#"
+_SLR:
+    sub a4, zero, a1
+    sll a2, a0, a1
+    srl a3, a0, a4
+    or a0, a2, a3
+    ret
+"#;
+
+    pub fn new() -> Self {
+        let code_str_vec = HashSet::new();
+
+        Subroutines{ code_str_vec }
+    }
+
+    pub fn mul_defined(&mut self) -> () {
+        self.code_str_vec.insert(Self::MUL_SUB.to_string());
+    }
+
+    pub fn div_defined(&mut self) -> () {
+        self.code_str_vec.insert(Self::DIV_SUB.to_string());
+    }
+
+    pub fn srr_defined(&mut self) -> () {
+        self.code_str_vec.insert(Self::SRR_SUB.to_string());
+    }
+
+    pub fn slr_defined(&mut self) -> () {
+        self.code_str_vec.insert(Self::SLR_SUB.to_string());
+    }
+
+    pub fn get_code(&self) -> Vec<String> {
+        self.code_str_vec.to_owned().into_iter().collect()
+    }
+
+    pub fn merge(&mut self, other: &Subroutines) {
+        self.code_str_vec.extend(other.code_str_vec.clone());
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LabelInsertError {
     label: String,
@@ -82,6 +143,14 @@ fn parse_label_definition(input: &str) -> IResult<&str, Cow<str>> {
         Some(local) => Ok((rest, Cow::from(local) + parsed)),
         None => Ok((rest, parsed))
     }
+}
+
+fn parse_label_definition_priv(input: &str) -> IResult<&str, Cow<str>> {
+    let (rest, req_underscore) = tag("_")(input)?;
+    let (rest, parsed) = parse_label_name(rest)?;
+    let (rest, _) = tag(":")(rest)?;
+
+    Ok((rest, Cow::from(req_underscore) + parsed))
 }
 
 fn from_hex(input: &str) -> Result<Imm, std::num::ParseIntError> {
@@ -512,7 +581,20 @@ fn parse_line(input: &str) -> IResult<&str, (Option<Cow<str>>, Option<Operation>
     }
 }
 
-pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
+fn parse_line_priv(input: &str) -> IResult<&str, (Option<Cow<str>>, Option<Operation>)> {
+    let (rest, _) = multispace0(input)?;
+    let (rest, label) = opt(parse_label_definition_priv)(rest)?;
+    if label.is_some() {
+        let (rest, _) = multispace1(rest)?;
+        let (rest, instr) = opt(parse_instruction)(rest)?;
+        Ok((rest, (label, instr)))
+    } else {
+        let (rest, instr) = parse_instruction(rest)?;
+        Ok((rest, (label, Some(instr))))
+    }
+}
+
+pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> IResult<&'a str, (LabelRecog, Vec<Operation<'a>>)> {
     let mut local_ref_not_def: HashSet<String> = HashSet::new();
     let mut symbol_map = LabelRecog::new();
     let mut instr_list: Vec<Operation> = vec![];
@@ -520,8 +602,17 @@ pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
     let mut rest = input;
     let mut instr_counter: usize = 0;
 
+    let mut privileged = false;
+
+    if let None = subroutines {
+        privileged = true;
+    }
+
     loop {
-        let res = parse_line(rest);
+        let res = match privileged {
+            true => parse_line_priv(rest),
+            false => parse_line(rest),
+        };
 
         let parsed = match res {
             Ok(line) => {
@@ -551,6 +642,11 @@ pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
                 match &instr {
                     Operation::Macro(macro_in) => {
                         match macro_in {
+                            MacroInstr::Muln(_, _, _) => subroutines.as_mut().unwrap().mul_defined(),
+                            MacroInstr::Divn(_, _, _) => subroutines.as_mut().unwrap().div_defined(),
+                            MacroInstr::Srr(_, _, _) => subroutines.as_mut().unwrap().srr_defined(),
+                            MacroInstr::Slr(_, _, _) => subroutines.as_mut().unwrap().slr_defined(),
+
                             MacroInstr::Beq(_, _, labl) | 
                             MacroInstr::Bne(_, _, labl) |
                             MacroInstr::Blt(_, _, labl) |
@@ -604,6 +700,11 @@ pub fn parse(input: &str) -> IResult<&str, (LabelRecog, Vec<Operation>)> {
                 match &instr {
                     Operation::Macro(macro_in) => {
                         match macro_in {
+                            MacroInstr::Muln(_, _, _) => subroutines.as_mut().unwrap().mul_defined(),
+                            MacroInstr::Divn(_, _, _) => subroutines.as_mut().unwrap().div_defined(),
+                            MacroInstr::Srr(_, _, _) => subroutines.as_mut().unwrap().srr_defined(),
+                            MacroInstr::Slr(_, _, _) => subroutines.as_mut().unwrap().slr_defined(),
+
                             MacroInstr::Beq(_, _, labl) | 
                             MacroInstr::Bne(_, _, labl) |
                             MacroInstr::Blt(_, _, labl) |
@@ -695,6 +796,18 @@ mod tests {
         assert_ne!(parse_label_definition("0invalid:"), Ok(("", Cow::from("0invalid"))));
         assert_eq!(parse_label_definition("v415alid:"), Ok(("", Cow::from("v415alid"))));
         assert_eq!(parse_label_definition(".veryvalid:"), Ok(("", Cow::from(".veryvalid"))));
+    }
+
+    #[test]
+    fn test_parse_label_privileged() {
+        assert_ne!(parse_label_definition_priv("invalid"), Ok(("", Cow::from("invalid"))));
+        assert_ne!(parse_label_definition_priv("invalid0:"), Ok(("", Cow::from("invalid0"))));
+        assert_ne!(parse_label_definition_priv("invalid :"), Ok(("", Cow::from("invalid"))));
+        assert_ne!(parse_label_definition_priv(" "), Ok(("", Cow::from(""))));
+        assert_eq!(parse_label_definition_priv("_valid:"), Ok(("", Cow::from("_valid"))));
+        assert_ne!(parse_label_definition_priv("0invalid:"), Ok(("", Cow::from("0invalid"))));
+        assert_eq!(parse_label_definition_priv("_v415alid:"), Ok(("", Cow::from("_v415alid"))));
+        assert_eq!(parse_label_definition_priv("_veryvalid:"), Ok(("", Cow::from("_veryvalid"))));
     }
 
     #[test]
@@ -876,7 +989,20 @@ mod tests {
                    Ok(("", (Some(Cow::from("label")), Some(MacroInstr::Divn(Reg::G14, Reg::G13, Reg::G10).into())))));
     }
 
-    //#[ignore = "Currently failing, since Muln is not correctly defined"]
+    #[test]
+    fn test_parse_line_privileged() {
+        assert_eq!(parse_line_priv("_label: add x1, x5, x6"),
+                    Ok(("", (Some(Cow::from("_label")), Some(Instruction::Addn(Reg::G1, Reg::G5, Reg::G6).into())))));
+        assert_eq!(parse_line_priv("\n_test:\n\nsub x6, x5, x11"),
+                    Ok(("", (Some(Cow::from("_test")), Some(Instruction::Subn(Reg::G6, Reg::G5, Reg::G11).into())))));
+        assert_eq!(parse_line_priv("\n\n\n_return:\n"),
+                    Ok(("", (Some(Cow::from("_return")), None))));
+        assert_eq!(parse_line_priv("mv x15, x12\naddi x12, x10, 0x05"),
+                    Ok(("\naddi x12, x10, 0x05", (None, Some(MacroInstr::Mv(Reg::G15, Reg::G12).into())))));
+        assert_eq!(parse_line_priv("_label:\ndiv x14, x13, x10"),
+                    Ok(("", (Some(Cow::from("_label")), Some(MacroInstr::Divn(Reg::G14, Reg::G13, Reg::G10).into())))));
+    }
+
     #[test]
     fn test_parse() {
         let source_code = r#"START:
@@ -888,6 +1014,8 @@ MUL: beq x3, x4, END
     j MUL
 END:
 "#;
+
+        let mut subroutines = Subroutines::new();
 
         let mut symbols = LabelRecog::new();
         let mut label = LabelElem::new();
@@ -920,25 +1048,12 @@ END:
                                                  Operation::Labl(Cow::from("END"))
                                                 ];
 
-        assert_eq!(parse(source_code),
+        assert_eq!(parse(source_code, &mut Some(&mut subroutines)),
                    Ok(("", (symbols, correct_vec))));
+        assert_eq!(subroutines.get_code(), Vec::from([Subroutines::MUL_SUB]));
 
         // TODO: Probably more test cases!
     }
-
-    /*
-    #[test]
-    fn test_labelrecog() {
-        let mut symbols = LabelRecog::new();
-        let mut label = LabelElem::new();
-
-        let label_name = "HELLO".to_string();
-        label.set_name(label_name.clone());
-
-        let _ = symbols.insert_label(label.clone());
-
-        assert_eq!(symbols.label_map.get(&label_name), Some(&0));
-    }*/
 }
 
 // Lokale und globale Labels

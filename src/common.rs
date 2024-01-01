@@ -355,7 +355,7 @@ pub struct LabelElem {
     name: String,
     definition: i128,
     scope: bool,
-    references: Box<HashSet<usize>>,
+    referenced: bool
 }
 
 impl LabelElem {
@@ -363,13 +363,14 @@ impl LabelElem {
         let name = String::new();
         let definition: i128 = -1;
         let scope = false;
-        let references: Box<HashSet<usize>> = Box::from(HashSet::new());
+        //let references: Box<HashSet<usize>> = Box::from(HashSet::new());
+        let referenced = false;
 
         LabelElem {
             name,
             definition,
             scope, 
-            references 
+            referenced 
         }
     }
 
@@ -380,17 +381,18 @@ impl LabelElem {
         elem
     }
 
-    pub fn new_ref(name: String, reference: usize) -> LabelElem {
+    pub fn new_refd(name: String) -> LabelElem {
         let mut elem = LabelElem::new();
         elem.set_name(name);
-        elem.add_ref(reference);
+        elem.set_refd();
         elem
     }
 
     // TODO: Custom error struct
-    pub fn combine(&mut self, other: &LabelElem, offset: usize) -> Result<&str, &str> {
-        assert!(self.name.eq(&other.name));
-        assert!(self.scope == other.scope);
+    pub fn combine(&mut self, other: &LabelElem) -> Result<&str, &str> {
+        if self.name.ne(&other.name) || self.scope != other.scope {
+            return Err("Labels are not the same!");
+        }
 
         if self.definition != -1 && other.definition != -1 {
             return Err("Global label defined in two files!");
@@ -398,11 +400,10 @@ impl LabelElem {
             self.definition = other.definition;
         }
 
-        let other_refs: HashSet<usize> = other.references.iter()
-                .map(|line| line + offset).collect();
+        if self.referenced || other.referenced {
+            self.referenced = true;
+        }
 
-        let union = self.references.union(&other_refs).map(|&val| val);
-        self.references = Box::from(union.collect::<HashSet<usize>>());
         Ok("Labels combined!")
     }
 
@@ -430,20 +431,8 @@ impl LabelElem {
         &self.definition
     }
 
-    pub fn add_ref(&mut self, reference: usize) -> () {
-        self.references.insert(reference);
-    }
-
-    pub fn rem_ref(&mut self, reference: usize) -> () {
-        self.references.remove(&reference);
-    }
-
-    pub fn replace_ref(&mut self, old: &usize, new: usize) -> bool {
-        if self.references.remove(old) {
-            self.references.insert(new);
-            return true;
-        }
-        return false;
+    pub fn set_refd(&mut self) -> () {
+        self.referenced = true;
     }
 }
 
@@ -504,10 +493,10 @@ impl LabelRecog {
 
     // Creates a label, if it does not exist already with the name label_str, scope and the reference.
     // Returns true, if there is already a definition, else false.
-    pub fn crt_or_ref_label(&mut self, label_str: &String, scope: bool, reference: usize) -> bool {
+    pub fn crt_or_ref_label(&mut self, label_str: &String, scope: bool) -> bool {
         match self.get_label(label_str) {
             Some(label) => {
-                label.add_ref(reference);
+                label.set_refd();
                 if !label.get_scope() {
                     *label.get_def() != -1
                 } else {
@@ -515,9 +504,7 @@ impl LabelRecog {
                 }
             },
             None => {
-                let mut label = LabelElem::new();
-                label.set_name(label_str.clone());
-                label.add_ref(reference);
+                let mut label = LabelElem::new_refd(label_str.clone());
                 label.set_scope(scope);
                 let _ = self.insert_label(label);
                 false

@@ -92,10 +92,6 @@ _SLR:
     pub fn get_code(&self) -> Vec<String> {
         self.code_str_vec.to_owned().into_iter().collect()
     }
-
-    pub fn merge(&mut self, other: &Subroutines) {
-        self.code_str_vec.extend(other.code_str_vec.clone());
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -679,7 +675,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                             MacroInstr::Sb(_, _, labl) |
                             MacroInstr::Sh(_, _, labl) |
                             MacroInstr::Sw(_, _, labl) => {
-                                if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
+                                if !symbol_map.crt_or_ref_label(labl, false) {
                                     local_ref_not_def.insert(labl.clone());
                                 }
                             },
@@ -737,7 +733,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                             MacroInstr::Sb(_, _, labl) |
                             MacroInstr::Sh(_, _, labl) |
                             MacroInstr::Sw(_, _, labl) => {
-                                if !symbol_map.crt_or_ref_label(labl, false, instr_counter) {
+                                if !symbol_map.crt_or_ref_label(labl, false) {
                                     local_ref_not_def.insert(labl.clone());
                                 }
                             },
@@ -1024,18 +1020,14 @@ END:
         label.set_def(0);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new();
-        label.set_name("MUL".to_string());
+        label = LabelElem::new_refd("MUL".to_string());
         label.set_scope(true);
         label.set_def(3);
-        label.add_ref(9);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new();
-        label.set_name("END".to_string());
+        label = LabelElem::new_refd("END".to_string());
         label.set_scope(true);
         label.set_def(10);
-        label.add_ref(3);
         let _ = symbols.insert_label(label);
 
         let correct_vec: Vec<Operation> = vec![

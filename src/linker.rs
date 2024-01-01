@@ -14,8 +14,7 @@
 // Linked files need to be specified and ordered from flags or a
 // particular file (probably flags only, but we'll see).
 use std::collections::HashMap;
-use std::borrow::Cow;
-use crate::common::{LabelRecog, Operation, LabelElem, MacroInstr};
+use crate::common::{LabelRecog, Operation, LabelElem};
 
 #[derive(Debug, PartialEq)]
 pub struct Namespaces {
@@ -42,16 +41,15 @@ impl Namespaces {
 
     pub fn insert_recog(&mut self, recog: LabelRecog) -> Result<&str, LinkError> {
         let other_gl_elems = recog.get_global_labels();
-        let offset = recog.get_offset();
         for labelelem in other_gl_elems.iter() {
             let elem_name = labelelem.get_name();
             match self.global_definitions.get(elem_name) {
                 Some(val) => {
                     match self.global_namespace.get_mut(*val) {
                         Some(gl_label) => {
-                            match gl_label.combine(labelelem, offset) {
+                            match gl_label.combine(labelelem) {
                                 Ok(_) => (),
-                                Err(msg) => return Err(LinkError {}),
+                                Err(_msg) => return Err(LinkError {}),
                             }
                         },
                         None => (),
@@ -142,7 +140,8 @@ pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Name
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::{Instruction, Reg};
+    use std::borrow::Cow;
+    use crate::common::{Instruction, Reg, MacroInstr};
 
     #[test]
     fn test_correct_link() {
@@ -153,19 +152,14 @@ mod tests {
 
         let mut label_recog_one = LabelRecog::new();
 
-        let mut label = LabelElem::new();
-
-        label.set_name("SEHR_SCHOEN".to_string());
+        let mut label = LabelElem::new_refd("SEHR_SCHOEN".to_string());
         label.set_scope(true);
         label.set_def(0);
-        label.add_ref(5);
         let _ = label_recog_one.insert_label(label);
 
-        label = LabelElem::new();
-        label.set_name("END".to_string());
+        label = LabelElem::new_refd("END".to_string());
         label.set_scope(false);
         label.set_def(1);
-        label.add_ref(0);
         let _ = label_recog_one.insert_label(label);
 
         /*
@@ -184,17 +178,12 @@ mod tests {
 
         let mut label_recog_two = LabelRecog::new();
 
-        label = LabelElem::new();
-
-        label.set_name("SEHR_SCHOEN".to_string());
+        label = LabelElem::new_refd("SEHR_SCHOEN".to_string());
         label.set_scope(true);
-        label.add_ref(0);
         let _ = label_recog_two.insert_label(label);
 
-        label = LabelElem::new();
-        label.set_name("END".to_string());
+        label = LabelElem::new_def("END".to_string(), 1);
         label.set_scope(false);
-        label.set_def(1);
         let _ = label_recog_two.insert_label(label);
 
         /*
@@ -274,12 +263,9 @@ mod tests {
 
         let mut label_recog_two = LabelRecog::new();
 
-        label = LabelElem::new();
-
-        label.set_name("SEHR_SCHOEN".to_string());
+        label = LabelElem::new_refd("SEHR_SCHOEN".to_string());
         label.set_scope(true);
         label.set_def(0);
-        label.add_ref(1);
         let _ = label_recog_two.insert_label(label);
 
         /*

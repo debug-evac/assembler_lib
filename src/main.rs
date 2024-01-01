@@ -12,13 +12,22 @@ mod optimizer;
 mod translator;
 mod common;
 
-use clap::{Arg, Command};
-use clap::value_parser;
-use clap::ArgAction;
+use clap::{
+    Arg, 
+    Command, 
+    value_parser, 
+    ArgAction
+};
 use parser::Subroutines;
-use std::path::Path;
-use std::{fs, path::PathBuf};
-use std::fs::File;
+use std::{
+    io::Write,
+    fs,
+    fs::File,
+    path::{
+        PathBuf,
+        Path
+    },
+};
 
 use crate::common::{LabelRecog, Operation};
 
@@ -61,7 +70,8 @@ fn main() {
         }
     }
 
-    for code in subroutines.get_code().as_slice() {
+    let sub_code = subroutines.get_code();
+    for code in sub_code.as_slice() {
         let val = parser::parse(&code, &mut None);
         match val {
             Ok(res) => parsed_vector.push(res.1),
@@ -69,14 +79,13 @@ fn main() {
         }
     }
 
-    /*let linked_vector: (LabelRecog, Vec<Operation>);
-        let res = linker::link(parsed_vector);
-        match res{
-            Ok(linked) => linked_vector  = linked,
-            Err(mes) => println!("could not link the assembler files"),
-        }*/
+    let linked_vector = match linker::link(parsed_vector) {
+        Ok(linked) => linked,
+        Err(mes) => panic!("[Error] could not link assembly files: {:?}", mes),
+    };
 
-
+    let optimized_code = optimizer::optimize(linked_vector);
+    let translated_code = translator::translate(optimized_code);
 
     let assembler_output = Command::new("Assembler Output")
     .arg(Arg::new("destination")
@@ -89,24 +98,18 @@ fn main() {
                 .help("The destination for the output file"))
     .get_matches();
 
-    let mut filename;
-    match assembler_output.get_one::<PathBuf>("destination"){
-        None => filename = Path::new("./a.bin"),
-        Some(assembler_output) => filename = assembler_output,
-    }
-    let f = File::create(filename);
-    //f.write_all(.as_byteArray());  Translator ausgabe muss eingefügt werden
-     
-     
-     
-     
-     
-     
-     
-     
-     
-     
-     
+    let filename = match assembler_output.get_one::<PathBuf>("destination"){
+        None => Path::new("./a.bin"),
+        Some(assembler_output) => assembler_output,
+    };
+
+    let mut output_file = match File::create(filename) {
+        Ok(file) => file,
+        Err(msg) => panic!("[Error] could not create output file: {}", msg),
+    };
+
+    output_file.write_all(&translated_code).expect("[Error] could not write to output file!");
+
          /*
  let myfile: Vec<&PathBuf> = matches.get_many::<PathBuf>("file")
  .expect("files are needed!")

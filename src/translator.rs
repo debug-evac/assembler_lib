@@ -9,9 +9,7 @@
 //
 // Translate a AST to the equivalent machine code after it
 // has been parsed, linked and potentially optimized.
-use std::fs::File;
-use std::io::BufWriter;
-use crate::common::{LabelRecog, Instruction, Operation, Reg, Imm};
+use crate::common::{Instruction, Reg, Imm};
 
 fn btype_instr(rs1: Reg, rs2: Reg, imm: Imm) -> u32 {
    let u12 =  imm & 0b10_00000_00000i32 >> 1;
@@ -54,7 +52,7 @@ impl Instruction {
       imm & 2_i32.pow(((mask + 1) as u32) - 1)
    }
 
-   fn translate_instruction(self) -> u32{
+   fn translate_instruction(self) -> u32 {
       match self {
          Instruction::NA => panic!("NA Instruction received! Fatal error!"),
 
@@ -120,11 +118,11 @@ impl Instruction {
    }
 }
 
-pub fn translate(input: Vec<Instruction>) -> Vec<u32> {
-   let mut output: Vec<u32> = vec![];
+pub fn translate(input: Vec<Instruction>) -> Vec<u8> {
+   let mut output: Vec<u8> = vec![];
 
    for instr in input.iter(){
-      output.push(Instruction::translate_instruction(instr.clone()));
+      output.extend(Instruction::translate_instruction(instr.clone()).to_be_bytes());
    }
 
    output

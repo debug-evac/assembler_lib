@@ -166,8 +166,8 @@ impl MacroInstr {
                 instructions.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0));
             },
 
-            MacroInstr::Xnor(reg1, reg2, reg3) => todo!("Not implemented yet!"),
-            MacroInstr::Nor(reg1, reg2, reg3) => todo!("Not implemented yet!"),
+            MacroInstr::Xnor(_reg1, _reg2, _reg3) => todo!("Not implemented yet!"),
+            MacroInstr::Nor(_reg1, _reg2, _reg3) => todo!("Not implemented yet!"),
 
             // TODO: Evaluate if this is right? Spec paper seems to add upper half of symbol to PC (needed for our case?)
             MacroInstr::Lb(reg1, reg2, labl) => {
@@ -214,6 +214,7 @@ fn translate_label(label: String, namespaces: &mut Namespaces, current_space: us
     }
 }
 
+#[allow(unused)]
 fn nop_insertion(mut code: (Namespaces, Vec<Operation>)) -> (Namespaces, Vec<Operation>) {
     todo!("About to be implemented!");
 }

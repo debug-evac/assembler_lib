@@ -11,7 +11,7 @@
 // other modules. This module was created since the parser module is 
 // quite big.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::borrow::Cow;
 
 pub type Imm = i32; // always less than 32
@@ -427,6 +427,10 @@ impl LabelElem {
         self.definition = definition;
     }
 
+    pub fn add_def(&mut self, offset: i128) -> () {
+        self.definition = self.definition + offset;
+    }
+
     pub fn get_def(&self) -> &i128 {
         &self.definition
     }
@@ -438,20 +442,17 @@ impl LabelElem {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct LabelRecog {
-    offset: usize,
     label_map: Box<HashMap<String, usize>>,
     label_list: Box<Vec<LabelElem>>,
 }
 
 impl LabelRecog {
     pub fn new() -> LabelRecog {
-        let offset = 0;
         let label_list: Box<Vec<LabelElem>> = Box::from(vec![]);
         let label_map: Box<HashMap<String, usize>> =
         Box::from(HashMap::new());
 
         LabelRecog {
-            offset,
             label_list,
             label_map,
         }
@@ -532,11 +533,9 @@ impl LabelRecog {
         global_labels
     }
 
-    pub fn set_offset(&mut self, offset: usize) -> () {
-        self.offset = offset;
-    }
-
-    pub fn get_offset(&self) -> usize {
-        self.offset
+    pub fn add_offset(&mut self, offset: i128) -> () {
+        for lblelm in self.label_list.iter_mut().filter(|e| *e.get_def() != -1) {
+            lblelm.add_def(offset);
+        }
     }
 }

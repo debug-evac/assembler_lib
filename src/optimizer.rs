@@ -20,8 +20,10 @@
 // restructuring the assembly code (can be suppressed by
 // another flag).
 
+use std::collections::{BTreeMap, VecDeque};
+
 use crate::{
-    common::{Instruction, Operation, MacroInstr, Reg}, 
+    common::{Instruction, Operation, MacroInstr, Reg, LabelElem}, 
     linker::Namespaces
 };
 
@@ -214,9 +216,13 @@ fn translate_label(label: String, namespaces: &mut Namespaces, current_space: us
     }
 }
 
-#[allow(unused)]
 fn nop_insertion(mut code: (Namespaces, Vec<Operation>)) -> (Namespaces, Vec<Operation>) {
-    todo!("About to be implemented!");
+    let mut code_inserts: BTreeMap<usize, i128> = BTreeMap::new();
+    let mut label_pos: BTreeMap<usize, LabelElem> = BTreeMap::new();
+
+    let mut branch_ptr_queue: VecDeque<usize> = VecDeque::new();
+
+    code
 }
 
 fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction> {
@@ -240,8 +246,8 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction>
 }
 
 pub fn optimize(code: (Namespaces, Vec<Operation>)) -> Vec<Instruction> {
-    //let nop_code = nop_insertion(code);
-    return substitute_labels(code);
+    let nop_code = nop_insertion(code);
+    return substitute_labels(nop_code);
 }
 
 // TODO: Tests here

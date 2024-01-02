@@ -114,8 +114,8 @@ pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Name
     // Break out into multiple functions? Probably not..
     for code in parsed_instr.iter_mut() {
         match offset.get(file_counter) {
-            Some(val) => code.0.set_offset(*val),
-            None => code.0.set_offset(0),
+            Some(val) => code.0.add_offset(*val as i128),
+            None => (),
         };
         match new_code.0.insert_recog(code.0.clone()) {
             Ok(_) => (),
@@ -197,11 +197,11 @@ mod tests {
 
         // ####################################################################
 
-        let mut label_recog_ver1 = label_recog_one;
+        let label_recog_ver1 = label_recog_one;
         let mut label_recog_ver2 = label_recog_two;
 
-        label_recog_ver1.set_offset(0);
-        label_recog_ver2.set_offset(2);
+        //label_recog_ver1.set_offset(0);
+        label_recog_ver2.add_offset(2);
 
         let mut namespace_ver = Namespaces::new();
 
@@ -332,11 +332,11 @@ mod tests {
 
         // ####################################################################
 
-        let mut label_recog_ver1 = label_recog_one;
+        let label_recog_ver1 = label_recog_one;
         let mut label_recog_ver2 = label_recog_two;
 
-        label_recog_ver1.set_offset(0);
-        label_recog_ver2.set_offset(3);
+        //label_recog_ver1.set_offset(0);
+        label_recog_ver2.add_offset(3);
 
         let mut namespace_ver = Namespaces::new();
 

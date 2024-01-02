@@ -1,5 +1,6 @@
 on:
   pull_request:
+    branches: [main, dev]
     types: [opened, synchronize, reopened, ready_for_review]
 
 name: Code quality assurance (open and mergable pull requests)

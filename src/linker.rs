@@ -200,7 +200,6 @@ mod tests {
         let label_recog_ver1 = label_recog_one;
         let mut label_recog_ver2 = label_recog_two;
 
-        //label_recog_ver1.set_offset(0);
         label_recog_ver2.add_offset(2);
 
         let mut namespace_ver = Namespaces::new();
@@ -235,7 +234,7 @@ mod tests {
         let mut operation_vec_one: Vec<Operation> = vec![];
         operation_vec_one.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::Addn(Reg::G0, Reg::G0, Reg::G1)));
         operation_vec_one.push(Operation::Instr(Instruction::Lb(Reg::G11, Reg::G12, 56)));
-        operation_vec_one.push(Operation::Macro(MacroInstr::Mv(Reg::G1, Reg::G11)));
+        operation_vec_one.push(Operation::Instr(Instruction::Addi(Reg::G1, Reg::G11, 0)));
 
         let mut label_recog_one = LabelRecog::new();
 
@@ -335,7 +334,6 @@ mod tests {
         let label_recog_ver1 = label_recog_one;
         let mut label_recog_ver2 = label_recog_two;
 
-        //label_recog_ver1.set_offset(0);
         label_recog_ver2.add_offset(3);
 
         let mut namespace_ver = Namespaces::new();
@@ -368,5 +366,47 @@ mod tests {
         assert_eq!((namespace_ver, operation_vec_ver), link(parsed_vector).unwrap());
     }
 
-    // Some more tests?
+    #[test]
+    fn test_single_link() {
+        let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
+        let mut operation_vec: Vec<Operation> = vec![];
+        operation_vec.push(Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)));
+        operation_vec.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
+        operation_vec.push(Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G12)));
+        operation_vec.push(Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)));
+        operation_vec.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
+        operation_vec.push(Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G12)));
+
+        let label_recog = LabelRecog::new();
+
+        /*
+            Assembly file:
+
+            Add $0, $1, $12
+            Or $2, $12, $12
+            Sub $3, $15, $15
+            Add $0, $1, $12
+            Or $2, $12, $12
+            Sub $3, $15, $15
+        */
+
+        parsed_vector.push((label_recog.clone(), operation_vec));
+
+        let label_recog_ver = label_recog;
+
+        let mut namespace_ver = Namespaces::new();
+        let _ = namespace_ver.insert_recog(label_recog_ver);
+
+        let mut operation_vec_ver: Vec<Operation> = vec![];
+
+        operation_vec_ver.push(Operation::Namespace(0));
+        operation_vec_ver.push(Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)));
+        operation_vec_ver.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
+        operation_vec_ver.push(Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G12)));
+        operation_vec_ver.push(Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)));
+        operation_vec_ver.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
+        operation_vec_ver.push(Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G12)));
+
+        assert_eq!((namespace_ver, operation_vec_ver), link(parsed_vector).unwrap());
+    }
 }

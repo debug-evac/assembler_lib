@@ -108,8 +108,6 @@ impl Reg {
 pub enum MacroInstr {
     NA,
 
-    NOP,
-
     Beq(Reg, Reg, String),
     Bne(Reg, Reg, String),
     Blt(Reg, Reg, String),
@@ -117,23 +115,11 @@ pub enum MacroInstr {
     Bge(Reg, Reg, String),
     Bgeu(Reg, Reg, String),
 
-    Mv(Reg, Reg),
-    Li(Reg, Imm),
-
     Jal(Reg, String),
     Jalr(Reg, Reg, String),
 
-    J(Imm),
     Jl(String),
-    Jali(Imm),
     Jall(String),
-    Jr(Reg),
-    Jalrs(Reg), 
-    Ret,
-    Calli(Imm),
-    Calll(String),
-    Taili(Imm),
-    Taill(String),
 
     Lui(Reg, String),
     Auipc(Reg, String),
@@ -141,17 +127,6 @@ pub enum MacroInstr {
     Slli(Reg, Reg, String),
     Srli(Reg, Reg, String),
     Srai(Reg, Reg, String),
-
-    // Not strictly needed, but nice to have
-    Srr(Reg, Reg, Imm),
-    Slr(Reg, Reg, Imm),
-    
-    // Should be done.
-    Divn(Reg, Reg, Reg),
-    Muln(Reg, Reg, Reg),
-    
-    Xnor(Reg, Reg, Reg),
-    Nor(Reg, Reg, Reg),
     
     Lb(Reg, Reg, String), //Load byte
     Lh(Reg, Reg, String), //Load half
@@ -174,70 +149,6 @@ pub enum MacroInstr {
     //Mulcn(Reg, Reg, Reg),
     //Subcn(Reg, Reg, Reg),
     //Addcn(Reg, Reg, Reg),
-}
-
-impl MacroInstr {
-    pub fn lines(&self) -> usize {
-        match self {
-            MacroInstr::NA => 0,
-
-            MacroInstr::NOP => 1,
-        
-            MacroInstr::Beq(_, _, _) => 1,
-            MacroInstr::Bne(_, _, _) => 1,
-            MacroInstr::Blt(_, _, _) => 1,
-            MacroInstr::Bltu(_, _, _) => 1,
-            MacroInstr::Bge(_, _, _) => 1,
-            MacroInstr::Bgeu(_, _, _) => 1,
-        
-            MacroInstr::Mv(_, _) => 1,
-            MacroInstr::Li(_, _) => 2,
-        
-            MacroInstr::Jal(_, _) => 1,
-            MacroInstr::Jalr(_, _, _) => 1,
-        
-            MacroInstr::J(_) => 1,
-            MacroInstr::Jl(_) => 1,
-            MacroInstr::Jali(_) => 1,
-            MacroInstr::Jall(_) => 1,
-            MacroInstr::Jr(_) => 1,
-            MacroInstr::Jalrs(_) => 1, 
-
-            MacroInstr::Ret => 1,
-
-            MacroInstr::Calli(_) => 2,
-            MacroInstr::Calll(_) => 2,
-            MacroInstr::Taili(_) => 2,
-            MacroInstr::Taill(_) => 2,
-        
-            MacroInstr::Lui(_, _) => 1,
-            MacroInstr::Auipc(_, _) => 1,
-        
-            MacroInstr::Slli(_, _, _) => 1,
-            MacroInstr::Srli(_, _, _) => 1,
-            MacroInstr::Srai(_, _, _) => 1,
-        
-            MacroInstr::Srr(_, _, _) => 4,
-            MacroInstr::Slr(_, _, _) => 4,
-            
-            MacroInstr::Divn(_, _, _) => 4,
-            MacroInstr::Muln(_, _, _) => 4,
-            
-            MacroInstr::Xnor(_, _, _) => 0,
-            MacroInstr::Nor(_, _, _) => 0,
-            
-            MacroInstr::Lb(_, _, _) => 1,
-            MacroInstr::Lh(_, _, _) => 1,
-            MacroInstr::Lw(_, _, _) => 1,
-            
-            MacroInstr::Lbu(_, _, _) => 1,
-            MacroInstr::Lhu(_, _, _) => 1,
-            
-            MacroInstr::Sb(_, _, _) => 1,
-            MacroInstr::Sh(_, _, _) => 1,
-            MacroInstr::Sw(_, _, _) => 1,
-        }
-    }
 }
 
 // Possibly split Instruction to instruction enums with 1 imm, 1 reg and 1 imm and so on

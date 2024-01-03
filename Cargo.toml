@@ -2,11 +2,17 @@
 name = "assembler"
 version = "0.1.0"
 edition = "2021"
-description = "An assembler for a figtive RISC-V based CPU"
+description = "An assembler for a fictive RISC-V based CPU"
 # repository = "<URL>"
 license = "MPL-2.0"
 authors = ["Steven Becker <steven.becker@studium.uni-hamburg.de>"]
 publish = false
+
+[features]
+default = ["full_nop"]
+full_nop = ["raw_nop", "mem_load_nop"]
+raw_nop = []
+mem_load_nop = []
 
 [badges]
 maintenance = { status = "experimental" }

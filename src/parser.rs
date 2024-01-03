@@ -151,6 +151,7 @@ pub struct LabelInsertError {
 }
 
 impl LabelInsertError {
+    #[allow(dead_code)]
     pub fn new(label: String) -> LabelInsertError {
         LabelInsertError { label }
     }
@@ -684,6 +685,7 @@ fn parse_multiline_macro(input: &str) -> IResult<&str, Vec<Operation>> {
     ))(input)
 }
 
+#[allow(clippy::type_complexity)]
 fn parse_line(input: &str) -> IResult<&str, (Option<Cow<str>>, Option<Vec<Operation>>)> {
     let (rest, _) = multispace0(input)?;
     let (rest, label) = opt(parse_label_definition)(rest)?;
@@ -703,6 +705,7 @@ fn parse_line(input: &str) -> IResult<&str, (Option<Cow<str>>, Option<Vec<Operat
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn parse_line_priv(input: &str) -> IResult<&str, (Option<Cow<str>>, Option<Vec<Operation>>)> {
     let (rest, _) = multispace0(input)?;
     let (rest, label) = opt(parse_label_definition_priv)(rest)?;

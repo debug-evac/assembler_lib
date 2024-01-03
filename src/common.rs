@@ -280,6 +280,7 @@ impl LabelElem {
         }
     }
 
+    #[allow(dead_code)]
     pub fn new_def(name: String, definition: i128) -> LabelElem {
         let mut elem = LabelElem::new();
         elem.set_name(name);
@@ -418,6 +419,7 @@ impl LabelRecog {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_local_labels(&self) -> Vec<&LabelElem> {
         let mut local_labels: Vec<&LabelElem> = vec![];
         for label in self.label_list.iter() {

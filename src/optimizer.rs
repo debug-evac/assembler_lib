@@ -27,72 +27,200 @@ use crate::{
     linker::Namespaces
 };
 
-enum RegActType {
+#[derive(Clone)]
+enum RegActType<'a> {
     NA,
-    WriteRead2(Reg, Reg, Reg),
-    WriteRead(Reg, Reg),
-    Read2(Reg, Reg),
-    Write(Reg),
-    Store(Reg, Reg),
-    Load(Reg, Reg)
+    WriteRead2(&'a Reg, &'a Reg, &'a Reg),
+    WriteRead(&'a Reg, &'a Reg),
+    Read2(&'a Reg, &'a Reg),
+    Write(&'a Reg),
+    Store(&'a Reg, &'a Reg),
+    Load(&'a Reg, &'a Reg)
 }
 
-struct RegAct {
-    reg: RegActType,
-    pos: usize
-}
+impl <'a> RegActType<'a> {
+    fn is_hazard_before(&self, before_self: &RegActType) -> bool {
+        // Check for Read-After-Write (only for feature "raw_nop"), 
+        // LOAD-STORE (only for feature "mem_load_nop") 
+        // and LOAD-USE (always) dependency
+        match before_self {
+            RegActType::NA |
+            RegActType::Store(_, _) |
+            RegActType::Read2(_, _) => false,
 
-impl RegAct {
-    fn new_from_macro(macro_in: MacroInstr, pos: usize) -> RegAct {
-        let reg = macro_in.into();
-        RegAct { 
-            reg,
-            pos 
+            #[cfg(feature = "raw_nop")]
+            RegActType::WriteRead2(write_t, _, _) |
+            RegActType::Write(write_t) |
+            RegActType::WriteRead(write_t, _) => {
+                match self {
+                    RegActType::NA | RegActType::Write(_) => false,
+
+                    RegActType::Store(reg1, reg2) |
+                    RegActType::Read2(reg1, reg2) |
+                    RegActType::WriteRead2(_, reg1, reg2) => (**reg1 == **write_t) || (**reg2 == **write_t),
+
+                    RegActType::Load(_, reg) |
+                    RegActType::WriteRead(_, reg) => **reg == **write_t,
+                }
+            },
+
+            #[cfg(not(feature = "raw_nop"))]
+            RegActType::WriteRead2(_, _, _) |
+            RegActType::Write(_) |
+            RegActType::WriteRead(_, _) => false,
+
+            RegActType::Load(target, _) => {
+                match self {
+                    RegActType::NA | RegActType::Write(_) => false,
+
+                    #[cfg(feature = "mem_load_nop")]
+                    RegActType::Store(reg, _) => **reg == **target,
+
+                    #[cfg(not(feature = "mem_load_nop"))]
+                    RegActType::Store(reg, _) => false,
+
+                    RegActType::Read2(reg1, reg2) |
+                    RegActType::WriteRead2(_, reg1, reg2) => (**reg1 == **target) || (**reg2 == **target),
+
+                    RegActType::Load(_, reg) |
+                    RegActType::WriteRead(_, reg) => **reg == **target,
+                }
+            },
         }
     }
 }
 
-struct LimitedQueue {
-    size: usize,
-    queue: VecDeque<RegAct>
+/*
+struct RegAct<'a> {
+    regtype: RegActType<'a>,
+    pos: usize
 }
 
-impl LimitedQueue {
-    fn new_sized(size: usize) -> LimitedQueue {
+impl <'a> RegAct<'a> {
+    fn new(operation: &'a Operation<'_>, pos: usize) -> RegAct<'a> {
+        let regtype = operation.into();
+        RegAct { 
+            regtype,
+            pos 
+        }
+    }
+}*/
+
+struct LimitedQueue<'a> {
+    size: usize,
+    //queue: VecDeque<RegAct<'a>>
+    queue: VecDeque<RegActType<'a>>
+}
+
+impl <'a> LimitedQueue<'a> {
+    fn new_sized(size: usize) -> LimitedQueue<'a> {
         let queue = VecDeque::with_capacity(size);
         LimitedQueue{ size, queue }
     }
 
+    fn limited_insert(&mut self, reg: RegActType<'a>) {
+        if self.queue.len() == self.size {
+            self.queue.pop_back();
+        }
+        self.queue.push_front(reg);
+    }
 
+    fn compare_and_insert(&mut self, reg: RegActType<'a>) -> i8 {
+        for (counter, reg_dep) in self.queue.iter().enumerate() {
+            if reg.is_hazard_before(reg_dep) {
+                self.queue.truncate(counter);
+                self.limited_insert(reg);
+                return counter as i8
+            }
+        };
+        self.limited_insert(reg);
+        -1
+    }
 }
 
-impl From<MacroInstr> for RegActType {
-    fn from(item: MacroInstr) -> Self {
+impl <'a> From<&'a Operation<'_>> for RegActType<'a> {
+    fn from(item: &'a Operation) -> RegActType<'a> {
         match item {
-            MacroInstr::Beq(reg1, reg2, _) |
-            MacroInstr::Bne(reg1, reg2, _) |
-            MacroInstr::Blt(reg1, reg2, _) |
-            MacroInstr::Bltu(reg1, reg2, _) |
-            MacroInstr::Bge(reg1, reg2, _) |
-            MacroInstr::Bgeu(reg1, reg2, _) => RegActType::Read2(reg1, reg2),
+            Operation::LablInstr(_, instr) | Operation::Instr(instr) => {
+                match instr {
+                    Instruction::NA => RegActType::NA,
 
-            MacroInstr::Jal(_, _) => todo!(),
-            MacroInstr::Jalr(_, _, _) => todo!(),
+                    Instruction::Addn(reg1, reg2, reg3) |
+                    Instruction::Subn(reg1, reg2, reg3) |
+                    Instruction::Xor(reg1, reg2, reg3) |
+                    Instruction::Or(reg1, reg2, reg3) |
+                    Instruction::And(reg1, reg2, reg3) |
 
-            MacroInstr::Lui(_, _) => todo!(),
-            MacroInstr::Auipc(_, _) => todo!(),
-            MacroInstr::Slli(_, _, _) => todo!(),
-            MacroInstr::Srli(_, _, _) => todo!(),
-            MacroInstr::Srai(_, _, _) => todo!(),
-            
-            MacroInstr::Lb(_, _, _) => todo!(),
-            MacroInstr::Lh(_, _, _) => todo!(),
-            MacroInstr::Lw(_, _, _) => todo!(),
-            MacroInstr::Lbu(_, _, _) => todo!(),
-            MacroInstr::Lhu(_, _, _) => todo!(),
-            MacroInstr::Sb(_, _, _) => todo!(),
-            MacroInstr::Sh(_, _, _) => todo!(),
-            MacroInstr::Sw(_, _, _) => todo!(),
+                    Instruction::Sll(reg1, reg2, reg3) |
+                    Instruction::Srl(reg1, reg2, reg3) |
+                    Instruction::Sra(reg1, reg2, reg3) |
+                    Instruction::Slt(reg1, reg2, reg3) |
+                    Instruction::Sltu(reg1, reg2, reg3) => RegActType::WriteRead2(reg1, reg2, reg3),
+
+                    Instruction::Addi(reg1, reg2, _) |
+                    Instruction::Xori(reg1, reg2, _) |
+                    Instruction::Ori(reg1, reg2, _) |
+                    Instruction::Andi(reg1, reg2, _) |
+                    Instruction::Slti(reg1, reg2, _) |
+                    Instruction::Sltiu(reg1, reg2, _) |
+                    Instruction::Slli(reg1, reg2, _) |
+                    Instruction::Srli(reg1, reg2, _) |
+                    Instruction::Srai(reg1, reg2, _) |
+                    Instruction::Jalr(reg1, reg2, _) => RegActType::WriteRead(reg1, reg2),
+
+                    Instruction::Lb(reg1, reg2, _) |
+                    Instruction::Lh(reg1, reg2, _) |
+                    Instruction::Lw(reg1, reg2, _) |
+                    Instruction::Lbu(reg1, reg2, _) |
+                    Instruction::Lhu(reg1, reg2, _) => RegActType::Load(reg1, reg2),
+
+                    Instruction::Sh(reg1, reg2, _) |
+                    Instruction::Sb(reg1, reg2, _) |
+                    Instruction::Sw(reg1, reg2, _) => RegActType::Store(reg1, reg2),
+
+                    Instruction::Beq(reg1, reg2, _) |
+                    Instruction::Bne(reg1, reg2, _) |
+                    Instruction::Blt(reg1, reg2, _) |
+                    Instruction::Bltu(reg1, reg2, _) |
+                    Instruction::Bge(reg1, reg2, _) |
+                    Instruction::Bgeu(reg1, reg2, _) => RegActType::Read2(reg1, reg2),
+
+
+                    Instruction::Lui(reg, _) |
+                    Instruction::Auipc(reg, _) |
+                    Instruction::Jal(reg, _) => RegActType::Write(reg),
+                }
+            },
+            Operation::Macro(instr) | Operation::LablMacro(_, instr) => {
+                match instr {
+                    MacroInstr::Beq(reg1, reg2, _) |
+                    MacroInstr::Bne(reg1, reg2, _) |
+                    MacroInstr::Blt(reg1, reg2, _) |
+                    MacroInstr::Bltu(reg1, reg2, _) |
+                    MacroInstr::Bge(reg1, reg2, _) |
+                    MacroInstr::Bgeu(reg1, reg2, _) => RegActType::Read2(reg1, reg2),
+
+                    MacroInstr::Lui(reg, _) |
+                    MacroInstr::Auipc(reg, _) |
+                    MacroInstr::Jal(reg, _) => RegActType::Write(reg),
+
+                    MacroInstr::Slli(reg1, reg2, _) |
+                    MacroInstr::Srli(reg1, reg2, _) |
+                    MacroInstr::Srai(reg1, reg2, _) |
+                    MacroInstr::Jalr(reg1, reg2, _) => RegActType::WriteRead(reg1, reg2),
+
+                    MacroInstr::Lb(reg1, reg2, _) |
+                    MacroInstr::Lh(reg1, reg2, _) |
+                    MacroInstr::Lw(reg1, reg2, _) |
+                    MacroInstr::Lbu(reg1, reg2, _) |
+                    MacroInstr::Lhu(reg1, reg2, _) => RegActType::Load(reg1, reg2),
+
+                    MacroInstr::Sh(reg1, reg2, _) |
+                    MacroInstr::Sb(reg1, reg2, _) |
+                    MacroInstr::Sw(reg1, reg2, _) => RegActType::Store(reg1, reg2),
+                }
+            },
+            _ => RegActType::NA,
         }
     }
 }
@@ -203,25 +331,42 @@ fn translate_label(total_instructions: i128, label: String, namespaces: &mut Nam
     }
 }
 
-fn nop_insertion(mut code: (Namespaces, Vec<Operation>)) -> (Namespaces, Vec<Operation>) {
-    /*let mut code_inserts: BTreeMap<usize, i128> = BTreeMap::new();
+fn nop_insertion(code: (Namespaces, Vec<Operation>)) -> (Namespaces, Vec<Operation>) {
+    let mut code_inserts: BTreeMap<usize, i8> = BTreeMap::new();
     let mut label_pos: BTreeMap<usize, LabelElem> = BTreeMap::new();
 
-    let mut working_set: VecDeque<Operation> = VecDeque::new();
-    let mut branch_ptr_queue: VecDeque<usize> = VecDeque::new();
+    let mut working_set: LimitedQueue = LimitedQueue::new_sized(3);
+    let mut branch_ptr_queue: VecDeque<(usize, LimitedQueue)> = VecDeque::new();
+
+    let mut real_pointer: usize = 0;
+    let mut nop_pointer: usize = 0;
+    // Try to circumvent too many allocations thus reducing performance;
+    // TODO: Better approach
+    let mut nop_inserted_code: Vec<Operation> = Vec::with_capacity(code.1.len() * 2);
 
     loop {
-        let instr = 
+        let operation = code.1.get(real_pointer);
+        match operation {
+            Some(instr) => {
+                let reg_dep = RegActType::from(instr);
+                let nop_insert = working_set.compare_and_insert(reg_dep);
+                if nop_insert != -1 {
+                    let instr_num = 3 - nop_insert;
+                    code_inserts.insert(real_pointer, instr_num);
+                    for _ in 1..instr_num {
+                        nop_inserted_code.insert(nop_pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
+                    }
+                    nop_pointer += instr_num as usize;
+                    real_pointer += 1;
+                }
 
-        positions.0 = positions.1;
-        positions.1 = positions.1 + 1;
-    }*/
-
+            },
+            None => break,
+        }
+    }
     //let mut reg_dep_graph: [Vec<RegAct>; 31] = Default::default();
 
-
-
-    code
+    (code.0, nop_inserted_code)
 }
 
 fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction> {
@@ -249,8 +394,81 @@ pub fn optimize(code: (Namespaces, Vec<Operation>)) -> Vec<Instruction> {
     substitute_labels(code)
 }
 
-// TODO: Tests here
+// TODO: Tests here & more test cases
 #[cfg(test)]
 mod tests {
+    use super::*;
 
+    #[test]
+    #[cfg(feature = "raw_nop")]
+    fn test_reg_act_type_raw_hazard() {
+        let last = RegActType::WriteRead(&Reg::G15, &Reg::G10);
+        let first = RegActType::Write(&Reg::G10);
+        let second = RegActType::WriteRead2(&Reg::G15, &Reg::G10, &Reg::G20);
+
+        assert_eq!(last.is_hazard_before(&first), true);
+        assert_eq!(second.is_hazard_before(&first), true);
+        assert_eq!(last.is_hazard_before(&second), false);
+    }
+
+    #[test]
+    #[cfg(feature = "mem_load_nop")]
+    fn test_reg_act_type_mem_hazard() {
+        let last = RegActType::Store(&Reg::G15, &Reg::G10);
+        let first = RegActType::Load(&Reg::G15, &Reg::G10);
+        let second = RegActType::Load(&Reg::G15, &Reg::G10);
+
+        assert_eq!(last.is_hazard_before(&first), true);
+        assert_eq!(second.is_hazard_before(&first), false);
+        assert_eq!(last.is_hazard_before(&second), true);
+    }
+
+    #[test]
+    fn test_reg_act_type_load_use_hazard() {
+        let last = RegActType::WriteRead2(&Reg::G15, &Reg::G10, &Reg::G15);
+        let first = RegActType::Load(&Reg::G15, &Reg::G10);
+        let second = RegActType::WriteRead(&Reg::G15, &Reg::G15);
+
+        assert_eq!(last.is_hazard_before(&first), true);
+        assert_eq!(second.is_hazard_before(&first), true);
+    }
+
+    #[test]
+    fn test_limited_queue() {
+        let mut queue = LimitedQueue::new_sized(3);
+
+        // Full of raw hazards
+        let reg_act_vec = Vec::from([
+            RegActType::Write(&Reg::G10),
+            RegActType::WriteRead2(&Reg::G15, &Reg::G10, &Reg::G20),
+            RegActType::WriteRead(&Reg::G15, &Reg::G10)
+        ]);
+
+        for (counter, reg) in reg_act_vec.iter().enumerate() {
+            let nop_inserts = queue.compare_and_insert(reg.clone());
+            match counter {
+                0 => assert_eq!(nop_inserts, -1),
+                1 => assert_eq!(nop_inserts, 0),
+                2 => assert_eq!(nop_inserts, -1),
+                _ => (),
+            }
+        }
+
+        // No hazards
+        let reg_act_vec2 = Vec::from([
+            RegActType::Write(&Reg::G10),
+            RegActType::WriteRead(&Reg::G10, &Reg::G12),
+            RegActType::WriteRead(&Reg::G10, &Reg::G13)
+        ]);
+
+        for (counter, reg) in reg_act_vec2.iter().enumerate() {
+            let nop_inserts = queue.compare_and_insert(reg.clone());
+            match counter {
+                0 => assert_eq!(nop_inserts, -1),
+                1 => assert_eq!(nop_inserts, -1),
+                2 => assert_eq!(nop_inserts, -1),
+                _ => (),
+            }
+        }
+    }
 }

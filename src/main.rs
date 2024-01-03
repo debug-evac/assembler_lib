@@ -8,7 +8,6 @@
 
 mod parser;
 mod linker;
-#[allow(unused)]
 mod optimizer;
 mod translator;
 mod common;

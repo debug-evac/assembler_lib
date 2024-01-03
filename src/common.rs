@@ -106,8 +106,6 @@ impl Reg {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MacroInstr {
-    NA,
-
     Beq(Reg, Reg, String),
     Bne(Reg, Reg, String),
     Blt(Reg, Reg, String),
@@ -117,9 +115,6 @@ pub enum MacroInstr {
 
     Jal(Reg, String),
     Jalr(Reg, Reg, String),
-
-    Jl(String),
-    Jall(String),
 
     Lui(Reg, String),
     Auipc(Reg, String),
@@ -318,7 +313,7 @@ impl LabelElem {
         Ok("Labels combined!")
     }
 
-    pub fn set_name(&mut self, name: String) -> () {
+    pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
 
@@ -326,7 +321,7 @@ impl LabelElem {
         &self.name
     }
 
-    pub fn set_scope(&mut self, scope: bool) -> () {
+    pub fn set_scope(&mut self, scope: bool) {
         self.scope = scope;
     }
 
@@ -334,34 +329,33 @@ impl LabelElem {
         self.scope
     }
 
-    pub fn set_def(&mut self, definition: i128) -> () {
+    pub fn set_def(&mut self, definition: i128) {
         self.definition = definition;
     }
 
-    pub fn add_def(&mut self, offset: i128) -> () {
-        self.definition = self.definition + offset;
+    pub fn add_def(&mut self, offset: i128) {
+        self.definition += offset;
     }
 
     pub fn get_def(&self) -> &i128 {
         &self.definition
     }
 
-    pub fn set_refd(&mut self) -> () {
+    pub fn set_refd(&mut self) {
         self.referenced = true;
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct LabelRecog {
-    label_map: Box<HashMap<String, usize>>,
-    label_list: Box<Vec<LabelElem>>,
+    label_map: HashMap<String, usize>,
+    label_list: Vec<LabelElem>,
 }
 
 impl LabelRecog {
     pub fn new() -> LabelRecog {
-        let label_list: Box<Vec<LabelElem>> = Box::from(vec![]);
-        let label_map: Box<HashMap<String, usize>> =
-        Box::from(HashMap::new());
+        let label_list: Vec<LabelElem> = vec![];
+        let label_map: HashMap<String, usize> = HashMap::new();
 
         LabelRecog {
             label_list,
@@ -387,7 +381,7 @@ impl LabelRecog {
         }
     }
 
-    pub fn crt_or_def_label(&mut self, label_str: &String, scope: bool, definition: i128) -> () {
+    pub fn crt_or_def_label(&mut self, label_str: &String, scope: bool, definition: i128) {
         match self.get_label(label_str) {
             Some(label) => {
                 label.set_def(definition);
@@ -424,8 +418,8 @@ impl LabelRecog {
         }
     }
 
-    pub fn get_local_labels(&self) -> Box<Vec<&LabelElem>> {
-        let mut local_labels: Box<Vec<&LabelElem>> = Box::from(vec![]);
+    pub fn get_local_labels(&self) -> Vec<&LabelElem> {
+        let mut local_labels: Vec<&LabelElem> = vec![];
         for label in self.label_list.iter() {
             if !label.get_scope() {
                 local_labels.push(label);
@@ -434,8 +428,8 @@ impl LabelRecog {
         local_labels
     }
 
-    pub fn get_global_labels(&self) -> Box<Vec<&LabelElem>> {
-        let mut global_labels: Box<Vec<&LabelElem>> = Box::from(vec![]);
+    pub fn get_global_labels(&self) -> Vec<&LabelElem> {
+        let mut global_labels: Vec<&LabelElem> = vec![];
         for label in self.label_list.iter() {
             if label.get_scope() {
                 global_labels.push(label);
@@ -444,7 +438,7 @@ impl LabelRecog {
         global_labels
     }
 
-    pub fn add_offset(&mut self, offset: i128) -> () {
+    pub fn add_offset(&mut self, offset: i128) {
         for lblelm in self.label_list.iter_mut().filter(|e| *e.get_def() != -1) {
             lblelm.add_def(offset);
         }

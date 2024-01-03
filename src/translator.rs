@@ -12,8 +12,8 @@
 use crate::common::{Instruction, Reg, Imm};
 
 fn btype_instr(rs1: Reg, rs2: Reg, imm: Imm) -> u32 {
-   let u12 =  imm & 0b10_00000_00000i32 >> 1;
-   let l11 = imm & 0b1_00000_00000i32 >> 11;
+   let u12 =  (imm & 0b10_00000_00000i32) >> 1;
+   let l11 = (imm & 0b1_00000_00000i32) >> 11;
    let upper = (imm & 0b11111_00000i32 | u12) << 25;
    let lower = (imm & 0b11110i32 | l11) << 7;
    ((upper + lower) as u32) + ((rs2 as u32) << 20) + ((rs1 as u32) << 15) + 0b1100011_u32
@@ -22,7 +22,7 @@ fn btype_instr(rs1: Reg, rs2: Reg, imm: Imm) -> u32 {
 fn stype_instr(rs1: Reg, rs2: Reg, imm: Imm) -> u32 {
    let upper =  (imm & 0b11111_10000i32) << 25;
    let lower = (imm & 0b1111i32) << 7;
-   let mid = imm & 0b1_11110_00000_00000 << 3;
+   let mid = (imm & 0b1_11110_00000_00000) << 3;
    ((upper + mid + lower) as u32) + ((rs2 as u32) << 20) + ((rs1 as u32) << 15) + 0b100011_u32
 }
 

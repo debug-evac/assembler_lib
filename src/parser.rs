@@ -124,24 +124,24 @@ _SLR:
         Subroutines{ code_str_vec }
     }
 
-    pub fn mul_defined(&mut self) -> () {
+    pub fn mul_defined(&mut self) {
         self.code_str_vec.insert(Self::MUL_SUB.to_string());
     }
 
-    pub fn div_defined(&mut self) -> () {
+    pub fn div_defined(&mut self) {
         self.code_str_vec.insert(Self::DIV_SUB.to_string());
     }
 
-    pub fn srr_defined(&mut self) -> () {
+    pub fn srr_defined(&mut self) {
         self.code_str_vec.insert(Self::SRR_SUB.to_string());
     }
 
-    pub fn slr_defined(&mut self) -> () {
+    pub fn slr_defined(&mut self) {
         self.code_str_vec.insert(Self::SLR_SUB.to_string());
     }
 
     pub fn get_code(&self) -> Vec<String> {
-        self.code_str_vec.to_owned().into_iter().collect()
+        self.code_str_vec.iter().cloned().collect()
     }
 }
 
@@ -289,7 +289,7 @@ fn parse_macro_1labl(input: &str) -> IResult<&str, Vec<Operation>> {
         IntermediateOp::J => Vec::from([MacroInstr::Jal(Reg::G0, labl.to_string()).into()]),
         IntermediateOp::Jal => Vec::from([MacroInstr::Jal(Reg::G1, labl.to_string()).into()]),
 
-        op @ _  => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+        op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
     };
 
     Ok((rest, instr))
@@ -317,7 +317,7 @@ fn parse_macro_1imm(input: &str) -> IResult<&str, Vec<Operation>> {
         ]),
         IntermediateOp::J => Vec::from([Instruction::Jal(Reg::G0, imm).into()]),
         IntermediateOp::Jal => Vec::from([Instruction::Jal(Reg::G1, imm).into()]),
-        op @ _  => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+        op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
     };
 
     Ok((rest, instr))
@@ -334,7 +334,7 @@ fn parse_macro_1reg(input: &str) -> IResult<&str, Operation> {
     let instr = match macro_in {
         IntermediateOp::Jr => Instruction::Jalr(Reg::G0, register, 0),
         IntermediateOp::Jalr => Instruction::Jalr(Reg::G1, register, 0),
-        op @ _  => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+        op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
     };
 
     Ok((rest, instr.into()))
@@ -353,7 +353,7 @@ fn parse_macro_1labl1reg(input: &str) -> IResult<&str, Operation> {
         MacroInstr::Lui(_, _) => MacroInstr::Lui(args.0, args.1.to_string()),
         MacroInstr::Auipc(_, _) => MacroInstr::Auipc(args.0, args.1.to_string()),
         MacroInstr::Jal(_, _) => MacroInstr::Jal(args.0, args.1.to_string()),
-        _ => MacroInstr::NA,
+        op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
     };
 
     Ok((rest, instr.into()))
@@ -381,7 +381,7 @@ fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Vec<Operation>> {
             Instruction::Addi(args.0.clone(), args.0.clone(), args.1).into()
         ]),
 
-        op @ _  => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+        op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
     };
 
     Ok((rest, instr))
@@ -396,7 +396,7 @@ fn parse_macro_2reg(input: &str) -> IResult<&str, Operation> {
 
     let instr = match instr {
         IntermediateOp::Mv => Instruction::Addi(args.0, args.1, 0),
-        op @ _  => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+        op  => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
     };
 
     Ok((rest, instr.into()))
@@ -454,7 +454,7 @@ fn parse_macro_1labl2reg(input: &str) -> IResult<&str, Operation> {
         MacroInstr::Lhu(_, _, _) => MacroInstr::Lhu(args.0, args.2, args.4.to_string()),
         MacroInstr::Lw(_, _, _) => MacroInstr::Lw(args.0, args.2, args.4.to_string()),
 
-        _ => MacroInstr::NA
+        op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
     };
 
     Ok((rest, instr.into()))
@@ -573,7 +573,7 @@ fn parse_inst_1imm2reg_up(input: &str) -> IResult<&str, Vec<Operation>> {
             returned_vec
         },
 
-        op @ _  => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+        op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
     };
 
     Ok((rest, instr))
@@ -655,7 +655,7 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Vec<Operation>> {
         IntermediateOp::Xnor => todo!("Not implemented yet!"),
         IntermediateOp::Nor => todo!("Not implemented yet!"),
 
-        op @ _  => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+        op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
     };
 
     Ok((rest, instr))
@@ -732,7 +732,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
 
     let mut privileged = false;
 
-    if let None = subroutines {
+    if subroutines.is_none() {
         privileged = true;
     }
 
@@ -742,7 +742,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
             false => parse_line(rest),
         };
 
-        let parsed = match res {
+        let mut parsed = match res {
             Ok(line) => {
                 rest = line.0;
                 line.1
@@ -750,9 +750,9 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
             Err(_) => todo!("Custom parser error!"),
         };
 
-        match parsed {
+        match &mut parsed {
             (Some(label), Some(instr)) => {
-                let _ = match label.strip_prefix(".") {
+                match label.strip_prefix('.') {
                     Some(label) => {
                         // Local label; Track definitions and references!
                         let label_string = &label.to_string();
@@ -767,72 +767,80 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                     },
                 };
 
-                match &instr {
-                    Operation::Macro(macro_in) => {
-                        match macro_in {
-                            MacroInstr::Muln(_, _, _) => subroutines.as_mut().unwrap().mul_defined(),
-                            MacroInstr::Divn(_, _, _) => subroutines.as_mut().unwrap().div_defined(),
-                            MacroInstr::Srr(_, _, _) => subroutines.as_mut().unwrap().srr_defined(),
-                            MacroInstr::Slr(_, _, _) => subroutines.as_mut().unwrap().slr_defined(),
-
-                            MacroInstr::Beq(_, _, labl) | 
-                            MacroInstr::Bne(_, _, labl) |
-                            MacroInstr::Blt(_, _, labl) |
-                            MacroInstr::Bltu(_, _, labl) |
-                            MacroInstr::Bge(_, _, labl) |
-                            MacroInstr::Bgeu(_, _, labl) |
-
-                            MacroInstr::Jal(_, labl) |
-                            MacroInstr::Jalr(_, _, labl) |
-
-                            MacroInstr::Jl(labl) |
-                            MacroInstr::Jall(labl) |
-                            MacroInstr::Calll(labl) |
-                            MacroInstr::Taill(labl) |
-
-                            MacroInstr::Lui(_, labl) |
-                            MacroInstr::Auipc(_, labl) |
-
-                            MacroInstr::Slli(_, _, labl) |
-                            MacroInstr::Srli(_, _, labl) |
-                            MacroInstr::Srai(_, _, labl) |
-
-                            MacroInstr::Lb(_, _, labl) |
-                            MacroInstr::Lh(_, _, labl) |
-                            MacroInstr::Lw(_, _, labl) |
-
-                            MacroInstr::Lbu(_, _, labl) |
-                            MacroInstr::Lhu(_, _, labl) |
-
-                            MacroInstr::Sb(_, _, labl) |
-                            MacroInstr::Sh(_, _, labl) |
-                            MacroInstr::Sw(_, _, labl) => {
-                                if !symbol_map.crt_or_ref_label(labl, false) {
-                                    local_ref_not_def.insert(labl.clone());
-                                }
-                            },
-                            _ => (),
+                for (local_counter, operation) in instr.iter_mut().enumerate() {
+                    match operation {
+                        Operation::Macro(macro_in) => {
+                            match macro_in {
+                                /*
+                                MacroInstr::Muln(_, _, _) => subroutines.as_mut().unwrap().mul_defined(),
+                                MacroInstr::Divn(_, _, _) => subroutines.as_mut().unwrap().div_defined(),
+                                MacroInstr::Srr(_, _, _) => subroutines.as_mut().unwrap().srr_defined(),
+                                MacroInstr::Slr(_, _, _) => subroutines.as_mut().unwrap().slr_defined(),*/
+                                MacroInstr::Beq(_, _, labl) | 
+                                MacroInstr::Bne(_, _, labl) |
+                                MacroInstr::Blt(_, _, labl) |
+                                MacroInstr::Bltu(_, _, labl) |
+                                MacroInstr::Bge(_, _, labl) |
+                                MacroInstr::Bgeu(_, _, labl) |
+    
+                                MacroInstr::Jal(_, labl) |
+                                MacroInstr::Jalr(_, _, labl) |
+    
+                                MacroInstr::Lui(_, labl) |
+                                MacroInstr::Auipc(_, labl) |
+    
+                                MacroInstr::Slli(_, _, labl) |
+                                MacroInstr::Srli(_, _, labl) |
+                                MacroInstr::Srai(_, _, labl) |
+    
+                                MacroInstr::Lb(_, _, labl) |
+                                MacroInstr::Lh(_, _, labl) |
+                                MacroInstr::Lw(_, _, labl) |
+    
+                                MacroInstr::Lbu(_, _, labl) |
+                                MacroInstr::Lhu(_, _, labl) |
+    
+                                MacroInstr::Sb(_, _, labl) |
+                                MacroInstr::Sh(_, _, labl) |
+                                MacroInstr::Sw(_, _, labl) => {
+                                    let mut scope = false;
+                                    if labl.starts_with('_') {
+                                        scope = true;
+                                        if let Some(subs) = subroutines {
+                                            match labl.as_str() {
+                                                "_MUL" => subs.mul_defined(),
+                                                "_DIV" => subs.div_defined(),
+                                                "_SRR" => subs.srr_defined(),
+                                                "_SLR" => subs.slr_defined(),
+                                                unknown => println!("[Warning] Label does not point to subroutine: {}", unknown),
+                                            }
+                                        }
+                                    }
+                                    if !symbol_map.crt_or_ref_label(labl, scope) {
+                                        local_ref_not_def.insert(labl.clone());
+                                    }
+                                },
+                            }
+                            if local_counter == 0 {
+                                *operation = Operation::LablMacro(label.clone(), macro_in.to_owned());
+                            }
+                        },
+                        Operation::Instr(instr_in) => {
+                            if local_counter == 0 {
+                                *operation = Operation::LablInstr(label.clone(), instr_in.to_owned());
+                            }
                         }
-                        instr_counter = instr_counter + macro_in.lines();
-
-                        instr_list.push(Operation::LablMacro(label, macro_in.to_owned()));
-                    },
-                    Operation::Instr(instr_in) => {
-                        instr_counter = instr_counter + 1;
-                        instr_list.push(Operation::LablInstr(label, instr_in.to_owned()));
+                        _ => (),
                     }
-                    _ => (),
                 }
+
+                instr_counter += instr.len();
+                instr_list.append(instr);
             },
             (None, Some(instr)) => {
-                match &instr {
-                    Operation::Macro(macro_in) => {
+                for operation in instr.iter() {
+                    if let Operation::Macro(macro_in) = operation {
                         match macro_in {
-                            MacroInstr::Muln(_, _, _) => subroutines.as_mut().unwrap().mul_defined(),
-                            MacroInstr::Divn(_, _, _) => subroutines.as_mut().unwrap().div_defined(),
-                            MacroInstr::Srr(_, _, _) => subroutines.as_mut().unwrap().srr_defined(),
-                            MacroInstr::Slr(_, _, _) => subroutines.as_mut().unwrap().slr_defined(),
-
                             MacroInstr::Beq(_, _, labl) | 
                             MacroInstr::Bne(_, _, labl) |
                             MacroInstr::Blt(_, _, labl) |
@@ -842,11 +850,6 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
 
                             MacroInstr::Jal(_, labl) |
                             MacroInstr::Jalr(_, _, labl) |
-
-                            MacroInstr::Jl(labl) |
-                            MacroInstr::Jall(labl) |
-                            MacroInstr::Calll(labl) |
-                            MacroInstr::Taill(labl) |
 
                             MacroInstr::Lui(_, labl) |
                             MacroInstr::Auipc(_, labl) |
@@ -865,22 +868,32 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                             MacroInstr::Sb(_, _, labl) |
                             MacroInstr::Sh(_, _, labl) |
                             MacroInstr::Sw(_, _, labl) => {
-                                if !symbol_map.crt_or_ref_label(labl, false) {
+                                let mut scope = false;
+                                if labl.starts_with('_') {
+                                    scope = true;
+                                    if let Some(subs) = subroutines {
+                                        match labl.as_str() {
+                                            "_MUL" => subs.mul_defined(),
+                                            "_DIV" => subs.div_defined(),
+                                            "_SRR" => subs.srr_defined(),
+                                            "_SLR" => subs.slr_defined(),
+                                            unknown => println!("[Warning] Label does not point to subroutine: {}", unknown),
+                                        }
+                                    }
+                                }
+                                if !symbol_map.crt_or_ref_label(labl, scope) {
                                     local_ref_not_def.insert(labl.clone());
                                 }
                             },
-                            _ => (),
                         }
-
-                        instr_counter = instr_counter + macro_in.lines();
-                    },
-                    _ => instr_counter = instr_counter + 1,
+                    }
                 }
 
-                instr_list.push(instr);
+                instr_counter += instr.len();
+                instr_list.append(instr);
             },
             (Some(label), None) => {
-                let _ = match label.strip_prefix(".") {
+                match label.strip_prefix('.') {
                     Some(label) => {
                         // Local label; Track definitions and references!
                         let label_string = &label.to_string();
@@ -894,8 +907,8 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                         symbol_map.crt_or_def_label(&label.to_string(), true, instr_counter.try_into().unwrap())
                     },
                 };
-                instr_counter = instr_counter + 1;
-                instr_list.push(Operation::Labl(label));
+                instr_counter += 1;
+                instr_list.push(Operation::Labl(label.clone()));
             },
             (None, None) => (),
         }
@@ -978,10 +991,10 @@ mod tests {
 
     #[test]
     fn test_parse_instr1labl() {
-        assert_ne!(parse_macro_1labl("invalid"), Ok(("", Vec::from([MacroInstr::NA.into()]))));
-        assert_ne!(parse_macro_1labl(" "), Ok(("", Vec::from([MacroInstr::NA.into()]))));
-        assert_ne!(parse_macro_1labl(""), Ok(("", Vec::from([MacroInstr::NA.into()]))));
-        assert_ne!(parse_macro_1labl("call"), Ok(("", Vec::from([MacroInstr::NA.into()]))));
+        assert_ne!(parse_macro_1labl("invalid"), Ok(("", Vec::from([Instruction::NA.into()]))));
+        assert_ne!(parse_macro_1labl(" "), Ok(("", Vec::from([Instruction::NA.into()]))));
+        assert_ne!(parse_macro_1labl(""), Ok(("", Vec::from([Instruction::NA.into()]))));
+        assert_ne!(parse_macro_1labl("call"), Ok(("", Vec::from([Instruction::NA.into()]))));
         assert_eq!(parse_macro_1labl("tail test"), Ok(("", Vec::from([
             MacroInstr::Auipc(Reg::G6, "test".to_string()).into(),
             MacroInstr::Jalr(Reg::G0, Reg::G6, "test".to_string()).into()
@@ -998,10 +1011,10 @@ mod tests {
 
     #[test]
     fn test_parse_instr1imm() {
-        assert_ne!(parse_macro_1imm("invalid"), Ok(("", Vec::from([MacroInstr::NA.into()]))));
-        assert_ne!(parse_macro_1imm(" "), Ok(("", Vec::from([MacroInstr::NA.into()]))));
-        assert_ne!(parse_macro_1imm(""), Ok(("", Vec::from([MacroInstr::NA.into()]))));
-        assert_ne!(parse_macro_1imm("j"), Ok(("", Vec::from([MacroInstr::NA.into()]))));
+        assert_ne!(parse_macro_1imm("invalid"), Ok(("", Vec::from([Instruction::NA.into()]))));
+        assert_ne!(parse_macro_1imm(" "), Ok(("", Vec::from([Instruction::NA.into()]))));
+        assert_ne!(parse_macro_1imm(""), Ok(("", Vec::from([Instruction::NA.into()]))));
+        assert_ne!(parse_macro_1imm("j"), Ok(("", Vec::from([Instruction::NA.into()]))));
         assert_eq!(parse_macro_1imm("j 12"), Ok(("", Vec::from([Instruction::Jal(Reg::G0, 12).into()]))));
         assert_eq!(parse_macro_1imm("call 0x10"), Ok(("", Vec::from([
             Instruction::Auipc(Reg::G1, 0).into(),
@@ -1012,9 +1025,9 @@ mod tests {
 
     #[test]
     fn test_parse_instr1reg() {
-        assert_ne!(parse_macro_1reg("invalid"), Ok(("", MacroInstr::NA.into())));
-        assert_ne!(parse_macro_1reg(" "), Ok(("", MacroInstr::NA.into())));
-        assert_ne!(parse_macro_1reg(""), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_macro_1reg("invalid"), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_macro_1reg(" "), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_macro_1reg(""), Ok(("", Instruction::NA.into())));
         assert_ne!(parse_macro_1reg("jr"), Ok(("", Instruction::Jalr(Reg::NA, Reg::NA, 0).into())));
         assert_eq!(parse_macro_1reg("jalr a2"), Ok(("", Instruction::Jalr(Reg::G1, Reg::str_to_enum("a2").unwrap(), 0).into())));
         assert_eq!(parse_macro_1reg("jr x18"), Ok(("", Instruction::Jalr(Reg::G0, Reg::G18, 0).into())));
@@ -1023,7 +1036,7 @@ mod tests {
 
     #[test]
     fn test_parse_instr1labl1reg() {
-        assert_ne!(parse_macro_1labl1reg(""), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_macro_1labl1reg(""), Ok(("", Instruction::NA.into())));
         assert_ne!(parse_macro_1labl1reg("lui"), Ok(("", MacroInstr::Lui(Reg::NA, "".to_string()).into())));
         assert_eq!(parse_macro_1labl1reg("lui a2, stop"), Ok(("", MacroInstr::Lui(Reg::G12, "stop".to_string()).into())));
         assert_eq!(parse_macro_1labl1reg("auipc s2, helloWorld"), Ok(("", MacroInstr::Auipc(Reg::G18, "helloWorld".to_string()).into())));
@@ -1047,18 +1060,18 @@ mod tests {
 
     #[test]
     fn test_parse_inst_2reg() {
-        assert_ne!(parse_macro_2reg("invalid"), Ok(("", MacroInstr::NA.into())));
-        assert_ne!(parse_macro_2reg("   "), Ok(("", MacroInstr::NA.into())));
-        assert_ne!(parse_macro_2reg("ld x1, 0xAA"), Ok(("", MacroInstr::NA.into())));
-        assert_ne!(parse_macro_2reg("mv x1, 0xAA"), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_macro_2reg("invalid"), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_macro_2reg("   "), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_macro_2reg("ld x1, 0xAA"), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_macro_2reg("mv x1, 0xAA"), Ok(("", Instruction::NA.into())));
         assert_eq!(parse_macro_2reg("mv x1, x4"), Ok(("", Instruction::Addi(Reg::G1, Reg::G4, 0).into())));
         assert_eq!(parse_macro_2reg("mv x12,x4"), Ok(("", Instruction::Addi(Reg::G12, Reg::G4, 0).into())));
     }
 
     #[test]
     fn test_parse_instr1labl2reg() {
-        assert_ne!(parse_macro_1labl2reg("invalid"), Ok(("", MacroInstr::NA.into())));
-        assert_ne!(parse_macro_1labl2reg("   "), Ok(("", MacroInstr::NA.into())));
+        assert_ne!(parse_macro_1labl2reg("invalid"), Ok(("", Instruction::NA.into())));
+        assert_ne!(parse_macro_1labl2reg("   "), Ok(("", Instruction::NA.into())));
         assert_ne!(parse_macro_1labl2reg("sb x1, x6"), Ok(("", MacroInstr::Sb(Reg::G1, Reg::G6, "".to_string()).into())));
         assert_ne!(parse_macro_1labl2reg("lb x1, total"), Ok(("", MacroInstr::Lb(Reg::G1, Reg::NA, "total".to_string()).into())));
         assert_eq!(parse_macro_1labl2reg("bgeu x1, x4, sTaRt"), Ok(("", MacroInstr::Bgeu(Reg::G1, Reg::G4, "sTaRt".to_string()).into())));
@@ -1212,6 +1225,10 @@ END:
         label.set_def(10);
         let _ = symbols.insert_label(label);
 
+        label = LabelElem::new_refd("_MUL".to_string());
+        label.set_scope(true);
+        let _ = symbols.insert_label(label);
+        
         let correct_vec: Vec<Operation> = vec![
                                                  Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 0)),
                                                  Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
@@ -1222,7 +1239,7 @@ END:
                                                  Operation::from(MacroInstr::Jal(Reg::G1, "_MUL".to_string())),
                                                  Operation::from(Instruction::Addi(Reg::G6, Reg::G10, 0)),
                                                  Operation::from(Instruction::Lui(Reg::G4, 0x16)),
-                                                 Operation::from(MacroInstr::Jl("MUL".to_string())),
+                                                 Operation::from(MacroInstr::Jal(Reg::G0, "MUL".to_string())),
                                                  Operation::Labl(Cow::from("END"))
                                                 ];
 

@@ -69,8 +69,6 @@ impl LimitedQueue {
 impl From<MacroInstr> for RegActType {
     fn from(item: MacroInstr) -> Self {
         match item {
-            MacroInstr::NA => RegActType::NA,
-
             MacroInstr::Beq(reg1, reg2, _) |
             MacroInstr::Bne(reg1, reg2, _) |
             MacroInstr::Blt(reg1, reg2, _) |
@@ -80,8 +78,6 @@ impl From<MacroInstr> for RegActType {
 
             MacroInstr::Jal(_, _) => todo!(),
             MacroInstr::Jalr(_, _, _) => todo!(),
-            MacroInstr::Jl(_) => todo!(),
-            MacroInstr::Jall(_) => todo!(),
 
             MacroInstr::Lui(_, _) => todo!(),
             MacroInstr::Auipc(_, _) => todo!(),
@@ -102,12 +98,10 @@ impl From<MacroInstr> for RegActType {
 }
 
 impl MacroInstr {
-    fn translate(&self, namespace: &mut Namespaces, current_space: &usize, instructions: &mut Vec<Instruction>) -> () {
+    fn translate(&self, namespace: &mut Namespaces, current_space: &usize, instructions: &mut Vec<Instruction>) {
         // Do not forget to change the lines function in the parser when changing the amount of lines here! 
         // (TODO: Better method for this)
         match self {
-            MacroInstr::NA => instructions.push(Instruction::NA),
-
             MacroInstr::Beq(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
                 instructions.push(Instruction::Beq(reg1.to_owned(), reg2.to_owned(), lines));
@@ -140,15 +134,6 @@ impl MacroInstr {
             MacroInstr::Jalr(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
                 instructions.push(Instruction::Jalr(reg1.to_owned(), reg2.to_owned(), lines));
-            },
-
-            MacroInstr::Jl(labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
-                instructions.push(Instruction::Jal(Reg::G0, lines));
-            },
-            MacroInstr::Jall(labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
-                instructions.push(Instruction::Jal(Reg::G1, lines));
             },
 
             MacroInstr::Lui(reg, labl) => {
@@ -256,12 +241,12 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction>
         };
     }
 
-    return instructions;
+    instructions
 }
 
 pub fn optimize(code: (Namespaces, Vec<Operation>)) -> Vec<Instruction> {
     //let nop_code = nop_insertion(code);
-    return substitute_labels(code);
+    substitute_labels(code)
 }
 
 // TODO: Tests here

@@ -18,19 +18,16 @@ use crate::common::{LabelRecog, Operation, LabelElem};
 
 #[derive(Debug, PartialEq)]
 pub struct Namespaces {
-    global_definitions: Box<HashMap<String, usize>>,
-    global_namespace: Box<Vec<LabelElem>>,
-    namespaces: Box<Vec<LabelRecog>>,
+    global_definitions: HashMap<String, usize>,
+    global_namespace: Vec<LabelElem>,
+    namespaces: Vec<LabelRecog>,
 }
 
 impl Namespaces {
     pub fn new() -> Namespaces {
-        let global_definitions: Box<HashMap<String, usize>> =
-        Box::new(HashMap::new());
-        let global_namespace: Box<Vec<LabelElem>> =
-        Box::new(vec![]);
-        let namespaces: Box<Vec<LabelRecog>> =
-        Box::new(vec![]);
+        let global_definitions: HashMap<String, usize> = HashMap::new();
+        let global_namespace: Vec<LabelElem> = vec![];
+        let namespaces: Vec<LabelRecog> = vec![];
 
         Namespaces {
             global_definitions,
@@ -45,14 +42,11 @@ impl Namespaces {
             let elem_name = labelelem.get_name();
             match self.global_definitions.get(elem_name) {
                 Some(val) => {
-                    match self.global_namespace.get_mut(*val) {
-                        Some(gl_label) => {
-                            match gl_label.combine(labelelem) {
-                                Ok(_) => (),
-                                Err(_msg) => return Err(LinkError {}),
-                            }
-                        },
-                        None => (),
+                    if let Some(gl_label) = self.global_namespace.get_mut(*val) {
+                        match gl_label.combine(labelelem) {
+                            Ok(_) => (),
+                            Err(_msg) => return Err(LinkError {}),
+                        }
                     }
                 },
                 None => {
@@ -77,7 +71,7 @@ impl Namespaces {
         0..self.namespaces.len()
     }
 
-    pub fn get_global_labels(&self) -> Box<Vec<LabelElem>> {
+    pub fn get_global_labels(&self) -> Vec<LabelElem> {
         self.global_namespace.clone()
     }
 
@@ -113,9 +107,8 @@ pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Name
 
     // Break out into multiple functions? Probably not..
     for code in parsed_instr.iter_mut() {
-        match offset.get(file_counter) {
-            Some(val) => code.0.add_offset(*val as i128),
-            None => (),
+        if let Some(val) = offset.get(file_counter) {
+            code.0.add_offset(*val as i128);
         };
         match new_code.0.insert_recog(code.0.clone()) {
             Ok(_) => (),
@@ -123,8 +116,8 @@ pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Name
         }
         new_code.1.push(Operation::Namespace(file_counter));
         new_code.1.extend(code.1.clone());
-        offset.insert(file_counter + 1, code.1.len());
-        file_counter = file_counter + 1;
+        file_counter += 1;
+        offset.insert(file_counter, code.1.len());
     }
 
     // Check if all globals are defined!
@@ -147,7 +140,7 @@ mod tests {
     fn test_correct_link() {
         let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
         let mut operation_vec_one: Vec<Operation> = vec![];
-        operation_vec_one.push(Operation::LablMacro(Cow::from("SEHR_SCHOEN"), MacroInstr::Jl("END".to_string())));
+        operation_vec_one.push(Operation::LablMacro(Cow::from("SEHR_SCHOEN"), MacroInstr::Jal(Reg::G1, "END".to_string())));
         operation_vec_one.push(Operation::Labl(Cow::from("END")));
 
         let mut label_recog_one = LabelRecog::new();
@@ -173,7 +166,7 @@ mod tests {
 
         let mut operation_vec_two: Vec<Operation> = vec![];
 
-        operation_vec_two.push(Operation::Macro(MacroInstr::Jl("SEHR_SCHOEN".to_string())));
+        operation_vec_two.push(Operation::Macro(MacroInstr::Jal(Reg::G1, "SEHR_SCHOEN".to_string())));
         operation_vec_two.push(Operation::Labl(Cow::from("END")));
 
         let mut label_recog_two = LabelRecog::new();
@@ -219,10 +212,10 @@ mod tests {
         let mut operation_vec_ver: Vec<Operation> = vec![];
 
         operation_vec_ver.push(Operation::Namespace(0));
-        operation_vec_ver.push(Operation::LablMacro(Cow::from("SEHR_SCHOEN"), MacroInstr::Jl("END".to_string())));
+        operation_vec_ver.push(Operation::LablMacro(Cow::from("SEHR_SCHOEN"), MacroInstr::Jal(Reg::G1, "END".to_string())));
         operation_vec_ver.push(Operation::Labl(Cow::from("END")));
         operation_vec_ver.push(Operation::Namespace(1));
-        operation_vec_ver.push(Operation::Macro(MacroInstr::Jl("SEHR_SCHOEN".to_string())));
+        operation_vec_ver.push(Operation::Macro(MacroInstr::Jal(Reg::G1, "SEHR_SCHOEN".to_string())));
         operation_vec_ver.push(Operation::Labl(Cow::from("END")));
 
         assert_eq!((namespace_ver, operation_vec_ver), link(parsed_vector).unwrap());
@@ -258,7 +251,7 @@ mod tests {
         let mut operation_vec_two: Vec<Operation> = vec![];
 
         operation_vec_two.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::Subn(Reg::G0, Reg::G0, Reg::G0)));
-        operation_vec_two.push(Operation::Macro(MacroInstr::Jl("SEHR_SCHOEN".to_string())));
+        operation_vec_two.push(Operation::Macro(MacroInstr::Jal(Reg::G1, "SEHR_SCHOEN".to_string())));
 
         let mut label_recog_two = LabelRecog::new();
 

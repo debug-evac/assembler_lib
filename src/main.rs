@@ -8,6 +8,7 @@
 
 mod parser;
 mod linker;
+#[allow(unused)]
 mod optimizer;
 mod translator;
 mod common;
@@ -63,7 +64,7 @@ fn main() {
     let mut subroutines = Subroutines::new();
 
     for val in string_vector.as_slice() {
-        let val = parser::parse(&val, &mut Some(&mut subroutines));
+        let val = parser::parse(val, &mut Some(&mut subroutines));
         match val {
             Ok(val) => parsed_vector.push(val.1),
             Err(_) => panic!("Parser error"),
@@ -72,10 +73,9 @@ fn main() {
 
     let sub_code = subroutines.get_code();
     for code in sub_code.as_slice() {
-        let val = parser::parse(&code, &mut None);
-        match val {
-            Ok(res) => parsed_vector.push(res.1),
-            Err(_) => (),
+        let val = parser::parse(code, &mut None);
+        if let Ok(res) = val {
+            parsed_vector.push(res.1)
         }
     }
 

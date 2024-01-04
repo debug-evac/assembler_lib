@@ -331,12 +331,26 @@ fn translate_label(total_instructions: i128, label: String, namespaces: &mut Nam
     }
 }
 
-fn nop_insertion(code: (Namespaces, Vec<Operation>)) -> (Namespaces, Vec<Operation>) {
-    let mut code_inserts: BTreeMap<usize, i8> = BTreeMap::new();
-    let mut label_pos: BTreeMap<usize, LabelElem> = BTreeMap::new();
+fn find_and_set_label_ns(namespace: &mut Namespaces, ) -> usize {
+    let testing_spaces = code.0.get_namespaces().filter(|b| b > &space);
+    for pot_space in testing_spaces {
+        match code.0.get_label(label.to_string(), Some(pot_space)) {
+            Some(lablel) => {
+                lablel.add_def((nop_pointer as i128) - (real_pointer as i128));
+                break;
+            },
+            None => (),
+        }
+    }
+}
+
+fn nop_insertion(mut code: (Namespaces, Vec<Operation>)) -> (Namespaces, Vec<Operation>) {
+    let mut code_inserts: BTreeMap<String, usize> = BTreeMap::new();
 
     let mut working_set: LimitedQueue = LimitedQueue::new_sized(3);
     let mut branch_ptr_queue: VecDeque<(usize, LimitedQueue)> = VecDeque::new();
+
+    let mut space = 0;
 
     let mut real_pointer: usize = 0;
     let mut nop_pointer: usize = 0;
@@ -347,19 +361,41 @@ fn nop_insertion(code: (Namespaces, Vec<Operation>)) -> (Namespaces, Vec<Operati
     loop {
         let operation = code.1.get(real_pointer);
         match operation {
-            Some(instr) => {
-                let reg_dep = RegActType::from(instr);
+            Some(opera) => {
+                let reg_dep = RegActType::from(opera);
                 let nop_insert = working_set.compare_and_insert(reg_dep);
                 if nop_insert != -1 {
                     let instr_num = 3 - nop_insert;
-                    code_inserts.insert(real_pointer, instr_num);
                     for _ in 1..instr_num {
                         nop_inserted_code.insert(nop_pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                     }
                     nop_pointer += instr_num as usize;
-                    real_pointer += 1;
                 }
+                match opera {
+                    Operation::LablInstr(label, instr) => {
+                        if real_pointer != nop_pointer {
+                            match code.0.get_label(label.to_string(), Some(space)) {
+                                Some(lablel) => lablel.add_def((nop_pointer as i128) - (real_pointer as i128)),
+                                None => {
+                                    // Could happen, when Namespace is jumped over; In such a case
+                                    // apply some heuristics to quickly find correct namespace
+                                    let part = (code.1.len() / 2) - real_pointer;
+                                    if part > 0 {
+                                        
+                                    } else {
 
+                                    }
+                                },
+                            }
+                        }
+                    },
+                    Operation::LablMacro(label, instr) => (),
+                    Operation::Labl(_) => (),
+                    Operation::Instr(instr) => (),
+                    Operation::Macro(instr) => (),
+                    Operation::Namespace(ns) => space = *ns,
+                }
+                real_pointer += 1;
             },
             None => break,
         }

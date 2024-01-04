@@ -205,43 +205,6 @@ pub enum Instruction {
     // Custom commands implemented by the Hardware people
     Xnor(Reg, Reg, Reg),
     Equal(Reg, Reg, Reg),
-
-    // 1 Imm
-    //Jmp(Imm),
-    //Bt(Imm),
-    //Bf(Imm),
-
-    //VJmp(String),
-    //VBt(String),
-    //VBf(String),
-
-    // 1 Reg & 1 Imm
-
-    //Movu(Reg, Imm),
-    //Movl(Reg, Imm),
-
-    // 2 Regs
-    //Cmpe(Reg, Reg),
-
-    // 2 Regs & 1 Imm
-
-    // Not needed.
-    //Addci(Reg, Reg, Imm),
-    //Subci(Reg, Reg, Imm),
-    //Mulci(Reg, Reg, Imm),
-    //Divci(Reg, Reg, Imm),
-
-    // What is that? Shift left arithmetic immediate? Not needed.
-    //Slai(Reg, Reg, Imm),
-
-    // 3 Regs
-
-    // Compare is branching
-    //Cmpg(Reg, Reg, Reg),
-    //Cmpl(Reg, Reg, Reg),
-    // Shift left arithmetic? Not needed. Only difference to logical shift is 
-    // that it triggers an arithmetic overflow
-    //Sla(Reg, Reg, Reg),
 }
 
 #[derive(Debug, Clone, PartialEq)]

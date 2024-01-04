@@ -387,7 +387,6 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                         }
                     },
                     Operation::LablMacro(label, instr) => {
-                        cond_add_acc_label(&mut code.0, accumulator - 1, std::borrow::Cow::Borrowed(label), space);
                         match instr {
                             MacroInstr::Beq(_, _, _) |
                             MacroInstr::Bne(_, _, _) |
@@ -492,6 +491,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
 // However the CPU does flush its pipeline, so that this is not needed. In this case we can
 // just iterate over the instructions and clear the working set when branches are detected.
 // We don't even need to follow unconditional branches. Cool!
+// Do not remove!
 /*
 fn find_and_set_label_ns(namespace: &mut Namespaces, space: &usize, difference: &i128, label: String, direction: bool) {
     let testing_spaces = namespace.get_namespaces().filter(|b| b > space);

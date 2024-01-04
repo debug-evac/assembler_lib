@@ -70,7 +70,8 @@ enum IntermediateOp {
     Div,
     Mul,
     Xnor,
-    Nor
+    Nor,
+    Equal
 }
 
 pub struct Subroutines {
@@ -585,6 +586,7 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Vec<Operation>> {
         value(IntermediateOp::Mul, tag("mul")),
 
         value(IntermediateOp::Xnor, tag("xnor")),
+        value(IntermediateOp::Equal, tag("eq")),
         value(IntermediateOp::Nor, tag("nor")),
     ))(input)?;
     let (rest, _) = tag(" ")(rest)?;
@@ -638,7 +640,8 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Vec<Operation>> {
             returned_vec
         },
 
-        IntermediateOp::Xnor => todo!("Not implemented yet!"),
+        IntermediateOp::Equal => Vec::from([Instruction::Equal(args.0, args.2, args.4).into()]),
+        IntermediateOp::Xnor => Vec::from([Instruction::Xnor(args.0, args.2, args.4).into()]),
         IntermediateOp::Nor => todo!("Not implemented yet!"),
 
         op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),

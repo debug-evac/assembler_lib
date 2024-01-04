@@ -68,6 +68,7 @@ impl Namespaces {
         self.namespaces.get(space)
     }
 
+    #[allow(dead_code)]
     pub fn get_namespaces(&self) -> std::ops::Range<usize> {
         0..self.namespaces.len()
     }

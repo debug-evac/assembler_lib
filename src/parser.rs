@@ -86,21 +86,6 @@ _MUL:
 _DIV:
 "#;
 
-/*
-Addi x11, x0, ?? (imm)
-Addi x10, ??, 0
-Addi x0, x0, 0
-jal x1, imm
-
-HERE:
-sub x14, x0, x11
-srl x12, x10, x11
-sll x13, x10, x14
-or x10, x12, x13
-ret
-
-
-*/
     const SRR_SUB: &'static str = r#"
 _SRR:
     sub a4, zero, a1

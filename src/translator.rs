@@ -114,6 +114,9 @@ impl Instruction {
          Instruction::Sll(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + 0b10_00000_00000_u32,
          Instruction::Srl(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + 0b1010_00000_00000_u32,
          Instruction::Sra(reg3, reg1, reg2) => (0b100000_u32 << 25) + rtype_instr(reg3, reg1, reg2) + 0b1010_00000_00000_u32,
+
+         Instruction::Xnor(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + 0b1110_00000_00000_u32 + (0b100000_u32 << 25),
+         Instruction::Equal(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + 0b110_00000_00000_u32 + (0b100000_u32 << 25),
       }
    }
 }

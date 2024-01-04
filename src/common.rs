@@ -138,12 +138,6 @@ pub enum MacroInstr {
     //Subi(Reg, Reg, Imm),
     //Muli(Reg, Reg, Imm),
     //Divi(Reg, Reg, Imm),
-    
-    // Not needed. But can be done, for user experience
-    //Divcn(Reg, Reg, Reg),
-    //Mulcn(Reg, Reg, Reg),
-    //Subcn(Reg, Reg, Reg),
-    //Addcn(Reg, Reg, Reg),
 }
 
 // Possibly split Instruction to instruction enums with 1 imm, 1 reg and 1 imm and so on
@@ -207,6 +201,11 @@ pub enum Instruction {
     Lui(Reg, Imm),
     Auipc(Reg, Imm),
     
+    // ------------------
+    // Custom commands implemented by the Hardware people
+    Xnor(Reg, Reg, Reg),
+    Equal(Reg, Reg, Reg),
+
     // 1 Imm
     //Jmp(Imm),
     //Bt(Imm),

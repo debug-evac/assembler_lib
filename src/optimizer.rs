@@ -49,16 +49,58 @@ fn mul_subroutine(n_spaces: &mut Namespaces, counter: usize, regs:&[Reg], imm: O
 
     match imm {
         Some() => {
-            output.0.push(Operation::Instr(Instruction::VJmp("_mulI".to_string())));
-            output.1.push(Operation::Instr(Instruction::Lw(Reg::G5, 10)));
-            output.1.push(Operation::Instr(Instruction::VBge((), (), ())))
 
+            output.0.push(Operation::Instr(Instruction::VJmp("_mulI".to_string())));
+            output.1.push(Operation::Instr(Instruction::Lw(Reg::G5, Reg::G0, 1)));
+            output.1.push(Operation::Instr(Instruction::Lw(Reg::G28, Reg::G0, 0)));
+
+            output.1.push(Operation::Instr(Instruction::Blt(imm, regs.1, 28)));           //Binär oder dezimal angegeben? Wie viele müssen pro Anweisung übersprungen werden
+            output.1.push(Operation::Instr(Instruction::And(Reg::G6, Reg::G5, imm)));
+            output.1.push(Operation::Instr(Instruction::Bne(Reg::G6, Reg::G0, 8)));         //Binär oder dezimal angegeben? Wie viele müssen pro Anweisung übersprungen werden
+            output.1.push(Operation::Instr(Instruction::Sll(Reg::G7, Reg::G28, regs.1)));
+            output.1.push(Operation::Instr(Instruction::Addn(Reg::G31, Reg::G31, Reg::G7)));
+            output.1.push(Operation::Instr(Instruction::Addi(Reg::G28, Reg::G28, 1)));
+            output.1.push(Operation::Instr(Instruction::Slli(Reg::G5, Reg::G5, 1)));
+            output.1.push(Operation::Instr(Instruction::Bge(regs.1, Reg::G5, -24)));         //Binär oder dezimal angegeben? Wie viele müssen pro Anweisung übersprungen werden, kann man negativ springen?
+            
+            output.1.push(Operation::Instr(Instruction::Beq(Reg::G0, Reg::G0, 28)));         //Binär oder dezimal angegeben? Wie viele müssen pro Anweisung übersprungen werden
+
+
+            output.1.push(Operation::Instr(Instruction::And(Reg::G6, Reg::G5, regs.1)));
+            output.1.push(Operation::Instr(Instruction::Bne(Reg::G6, Reg::G0, 8)));         //Binär oder dezimal angegeben? Wie viele müssen pro Anweisung übersprungen werden
+            output.1.push(Operation::Instr(Instruction::Sll(Reg::G7, Reg::G28, imm)));
+            output.1.push(Operation::Instr(Instruction::Addn(Reg::G31, Reg::G31, Reg::G7)));
+            output.1.push(Operation::Instr(Instruction::Addi(Reg::G28, Reg::G28, 1)));
+            output.1.push(Operation::Instr(Instruction::Slli(Reg::G5, Reg::G5, 1)));
+            output.1.push(Operation::Instr(Instruction::Bge(imm, Reg::G5, -24)));          //Binär oder dezimal angegeben? Wie viele müssen pro Anweisung übersprungen werden, kann man negativ springen?
+
+
+           
         },
         None => {
-            output.0.push(Operation::Instr(Instruction::VJmp("_mul".to_string()))); // Jump subroutine
-            output.1.push(Operation::Instr(Instruction::Lw(Reg::G5, 10)));
-            output.1.push(Operation::Instr(Instruction::VBge(match(op),Reg2,"_mul".to_string()))); //warum match(op)? 
-            output.1.push(Operation::Instr(Instruction::And(Reg)));
+            output.0.push(Operation::Instr(Instruction::VJmp("_mulI".to_string())));
+            output.1.push(Operation::Instr(Instruction::Lw(Reg::G5, Reg::G0, 1)));
+            output.1.push(Operation::Instr(Instruction::Lw(Reg::G28, Reg::G0, 0)));
+
+            output.1.push(Operation::Instr(Instruction::Blt(regs.2, regs.1, 28)));           //Binär oder dezimal angegeben? Wie viele müssen pro Anweisung übersprungen werden
+            output.1.push(Operation::Instr(Instruction::And(Reg::G6, Reg::G5, regs.2)));
+            output.1.push(Operation::Instr(Instruction::Bne(Reg::G6, Reg::G0, 8)));         //Binär oder dezimal angegeben? Wie viele müssen pro Anweisung übersprungen werden
+            output.1.push(Operation::Instr(Instruction::Sll(Reg::G7, Reg::G28, regs.1)));
+            output.1.push(Operation::Instr(Instruction::Addn(Reg::G31, Reg::G31, Reg::G7)));
+            output.1.push(Operation::Instr(Instruction::Addi(Reg::G28, Reg::G28, 1)));
+            output.1.push(Operation::Instr(Instruction::Slli(Reg::G5, Reg::G5, 1)));
+            output.1.push(Operation::Instr(Instruction::Bge(regs.1, Reg::G5, -24)));         //Binär oder dezimal angegeben? Wie viele müssen pro Anweisung übersprungen werden, kann man negativ springen?
+
+            output.1.push(Operation::Instr(Instruction::Beq(Reg::G0, Reg::G0, 28)));         //Binär oder dezimal angegeben? Wie viele müssen pro Anweisung übersprungen werden
+
+
+            output.1.push(Operation::Instr(Instruction::And(Reg::G6, Reg::G5, regs.1)));
+            output.1.push(Operation::Instr(Instruction::Bne(Reg::G6, Reg::G0, 8)));         //Binär oder dezimal angegeben? Wie viele müssen pro Anweisung übersprungen werden
+            output.1.push(Operation::Instr(Instruction::Sll(Reg::G7, Reg::G28, regs.2)));
+            output.1.push(Operation::Instr(Instruction::Addn(Reg::G31, Reg::G31, Reg::G7)));
+            output.1.push(Operation::Instr(Instruction::Addi(Reg::G28, Reg::G28, 1)));
+            output.1.push(Operation::Instr(Instruction::Slli(Reg::G5, Reg::G5, 1)));
+            output.1.push(Operation::Instr(Instruction::Bge(regs.2, Reg::G5, -24)));          //Binär oder dezimal angegeben? Wie viele müssen pro Anweisung übersprungen werden, kann man negativ springen?
         },
     }
 

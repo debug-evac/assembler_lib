@@ -24,7 +24,7 @@ use std::collections::VecDeque;
 use std::borrow::Cow;
 
 use crate::{
-    common::{Instruction, Operation, MacroInstr, Reg}, 
+    common::{Instruction, Operation, MacroInstr, Reg, Part}, 
     linker::Namespaces
 };
 
@@ -199,27 +199,35 @@ impl From<&Operation<'_>> for RegActType {
                     MacroInstr::Bgeu(reg1, reg2, _) => RegActType::Read2(reg1.clone(), reg2.clone()),
 
                     MacroInstr::Lui(reg, _) |
-                    MacroInstr::Auipc(reg, _) |
+                    MacroInstr::Auipc(reg, _, _) |
                     MacroInstr::Jal(reg, _) => RegActType::Write(reg.clone()),
 
                     MacroInstr::Slli(reg1, reg2, _) |
                     MacroInstr::Srli(reg1, reg2, _) |
                     MacroInstr::Srai(reg1, reg2, _) |
-                    MacroInstr::Jalr(reg1, reg2, _) => RegActType::WriteRead(reg1.clone(), reg2.clone()),
+                    MacroInstr::Jalr(reg1, reg2, _, _) => RegActType::WriteRead(reg1.clone(), reg2.clone()),
 
-                    MacroInstr::Lb(reg1, reg2, _) |
-                    MacroInstr::Lh(reg1, reg2, _) |
-                    MacroInstr::Lw(reg1, reg2, _) |
+                    MacroInstr::Lb(reg1, reg2, _, _) |
+                    MacroInstr::Lh(reg1, reg2, _, _) |
+                    MacroInstr::Lw(reg1, reg2, _, _) |
                     MacroInstr::Lbu(reg1, reg2, _) |
                     MacroInstr::Lhu(reg1, reg2, _) => RegActType::Load(reg1.clone(), reg2.clone()),
 
-                    MacroInstr::Sh(reg1, reg2, _) |
-                    MacroInstr::Sb(reg1, reg2, _) |
-                    MacroInstr::Sw(reg1, reg2, _) => RegActType::Store(reg1.clone(), reg2.clone()),
+                    MacroInstr::Sh(reg1, reg2, _, _) |
+                    MacroInstr::Sb(reg1, reg2, _, _) |
+                    MacroInstr::Sw(reg1, reg2, _, _) => RegActType::Store(reg1.clone(), reg2.clone()),
                 }
             },
             _ => RegActType::NA,
         }
+    }
+}
+
+fn handle_part(lines: &i32, part: &Part) -> i32 {
+    match part {
+        Part::Upper => *lines >> 12,
+        Part::Lower => *lines & 0b11_11111_11111,
+        Part::None => *lines,
     }
 }
 
@@ -257,8 +265,9 @@ impl MacroInstr {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
                 instructions.push(Instruction::Jal(reg.to_owned(), lines));
             },
-            MacroInstr::Jalr(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+            MacroInstr::Jalr(reg1, reg2, labl, part) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                lines = handle_part(&lines, part);
                 instructions.push(Instruction::Jalr(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
@@ -266,8 +275,9 @@ impl MacroInstr {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
                 instructions.push(Instruction::Lui(reg.to_owned(), lines));
             },
-            MacroInstr::Auipc(reg, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+            MacroInstr::Auipc(reg, labl, part) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                lines = handle_part(&lines, part);
                 instructions.push(Instruction::Auipc(reg.to_owned(), lines));
             },
 
@@ -285,16 +295,19 @@ impl MacroInstr {
             },
 
             // TODO: Evaluate if this is right? Spec paper seems to add upper half of symbol to PC (needed for our case?)
-            MacroInstr::Lb(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+            MacroInstr::Lb(reg1, reg2, labl, part) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                lines = handle_part(&lines, part);
                 instructions.push(Instruction::Lb(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Lh(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+            MacroInstr::Lh(reg1, reg2, labl, part) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                lines = handle_part(&lines, part);
                 instructions.push(Instruction::Lh(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Lw(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+            MacroInstr::Lw(reg1, reg2, labl, part) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                lines = handle_part(&lines, part);
                 instructions.push(Instruction::Lw(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Lbu(reg1, reg2, labl) => {
@@ -306,16 +319,19 @@ impl MacroInstr {
                 instructions.push(Instruction::Lhu(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
-            MacroInstr::Sb(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+            MacroInstr::Sb(reg1, reg2, labl, part) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                lines = handle_part(&lines, part);
                 instructions.push(Instruction::Sb(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Sh(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+            MacroInstr::Sh(reg1, reg2, labl, part) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                lines = handle_part(&lines, part);
                 instructions.push(Instruction::Sh(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Sw(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+            MacroInstr::Sw(reg1, reg2, labl, part) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                lines = handle_part(&lines, part);
                 instructions.push(Instruction::Sw(reg1.to_owned(), reg2.to_owned(), lines));
             },
         };
@@ -395,7 +411,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                             MacroInstr::Bge(_, _, _) |
                             MacroInstr::Bgeu(_, _, _) |
                             MacroInstr::Jal(_, _) |
-                            MacroInstr::Jalr(_, _, _) => {
+                            MacroInstr::Jalr(_, _, _, _) => {
                                 working_set.flush();
                                 cond_add_acc_label(&mut code.0, accumulator - 1, std::borrow::Cow::Borrowed(label), space);
                                 pointer += 1;
@@ -456,7 +472,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                             MacroInstr::Bge(_, _, _) |
                             MacroInstr::Bgeu(_, _, _) |
                             MacroInstr::Jal(_, _) |
-                            MacroInstr::Jalr(_, _, _) => {
+                            MacroInstr::Jalr(_, _, _, _) => {
                                 working_set.flush();
                                 pointer += 1;
                                 continue;

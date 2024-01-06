@@ -103,6 +103,7 @@ _MUL:
     addi a7, a7, 1
     slli a6, a6, 1
     bge a2, a7, -24
+    ret
 "#;
     const DIV_SUB: &'static str = r#"
 _DIV:

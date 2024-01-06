@@ -83,6 +83,26 @@ impl Subroutines {
     // TODO:
     const MUL_SUB: &'static str = r#"
 _MUL:
+    lw a7, zero, 0
+    lw a6, zero, 1
+
+    blt a2, a3, 28
+
+    and a4, a6, a3
+    bne a4, zero, 8
+    sll a5, a7, a2
+    add a1, a1, a5
+    addi a7, a7, 1
+    slli a6, a6, 1
+    bge a3, a7, -24
+
+    and a4, a6, a2
+    bne a4, zero, 8
+    sll a5, a7, a3
+    add a1, a1, a5
+    addi a7, a7, 1
+    slli a6, a6, 1
+    bge a2, a7, -24
 "#;
     const DIV_SUB: &'static str = r#"
 _DIV:

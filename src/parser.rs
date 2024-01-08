@@ -85,19 +85,18 @@ impl Subroutines {
 _MUL:
     lw a7, zero, 0
     lw a6, zero, 1
-    and a0, zero, zero
     blt a2, a3, 32
     and a4, a6, a3
-    bne a4, zero, 8
-    sll a5, a7, a2
+    beq a4, zero, 12
+    sll a5, a2, a7
     add a0, a0, a5
     addi a7, a7, 1
     slli a6, a6, 1
     bge a3, a7, -24
-    beq zero, zero, 28
+    beq zero, zero, 32
     and a4, a6, a2
-    bne a4, zero, 8
-    sll a5, a7, a3
+    beq a4, zero, 12
+    sll a5, a3, a7
     add a0, a0, a5
     addi a7, a7, 1
     slli a6, a6, 1
@@ -107,17 +106,31 @@ _MUL:
     const DIV_SUB: &'static str = r#"
 _DIV:
     lw a7, zero, 1
-    bne a2, a3, 12
-    slli a3, a3, 1
-    sub a2, a2, a3
-    add a0, a0, a7 
-    slli a3, a3, 1
-    slli a7, a7, 1
-    blt a3, a2, -8
+    bne a2, a3, 16
     slli a3, a3, 1
     sub a2, a2, a3
     add a0, a0, a7
-    bne a2, zero, -24
+    blt a2, a3, 40
+    slli a3, a3, 1
+    slli a7, a7, 1
+    blt a3, a2, -8
+    srli a3, a3, 1
+    srli a7, a7, 1
+    sub a2, a2, a3
+    add a0, a0, a7
+    bne a2, zero, -32
+    beq zero, zero, 44
+    srli a3, a3, 1
+    srli a7, a7, 1
+    blt a2, a3, -8
+    slli a3, a3, 1
+    slli a7, a7, 1
+    beq a2, a3, 8
+    srli a3, a3, 1
+    srli a7, a7, 1
+    sub a2, a2, a3
+    add a0, a0, a7
+    bne a2, zero, -80
     ret
 "#;
 

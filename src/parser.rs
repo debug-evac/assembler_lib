@@ -86,9 +86,7 @@ _MUL:
     lw a7, zero, 0
     lw a6, zero, 1
     and a0, zero, zero
-
     blt a2, a3, 32
-
     and a4, a6, a3
     bne a4, zero, 8
     sll a5, a7, a2
@@ -97,7 +95,6 @@ _MUL:
     slli a6, a6, 1
     bge a3, a7, -24
     beq zero, zero, 28
-
     and a4, a6, a2
     bne a4, zero, 8
     sll a5, a7, a3
@@ -122,7 +119,6 @@ _DIV:
     add a0, a0, a7
     bne a2, zero, -24
     ret
-
 "#;
 
     const SRR_SUB: &'static str = r#"

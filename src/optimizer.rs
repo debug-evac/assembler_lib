@@ -20,10 +20,6 @@
 // restructuring the assembly code (can be suppressed by
 // another flag).
 
-
-
-
-
 use std::collections::VecDeque;
 use std::borrow::Cow;
 

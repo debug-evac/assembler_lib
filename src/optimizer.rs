@@ -82,11 +82,21 @@ impl RegActType {
                 match self {
                     RegActType::NA | RegActType::Write(_) => false,
 
+                    #[cfg(feature = "raw_nop")]
+                    #[cfg(feature = "mem_load_nop")]
+                    RegActType::Store(reg1, reg2) => (*reg1 == *target) || (*reg2 == *target),
+
+                    #[cfg(not(feature = "raw_nop"))]
                     #[cfg(feature = "mem_load_nop")]
                     RegActType::Store(reg, _) => *reg == *target,
 
+                    #[cfg(feature = "raw_nop")]
                     #[cfg(not(feature = "mem_load_nop"))]
-                    RegActType::Store(reg, _) => false,
+                    RegActType::Store(_, reg) => *reg == *target,
+
+                    #[cfg(not(feature = "raw_nop"))]
+                    #[cfg(not(feature = "mem_load_nop"))]
+                    RegActType::Store(_, _) => false,
 
                     RegActType::Read2(reg1, reg2) |
                     RegActType::WriteRead2(_, reg1, reg2) => (*reg1 == *target) || (*reg2 == *target),

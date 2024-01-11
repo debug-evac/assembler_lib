@@ -72,7 +72,9 @@ enum IntermediateOp {
     Mul,
     Xnor,
     Nor,
-    Equal
+    Equal,
+    Push,
+    Pop
 }
 
 pub struct Subroutines {
@@ -653,6 +655,17 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Vec<Operation>> {
     };
 
     Ok((rest, instr))
+}
+
+fn parse_macro_multiarg(input: &str) ->IResult<&str, Vec<Operation>> {
+    let (rest, instr) = alt((
+        value(IntermediateOp::Push, tag("push")),
+        value(IntermediateOp::Pop, tag("pop")),
+    ))(input)?;
+    let (rest, _) = parse_instr_args_seper(rest)?;
+
+
+    todo!("");
 }
 
 fn parse_instruction(input: &str) -> IResult<&str, Vec<Operation>> {

@@ -31,7 +31,7 @@ use nom::{
     sequence::{
         tuple,
         separated_pair,
-    },
+    }, multi::separated_list1,
 };
 use std::collections::HashSet;
 use std::borrow::Cow;
@@ -657,15 +657,49 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Vec<Operation>> {
     Ok((rest, instr))
 }
 
-fn parse_macro_multiarg(input: &str) ->IResult<&str, Vec<Operation>> {
+fn parse_macro_multiarg(input: &str) -> IResult<&str, Vec<Operation>> {
     let (rest, instr) = alt((
         value(IntermediateOp::Push, tag("push")),
         value(IntermediateOp::Pop, tag("pop")),
     ))(input)?;
     let (rest, _) = parse_instr_args_seper(rest)?;
+    let (rest, args) = separated_list1(parse_seper, parse_reg)(rest)?;
 
+    let instr = match instr {
+        IntermediateOp::Push => {
+            let mut returned_vec: Vec<Operation> = Vec::with_capacity(args.len());
 
-    todo!("");
+            returned_vec.push(Instruction::Addi(Reg::G2, Reg::G2, -((args.len() as i32 * 4) + 4)).into());
+
+            let mut acc: i32 = (args.len() as i32 * 4) + 4;
+
+            for reg in args {
+                returned_vec.push(Instruction::Sw(reg, Reg::G2, acc).into());
+                acc -= 4;
+            }
+
+            returned_vec
+        },
+        IntermediateOp::Pop => {
+            let mut returned_vec: Vec<Operation> = Vec::with_capacity(args.len());
+
+            let regs_len = args.len() as i32 * 4;
+            let mut acc: i32 = 4;
+            
+            for reg in args {
+                returned_vec.push(Instruction::Lw(reg, Reg::G2, acc).into());
+                acc += 4;
+            }
+
+            returned_vec.push(Instruction::Addi(Reg::G2, Reg::G2, regs_len).into());
+
+            returned_vec
+        },
+
+        op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+    };
+
+    Ok((rest, instr))
 }
 
 fn parse_instruction(input: &str) -> IResult<&str, Vec<Operation>> {
@@ -687,7 +721,8 @@ fn parse_multiline_macro(input: &str) -> IResult<&str, Vec<Operation>> {
         parse_macro_1imm,
         parse_inst_1imm1reg,
         parse_inst_1imm2reg_up,
-        parse_inst_3reg
+        parse_inst_3reg,
+        parse_macro_multiarg
     ))(input)
 }
 
@@ -1084,6 +1119,44 @@ mod tests {
         ]))));
         assert_eq!(parse_inst_3reg("and x6, x8, x14"), Ok(("", Vec::from([Instruction::And(Reg::G6, Reg::G8, Reg::G14).into()]))));
         assert_ne!(parse_inst_3reg("sll x6,  x8, x14"), Ok(("", Vec::from([Instruction::Sll(Reg::G6, Reg::G8, Reg::G14).into()]))));
+    }
+
+    #[test]
+    fn test_parse_inst_multiarg() {
+        assert_ne!(parse_macro_multiarg("push"), Ok(("", Vec::from([Instruction::Addi(Reg::G2, Reg::G2, -4).into()]))));
+        assert_eq!(parse_macro_multiarg("push x12"), Ok(("", Vec::from([
+            Instruction::Addi(Reg::G2, Reg::G2, -8).into(),
+            Instruction::Sw(Reg::G12, Reg::G2, 8).into()
+            ]))));
+        assert_eq!(parse_macro_multiarg("push x12, x13, x14"), Ok(("", Vec::from([
+            Instruction::Addi(Reg::G2, Reg::G2, -16).into(),
+            Instruction::Sw(Reg::G12, Reg::G2, 16).into(),
+            Instruction::Sw(Reg::G13, Reg::G2, 12).into(),
+            Instruction::Sw(Reg::G14, Reg::G2, 8).into()
+            ]))));
+        assert_eq!(parse_macro_multiarg("push   x12,x13,x14"), Ok(("", Vec::from([
+            Instruction::Addi(Reg::G2, Reg::G2, -16).into(),
+            Instruction::Sw(Reg::G12, Reg::G2, 16).into(),
+            Instruction::Sw(Reg::G13, Reg::G2, 12).into(),
+            Instruction::Sw(Reg::G14, Reg::G2, 8).into()
+            ]))));
+        assert_ne!(parse_macro_multiarg("pop"), Ok(("", Vec::from([Instruction::Addi(Reg::G2, Reg::G2, 0).into()]))));
+        assert_eq!(parse_macro_multiarg("pop x12"), Ok(("", Vec::from([
+            Instruction::Lw(Reg::G12, Reg::G2, 4).into(),
+            Instruction::Addi(Reg::G2, Reg::G2, 4).into()
+            ]))));
+        assert_eq!(parse_macro_multiarg("pop x12, x13, x14"), Ok(("", Vec::from([
+            Instruction::Lw(Reg::G12, Reg::G2, 4).into(),
+            Instruction::Lw(Reg::G13, Reg::G2, 8).into(),
+            Instruction::Lw(Reg::G14, Reg::G2, 12).into(),
+            Instruction::Addi(Reg::G2, Reg::G2, 12).into()
+            ]))));
+        assert_eq!(parse_macro_multiarg("pop   x12,x13,x14"), Ok(("", Vec::from([
+            Instruction::Lw(Reg::G12, Reg::G2, 4).into(),
+            Instruction::Lw(Reg::G13, Reg::G2, 8).into(),
+            Instruction::Lw(Reg::G14, Reg::G2, 12).into(),
+            Instruction::Addi(Reg::G2, Reg::G2, 12).into()
+            ]))));
     }
 
     #[test]

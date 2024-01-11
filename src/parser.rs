@@ -1045,6 +1045,10 @@ mod tests {
         assert_eq!(parse_macro_1labl1reg("auipc s2, helloWorld"), Ok(("", Vec::from([MacroInstr::Auipc(Reg::G18, "helloWorld".to_string(), Part::None).into()]))));
         assert_eq!(parse_macro_1labl1reg("jal   x20, test"), Ok(("", Vec::from([MacroInstr::Jal(Reg::G20, "test".to_string()).into()]))));
         assert_ne!(parse_macro_1labl1reg("jal x19, train "), Ok(("", Vec::from([MacroInstr::Jal(Reg::G19, "train".to_string()).into()]))));
+        assert_eq!(parse_macro_1labl1reg("la x19, HELLOWORLD"), Ok(("", Vec::from([
+            MacroInstr::Auipc(Reg::G19, "HELLOWORLD".to_string(), Part::Upper).into(),
+            MacroInstr::Addi(Reg::G19, Reg::G19, "HELLOWORLD".to_string(), Part::Lower).into()
+            ]))));
     }
 
     #[test]
@@ -1059,6 +1063,10 @@ mod tests {
         assert_eq!(parse_inst_1imm1reg("auipc x18, 0x20"), Ok(("", Vec::from([Instruction::Auipc(Reg::G18, 32).into()]))));
         assert_eq!(parse_inst_1imm1reg("jal x20, 5"), Ok(("", Vec::from([Instruction::Jal(Reg::G20, 5).into()]))));
         assert_ne!(parse_inst_1imm1reg("jal x19, 125 "), Ok(("", Vec::from([Instruction::Jal(Reg::G19, 125).into()]))));
+        assert_eq!(parse_inst_1imm1reg("la x19, 0x0F"), Ok(("", Vec::from([
+            Instruction::Auipc(Reg::G19, 0).into(),
+            Instruction::Addi(Reg::G19, Reg::G19, 0x0F).into()
+            ]))));
     }
 
     #[test]

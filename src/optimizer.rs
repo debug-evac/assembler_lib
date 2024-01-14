@@ -936,4 +936,43 @@ mod tests {
 
         assert_eq!(substitute_labels((namespace_ver, operation_vec)), instruction_ver);
     }
+
+    /*
+    _DIV:
+        addi a7, zero, 1
+        mv a2, a0
+        mv a3, a1
+        mv a0, zero
+        mv a1, zero
+        bne a2, a3, 16
+        slli a3, a3, 1
+        sub a2, a2, a3
+        add a0, a0, a7
+        blt a2, a3, 40
+        slli a3, a3, 1
+        slli a7, a7, 1
+        blt a3, a2, -8
+        srli a3, a3, 1
+        srli a7, a7, 1
+        sub a2, a2, a3
+        add a0, a0, a7
+        bne a2, zero, -32
+        beq zero, zero, 44
+        srli a3, a3, 1
+        srli a7, a7, 1
+        blt a2, a3, -8
+        slli a3, a3, 1
+        slli a7, a7, 1
+        beq a2, a3, 8
+        srli a3, a3, 1
+        srli a7, a7, 1
+        sub a2, a2, a3
+        add a0, a0, a7
+        bne a2, zero, -80
+        ret
+     */
+    #[test]
+    fn test_optimize() {
+        
+    }
 }

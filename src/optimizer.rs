@@ -844,4 +844,58 @@ mod tests {
 
         assert_eq!(code, (namespace_ver, operation_vec_ver));
     }
+
+    /*
+    _MUL:
+        addi a7, zero, 0
+        addi a6, zero, 1
+        mv a2, a0
+        mv a3, a1
+        mv a0, zero
+        mv a1, zero
+        blt a2, a3, 32
+        and a4, a6, a3
+        beq a4, zero, 12
+        sll a5, a2, a7
+        add a0, a0, a5
+        addi a7, a7, 1
+        slli a6, a6, 1
+        bge a3, a6, -24
+        ret
+        and a4, a6, a2
+        beq a4, zero, 12
+        sll a5, a3, a7
+        add a0, a0, a5
+        addi a7, a7, 1
+        slli a6, a6, 1
+        bge a2, a6, -24
+        ret
+     */
+
+    #[test]
+    fn test_label_substitution() {
+        let mut namespace_ver = Namespaces::new();
+        let mut label_recog_ver = LabelRecog::new();
+
+        let mut operation_vec: Vec<Operation> = vec![];
+        operation_vec.push(Operation::Namespace(0));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 0)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G16, Reg::G0, 1)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)));
+
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0)));
+        operation_vec.push(Operation::Instr(Instruction::Addn(Reg::G15, Reg::G1, Reg::G12)));
+        operation_vec.push(Operation::Macro(MacroInstr::Jal(Reg::G0, "END".to_string())));
+        operation_vec.push(Operation::LablInstr(Cow::from("START"), Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
+        operation_vec.push(Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G15)));
+        operation_vec.push(Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)));
+        operation_vec.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
+        operation_vec.push(Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G2)));
+        operation_vec.push(Operation::LablInstr(Cow::from("END"), Instruction::Addn(Reg::G15, Reg::G1, Reg::G12)));
+        operation_vec.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
+        operation_vec.push(Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G15)));
+        operation_vec.push(Operation::Macro(MacroInstr::Jal(Reg::G0, "START".to_string())));
+    }
 }

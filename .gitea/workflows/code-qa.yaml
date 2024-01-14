@@ -63,11 +63,11 @@ jobs:
       - name: Install grcov
         run: if [[ ! -e ~/.cargo/bin/grcov ]]; then cargo install grcov; fi
       - name: Run grcov
-        run: grcov . --binary-path target/debug/deps/ -s . -t lcov --branch --ignore-not-existing --ignore '../**' --ignore '/*' -o coverage.lcov
+        run: grcov . --binary-path target/debug/deps/ -s . -t cobertura --branch --ignore-not-existing --ignore '../**' --ignore '/*' -o coverage.xml
       - name: Code Coverage Summary Report
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
-          filename: coverage.lcov
+          filename: coverage.xml
           fail_below_min: true
 
   fail_if_pr_draft:

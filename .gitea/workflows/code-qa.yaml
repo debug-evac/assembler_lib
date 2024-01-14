@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     if: gitea.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     if: gitea.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     if: gitea.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -56,9 +56,9 @@ jobs:
           command: test
           args: --all-features
         env:
-          CARGO_INCREMENTAL: "0"
-          RUSTFLAGS: '-C instrument-coverage'
-          RUSTDOCFLAGS: "-Cinstrument-coverage"
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-Cinstrument-coverage'
+          RUSTDOCFLAGS: '-Cinstrument-coverage'
           LLVM_PROFILE_FILE: 'report-%p-%m.profraw'
       - name: Install grcov
         run: if [[ ! -e ~/.cargo/bin/grcov ]]; then cargo install grcov; fi

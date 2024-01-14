@@ -192,9 +192,9 @@ fn parse_label_definition_priv(input: &str) -> IResult<&str, Cow<str>> {
 
 fn from_hex(input: &str) -> Result<Imm, std::num::ParseIntError> {
     let num_str = input.to_lowercase();
-    if let Some(number) = num_str.strip_suffix("u") {
+    if let Some(number) = num_str.strip_suffix('u') {
         Imm::from_str_radix(number, 16)
-    } else if let Some(number) = num_str.strip_suffix("s") {
+    } else if let Some(number) = num_str.strip_suffix('s') {
         match Imm::from_str_radix(number, 16) {
             Ok(num) => {
                 let num_zero = num.leading_zeros();
@@ -210,9 +210,9 @@ fn from_hex(input: &str) -> Result<Imm, std::num::ParseIntError> {
 
 fn from_binary(input: &str) -> Result<Imm, std::num::ParseIntError> {
     let num_str = input.to_lowercase();
-    if let Some(number) = num_str.strip_suffix("u") {
+    if let Some(number) = num_str.strip_suffix('u') {
         Imm::from_str_radix(number, 2)
-    } else if let Some(number) = num_str.strip_suffix("s") {
+    } else if let Some(number) = num_str.strip_suffix('s') {
         match Imm::from_str_radix(number, 2) {
             Ok(num) => {
                 let num_zero = num.leading_zeros();

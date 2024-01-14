@@ -83,10 +83,10 @@ impl RegActType {
                     RegActType::NA | RegActType::Write(_) => false,
 
                     #[cfg(feature = "mem_load_nop")]
-                    RegActType::Store(reg, _) => *reg == *target,
+                    RegActType::Store(reg1, reg2) => (*reg1 == *target) || (*reg2 == *target),
 
                     #[cfg(not(feature = "mem_load_nop"))]
-                    RegActType::Store(reg, _) => false,
+                    RegActType::Store(_, reg) => *reg == *target,
 
                     RegActType::Read2(reg1, reg2) |
                     RegActType::WriteRead2(_, reg1, reg2) => (*reg1 == *target) || (*reg2 == *target),

@@ -17,7 +17,8 @@ use nom::{
     combinator::{
         opt,
         value,
-        map_res
+        map_res,
+        recognize
     },
     character::complete::{
         alpha1,
@@ -26,7 +27,8 @@ use nom::{
         multispace0,
         multispace1, 
         alphanumeric0,
-        alphanumeric1
+        alphanumeric1,
+        one_of
     },
     sequence::{
         tuple,
@@ -189,28 +191,60 @@ fn parse_label_definition_priv(input: &str) -> IResult<&str, Cow<str>> {
 }
 
 fn from_hex(input: &str) -> Result<Imm, std::num::ParseIntError> {
-    Imm::from_str_radix(input, 16)
+    let num_str = input.to_lowercase();
+    if let Some(number) = num_str.strip_suffix('u') {
+        Imm::from_str_radix(number, 16)
+    } else if let Some(number) = num_str.strip_suffix('s') {
+        match Imm::from_str_radix(number, 16) {
+            Ok(num) => {
+                let num_zero = num.leading_zeros();
+                let or_num = -1 << (i32::BITS - num_zero);
+                Ok(num | or_num)
+            },
+            Err(e) => Err(e),
+        }
+    } else {
+        Imm::from_str_radix(input, 16)
+    }
+}
+
+fn from_binary(input: &str) -> Result<Imm, std::num::ParseIntError> {
+    let num_str = input.to_lowercase();
+    if let Some(number) = num_str.strip_suffix('u') {
+        Imm::from_str_radix(number, 2)
+    } else if let Some(number) = num_str.strip_suffix('s') {
+        match Imm::from_str_radix(number, 2) {
+            Ok(num) => {
+                let num_zero = num.leading_zeros();
+                let or_num = -1 << (i32::BITS - num_zero);
+                Ok(num | or_num)
+            },
+            Err(e) => Err(e),
+        }
+    } else {
+        Imm::from_str_radix(input, 2)
+    }
 }
 
 fn parse_imm(input: &str) -> IResult<&str, Imm> {
-    let (rest, parsed) = opt(tag_no_case("0x"))(input)?;
-    if parsed.is_none() {
-        // Decimal
-        let (rest, parsed) = opt(tag("-"))(rest)?;
-        if parsed.is_none() {
-            // Positive decimal
-            map_res(digit1, str::parse)(rest)
-        } else {
-            // Negative decimal
-            map_res(digit1, |s: &str| {
-                let mut string_build = parsed.unwrap_or("").to_string();
-                string_build.push_str(s);
-                string_build.parse::<Imm>()
-            })(rest)
-        }
+    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0x"))(input) {
+        // Hexadecimal
+        map_res(
+            recognize(tuple((hex_digit1, opt(one_of("suSU"))))), 
+            from_hex
+        )(rest)
+    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0b"))(input) {
+        // Binary
+        map_res(
+            recognize(tuple((is_a("01"), opt(one_of("suSU"))))), 
+            from_binary
+        )(rest)
     } else {
-        // Hex
-        map_res(hex_digit1, from_hex)(rest)
+        // Decimal
+        map_res(
+            recognize(tuple((opt(tag("-")), digit1))),
+            str::parse
+        )(input)
     }
 }
 
@@ -899,6 +933,10 @@ mod tests {
         assert_eq!(parse_imm("10"), Ok(("", 10)));
         assert_eq!(parse_imm("0xA"), Ok(("", 10)));
         assert_eq!(parse_imm("-10"), Ok(("", -10)));
+        assert_eq!(parse_imm("0xAAs"), Ok(("", -86)));
+        assert_eq!(parse_imm("0xAAS"), Ok(("", -86)));
+        assert_eq!(parse_imm("0b1111u"), Ok(("", 15)));
+        assert_eq!(parse_imm("0b1100s"), Ok(("", -4)));
     }
 
     #[test]

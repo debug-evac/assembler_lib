@@ -17,7 +17,8 @@ use nom::{
     combinator::{
         opt,
         value,
-        map_res
+        map_res,
+        recognize
     },
     character::complete::{
         alpha1,
@@ -26,7 +27,8 @@ use nom::{
         multispace0,
         multispace1, 
         alphanumeric0,
-        alphanumeric1
+        alphanumeric1,
+        one_of
     },
     sequence::{
         tuple,
@@ -192,25 +194,29 @@ fn from_hex(input: &str) -> Result<Imm, std::num::ParseIntError> {
     Imm::from_str_radix(input, 16)
 }
 
+fn from_binary(input: &str) -> Result<Imm, std::num::ParseIntError> {
+    Imm::from_str_radix(input, 2)
+}
+
 fn parse_imm(input: &str) -> IResult<&str, Imm> {
-    let (rest, parsed) = opt(tag_no_case("0x"))(input)?;
-    if parsed.is_none() {
-        // Decimal
-        let (rest, parsed) = opt(tag("-"))(rest)?;
-        if parsed.is_none() {
-            // Positive decimal
-            map_res(digit1, str::parse)(rest)
-        } else {
-            // Negative decimal
-            map_res(digit1, |s: &str| {
-                let mut string_build = parsed.unwrap_or("").to_string();
-                string_build.push_str(s);
-                string_build.parse::<Imm>()
-            })(rest)
-        }
+    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0x"))(input) {
+        // Hexadecimal
+        map_res(
+            hex_digit1, 
+            from_hex
+        )(rest)
+    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0b"))(input) {
+        // Binary
+        map_res(
+            is_a("01"), 
+            from_binary
+        )(rest)
     } else {
-        // Hex
-        map_res(hex_digit1, from_hex)(rest)
+        // Decimal
+        map_res(
+            recognize(tuple((opt(tag("-")), digit1))),
+            str::parse
+        )(input)
     }
 }
 

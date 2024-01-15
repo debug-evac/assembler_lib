@@ -17,7 +17,8 @@ use nom::{
     combinator::{
         opt,
         value,
-        map_res
+        map_res,
+        recognize
     },
     character::complete::{
         alpha1,
@@ -26,12 +27,13 @@ use nom::{
         multispace0,
         multispace1, 
         alphanumeric0,
-        alphanumeric1
+        alphanumeric1,
+        one_of
     },
     sequence::{
         tuple,
         separated_pair,
-    },
+    }, multi::separated_list1,
 };
 use std::collections::HashSet;
 use std::borrow::Cow;
@@ -72,7 +74,10 @@ enum IntermediateOp {
     Mul,
     Xnor,
     Nor,
-    Equal
+    Equal,
+    Push,
+    Pop,
+    La
 }
 
 pub struct Subroutines {
@@ -243,28 +248,60 @@ fn parse_label_definition_priv(input: &str) -> IResult<&str, Cow<str>> {
 }
 
 fn from_hex(input: &str) -> Result<Imm, std::num::ParseIntError> {
-    Imm::from_str_radix(input, 16)
+    let num_str = input.to_lowercase();
+    if let Some(number) = num_str.strip_suffix('u') {
+        Imm::from_str_radix(number, 16)
+    } else if let Some(number) = num_str.strip_suffix('s') {
+        match Imm::from_str_radix(number, 16) {
+            Ok(num) => {
+                let num_zero = num.leading_zeros();
+                let or_num = -1 << (i32::BITS - num_zero);
+                Ok(num | or_num)
+            },
+            Err(e) => Err(e),
+        }
+    } else {
+        Imm::from_str_radix(input, 16)
+    }
+}
+
+fn from_binary(input: &str) -> Result<Imm, std::num::ParseIntError> {
+    let num_str = input.to_lowercase();
+    if let Some(number) = num_str.strip_suffix('u') {
+        Imm::from_str_radix(number, 2)
+    } else if let Some(number) = num_str.strip_suffix('s') {
+        match Imm::from_str_radix(number, 2) {
+            Ok(num) => {
+                let num_zero = num.leading_zeros();
+                let or_num = -1 << (i32::BITS - num_zero);
+                Ok(num | or_num)
+            },
+            Err(e) => Err(e),
+        }
+    } else {
+        Imm::from_str_radix(input, 2)
+    }
 }
 
 fn parse_imm(input: &str) -> IResult<&str, Imm> {
-    let (rest, parsed) = opt(tag_no_case("0x"))(input)?;
-    if parsed.is_none() {
-        // Decimal
-        let (rest, parsed) = opt(tag("-"))(rest)?;
-        if parsed.is_none() {
-            // Positive decimal
-            map_res(digit1, str::parse)(rest)
-        } else {
-            // Negative decimal
-            map_res(digit1, |s: &str| {
-                let mut string_build = parsed.unwrap_or("").to_string();
-                string_build.push_str(s);
-                string_build.parse::<Imm>()
-            })(rest)
-        }
+    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0x"))(input) {
+        // Hexadecimal
+        map_res(
+            recognize(tuple((hex_digit1, opt(one_of("suSU"))))), 
+            from_hex
+        )(rest)
+    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0b"))(input) {
+        // Binary
+        map_res(
+            recognize(tuple((is_a("01"), opt(one_of("suSU"))))), 
+            from_binary
+        )(rest)
     } else {
-        // Hex
-        map_res(hex_digit1, from_hex)(rest)
+        // Decimal
+        map_res(
+            recognize(tuple((opt(tag("-")), digit1))),
+            str::parse
+        )(input)
     }
 }
 
@@ -325,12 +362,12 @@ fn parse_macro_1labl(input: &str) -> IResult<&str, Vec<Operation>> {
 
     let instr = match macro_in {
         IntermediateOp::Call => Vec::from([
-            MacroInstr::Auipc(Reg::G1, labl.to_string()).into(),
-            MacroInstr::Jalr(Reg::G1, Reg::G1, labl.to_string()).into()
+            MacroInstr::Auipc(Reg::G1, labl.to_string(), Part::Upper).into(),
+            MacroInstr::Jalr(Reg::G1, Reg::G1, labl.to_string(), Part::Lower).into()
         ]),
         IntermediateOp::Tail => Vec::from([
-            MacroInstr::Auipc(Reg::G6, labl.to_string()).into(),
-            MacroInstr::Jalr(Reg::G0, Reg::G6, labl.to_string()).into()
+            MacroInstr::Auipc(Reg::G6, labl.to_string(), Part::Upper).into(),
+            MacroInstr::Jalr(Reg::G0, Reg::G6, labl.to_string(), Part::Lower).into()
         ]),
         IntermediateOp::J => Vec::from([MacroInstr::Jal(Reg::G0, labl.to_string()).into()]),
         IntermediateOp::Jal => Vec::from([MacroInstr::Jal(Reg::G1, labl.to_string()).into()]),
@@ -386,23 +423,28 @@ fn parse_macro_1reg(input: &str) -> IResult<&str, Operation> {
     Ok((rest, instr.into()))
 }
 
-fn parse_macro_1labl1reg(input: &str) -> IResult<&str, Operation> {
-    let (rest, macro_in) = alt((
-        value(MacroInstr::Lui(Reg::NA, String::new()), tag("lui")),
-        value(MacroInstr::Auipc(Reg::NA, String::new()), tag("auipc")),
-        value(MacroInstr::Jal(Reg::NA, String::new()), tag("jal")),
+fn parse_macro_1labl1reg(input: &str) -> IResult<&str, Vec<Operation>> {
+    let (rest, inter) = alt((
+        value(IntermediateOp::Lui, tag("lui")),
+        value(IntermediateOp::Auipc, tag("auipc")),
+        value(IntermediateOp::Jal, tag("jal")),
+        value(IntermediateOp::La, tag("la")),
     ))(input)?;
     let (rest, _) = parse_instr_args_seper(rest)?;
     let (rest, args) = separated_pair(parse_reg, parse_seper, parse_label_name)(rest)?;
 
-    let instr = match macro_in {
-        MacroInstr::Lui(_, _) => MacroInstr::Lui(args.0, args.1.to_string()),
-        MacroInstr::Auipc(_, _) => MacroInstr::Auipc(args.0, args.1.to_string()),
-        MacroInstr::Jal(_, _) => MacroInstr::Jal(args.0, args.1.to_string()),
+    let instr = match inter {
+        IntermediateOp::Lui => Vec::from([MacroInstr::Lui(args.0, args.1.to_string()).into()]),
+        IntermediateOp::Auipc => Vec::from([MacroInstr::Auipc(args.0, args.1.to_string(), Part::None).into()]),
+        IntermediateOp::Jal => Vec::from([MacroInstr::Jal(args.0, args.1.to_string()).into()]),
+        IntermediateOp::La => Vec::from([
+            MacroInstr::Auipc(args.0.clone(), args.1.to_string(), Part::Upper).into(),
+            MacroInstr::Addi(args.0.clone(), args.0, args.1.to_string(), Part::Lower).into()
+        ]),
         op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
     };
 
-    Ok((rest, instr.into()))
+    Ok((rest, instr))
 }
 
 // ld x3, 0x30
@@ -413,6 +455,7 @@ fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Vec<Operation>> {
         value(IntermediateOp::Jal, tag("jal")),
 
         value(IntermediateOp::Li, tag("li")),
+        value(IntermediateOp::La, tag("la")),
     ))(input)?;
     let (rest, _) = parse_instr_args_seper(rest)?;
     let (rest, args) = separated_pair(parse_reg, parse_seper, parse_imm)(rest)?;
@@ -425,6 +468,11 @@ fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Vec<Operation>> {
         IntermediateOp::Li => Vec::from([
             Instruction::Lui(args.0.clone(), args.1 >> 12).into(), 
             Instruction::Addi(args.0.clone(), args.0.clone(), args.1).into()
+        ]),
+
+        IntermediateOp::La => Vec::from([
+            Instruction::Auipc(args.0.clone(), args.1 >> 12).into(),
+            Instruction::Addi(args.0.clone(), args.0, args.1).into()
         ]),
 
         op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
@@ -457,21 +505,21 @@ fn parse_macro_1labl2reg(input: &str) -> IResult<&str, Operation> {
         value(MacroInstr::Blt(Reg::NA, Reg::NA, String::new()), tag("blt")),
         value(MacroInstr::Bge(Reg::NA, Reg::NA, String::new()), tag("bge")),
 
-        value(MacroInstr::Jalr(Reg::NA, Reg::NA, String::new()), tag("jalr")),
+        value(MacroInstr::Jalr(Reg::NA, Reg::NA, String::new(), Part::None), tag("jalr")),
 
         value(MacroInstr::Slli(Reg::NA, Reg::NA, String::new()), tag("slli")),
         value(MacroInstr::Srli(Reg::NA, Reg::NA, String::new()), tag("srli")),
         value(MacroInstr::Srai(Reg::NA, Reg::NA, String::new()), tag("srai")),
 
-        value(MacroInstr::Sb(Reg::NA, Reg::NA, String::new()), tag("sb")),
-        value(MacroInstr::Sh(Reg::NA, Reg::NA, String::new()), tag("sh")),
-        value(MacroInstr::Sw(Reg::NA, Reg::NA, String::new()), tag("sw")),
+        value(MacroInstr::Sb(Reg::NA, Reg::NA, String::new(), Part::None), tag("sb")),
+        value(MacroInstr::Sh(Reg::NA, Reg::NA, String::new(), Part::None), tag("sh")),
+        value(MacroInstr::Sw(Reg::NA, Reg::NA, String::new(), Part::None), tag("sw")),
 
         value(MacroInstr::Lbu(Reg::NA, Reg::NA, String::new()), tag("lbu")),
         value(MacroInstr::Lhu(Reg::NA, Reg::NA, String::new()), tag("lhu")),
-        value(MacroInstr::Lb(Reg::NA, Reg::NA, String::new()), tag("lb")),
-        value(MacroInstr::Lh(Reg::NA, Reg::NA, String::new()), tag("lh")),
-        value(MacroInstr::Lw(Reg::NA, Reg::NA, String::new()), tag("lw")),
+        value(MacroInstr::Lb(Reg::NA, Reg::NA, String::new(), Part::None), tag("lb")),
+        value(MacroInstr::Lh(Reg::NA, Reg::NA, String::new(), Part::None), tag("lh")),
+        value(MacroInstr::Lw(Reg::NA, Reg::NA, String::new(), Part::None), tag("lw")),
     ))(input)?;
     let (rest, _) = parse_instr_args_seper(rest)?;
     let (rest, args) = tuple((parse_reg, parse_seper, parse_reg, parse_seper, parse_label_name))(rest)?;
@@ -484,21 +532,21 @@ fn parse_macro_1labl2reg(input: &str) -> IResult<&str, Operation> {
         MacroInstr::Bge(_, _, _) => MacroInstr::Bge(args.0, args.2, args.4.to_string()),
         MacroInstr::Bgeu(_, _, _) => MacroInstr::Bgeu(args.0, args.2, args.4.to_string()),
 
-        MacroInstr::Jalr(_, _, _) => MacroInstr::Jalr(args.0, args.2, args.4.to_string()),
+        MacroInstr::Jalr(_, _, _, ir) => MacroInstr::Jalr(args.0, args.2, args.4.to_string(), ir),
 
         MacroInstr::Slli(_, _, _) => MacroInstr::Slli(args.0, args.2, args.4.to_string()),
         MacroInstr::Srli(_, _, _) => MacroInstr::Srli(args.0, args.2, args.4.to_string()),
         MacroInstr::Srai(_, _, _) => MacroInstr::Srai(args.0, args.2, args.4.to_string()),
 
-        MacroInstr::Sb(_, _, _) => MacroInstr::Sb(args.0, args.2, args.4.to_string()),
-        MacroInstr::Sh(_, _, _) => MacroInstr::Sh(args.0, args.2, args.4.to_string()),
-        MacroInstr::Sw(_, _, _) => MacroInstr::Sw(args.0, args.2, args.4.to_string()),
+        MacroInstr::Sb(_, _, _, ir) => MacroInstr::Sb(args.0, args.2, args.4.to_string(), ir),
+        MacroInstr::Sh(_, _, _, ir) => MacroInstr::Sh(args.0, args.2, args.4.to_string(), ir),
+        MacroInstr::Sw(_, _, _, ir) => MacroInstr::Sw(args.0, args.2, args.4.to_string(), ir),
 
-        MacroInstr::Lb(_, _, _) => MacroInstr::Lb(args.0, args.2, args.4.to_string()),
+        MacroInstr::Lb(_, _, _, ir) => MacroInstr::Lb(args.0, args.2, args.4.to_string(), ir),
         MacroInstr::Lbu(_, _, _) => MacroInstr::Lbu(args.0, args.2, args.4.to_string()),
-        MacroInstr::Lh(_, _, _) => MacroInstr::Lh(args.0, args.2, args.4.to_string()),
+        MacroInstr::Lh(_, _, _, ir) => MacroInstr::Lh(args.0, args.2, args.4.to_string(), ir),
         MacroInstr::Lhu(_, _, _) => MacroInstr::Lhu(args.0, args.2, args.4.to_string()),
-        MacroInstr::Lw(_, _, _) => MacroInstr::Lw(args.0, args.2, args.4.to_string()),
+        MacroInstr::Lw(_, _, _, ir) => MacroInstr::Lw(args.0, args.2, args.4.to_string(), ir),
 
         op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
     };
@@ -709,11 +757,55 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Vec<Operation>> {
     Ok((rest, instr))
 }
 
+fn parse_macro_multiarg(input: &str) -> IResult<&str, Vec<Operation>> {
+    let (rest, instr) = alt((
+        value(IntermediateOp::Push, tag("push")),
+        value(IntermediateOp::Pop, tag("pop")),
+    ))(input)?;
+    let (rest, _) = parse_instr_args_seper(rest)?;
+    let (rest, args) = separated_list1(parse_seper, parse_reg)(rest)?;
+
+    let instr = match instr {
+        IntermediateOp::Push => {
+            let mut returned_vec: Vec<Operation> = Vec::with_capacity(args.len());
+
+            returned_vec.push(Instruction::Addi(Reg::G2, Reg::G2, -((args.len() as i32 * 4) + 4)).into());
+
+            let mut acc: i32 = (args.len() as i32 * 4) + 4;
+
+            for reg in args {
+                returned_vec.push(Instruction::Sw(reg, Reg::G2, acc).into());
+                acc -= 4;
+            }
+
+            returned_vec
+        },
+        IntermediateOp::Pop => {
+            let mut returned_vec: Vec<Operation> = Vec::with_capacity(args.len());
+
+            let regs_len = args.len() as i32 * 4;
+            let mut acc: i32 = 4;
+            
+            for reg in args {
+                returned_vec.push(Instruction::Lw(reg, Reg::G2, acc).into());
+                acc += 4;
+            }
+
+            returned_vec.push(Instruction::Addi(Reg::G2, Reg::G2, regs_len).into());
+
+            returned_vec
+        },
+
+        op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+    };
+
+    Ok((rest, instr))
+}
+
 fn parse_instruction(input: &str) -> IResult<&str, Vec<Operation>> {
     let (rest, op) = alt((
         parse_macro_noparm,
         parse_macro_1reg,
-        parse_macro_1labl1reg,
         parse_macro_2reg,
         parse_macro_1labl2reg,
         parse_inst_1imm2reg_lw
@@ -726,9 +818,11 @@ fn parse_multiline_macro(input: &str) -> IResult<&str, Vec<Operation>> {
     alt((
         parse_macro_1labl,
         parse_macro_1imm,
+        parse_macro_1labl1reg,
         parse_inst_1imm1reg,
         parse_inst_1imm2reg_up,
-        parse_inst_3reg
+        parse_inst_3reg,
+        parse_macro_multiarg
     ))(input)
 }
 
@@ -791,6 +885,8 @@ fn handle_label_defs(label: &mut Cow<str>, symbol_map: &mut LabelRecog, local_re
 
 fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, local_ref_set: &mut HashSet<String>) {
     match macro_in {
+        MacroInstr::Addi(_, _, labl, _) |
+
         MacroInstr::Beq(_, _, labl) | 
         MacroInstr::Bne(_, _, labl) |
         MacroInstr::Blt(_, _, labl) |
@@ -799,25 +895,25 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
         MacroInstr::Bgeu(_, _, labl) |
 
         MacroInstr::Jal(_, labl) |
-        MacroInstr::Jalr(_, _, labl) |
+        MacroInstr::Jalr(_, _, labl, _) |
 
         MacroInstr::Lui(_, labl) |
-        MacroInstr::Auipc(_, labl) |
+        MacroInstr::Auipc(_, labl, _) |
 
         MacroInstr::Slli(_, _, labl) |
         MacroInstr::Srli(_, _, labl) |
         MacroInstr::Srai(_, _, labl) |
 
-        MacroInstr::Lb(_, _, labl) |
-        MacroInstr::Lh(_, _, labl) |
-        MacroInstr::Lw(_, _, labl) |
+        MacroInstr::Lb(_, _, labl, _) |
+        MacroInstr::Lh(_, _, labl, _) |
+        MacroInstr::Lw(_, _, labl, _) |
 
         MacroInstr::Lbu(_, _, labl) |
         MacroInstr::Lhu(_, _, labl) |
 
-        MacroInstr::Sb(_, _, labl) |
-        MacroInstr::Sh(_, _, labl) |
-        MacroInstr::Sw(_, _, labl) => {
+        MacroInstr::Sb(_, _, labl, _) |
+        MacroInstr::Sh(_, _, labl, _) |
+        MacroInstr::Sw(_, _, labl, _) => {
             let mut scope = false;
             if labl.starts_with('_') {
                 scope = true;
@@ -953,6 +1049,10 @@ mod tests {
         assert_eq!(parse_imm("10"), Ok(("", 10)));
         assert_eq!(parse_imm("0xA"), Ok(("", 10)));
         assert_eq!(parse_imm("-10"), Ok(("", -10)));
+        assert_eq!(parse_imm("0xAAs"), Ok(("", -86)));
+        assert_eq!(parse_imm("0xAAS"), Ok(("", -86)));
+        assert_eq!(parse_imm("0b1111u"), Ok(("", 15)));
+        assert_eq!(parse_imm("0b1100s"), Ok(("", -4)));
     }
 
     #[test]
@@ -991,16 +1091,16 @@ mod tests {
         assert_ne!(parse_macro_1labl(""), Ok(("", Vec::from([Instruction::NA.into()]))));
         assert_ne!(parse_macro_1labl("call"), Ok(("", Vec::from([Instruction::NA.into()]))));
         assert_eq!(parse_macro_1labl("tail test"), Ok(("", Vec::from([
-            MacroInstr::Auipc(Reg::G6, "test".to_string()).into(),
-            MacroInstr::Jalr(Reg::G0, Reg::G6, "test".to_string()).into()
+            MacroInstr::Auipc(Reg::G6, "test".to_string(), Part::Upper).into(),
+            MacroInstr::Jalr(Reg::G0, Reg::G6, "test".to_string(), Part::Lower).into()
         ]))));
         assert_eq!(parse_macro_1labl("call HANS"), Ok(("", Vec::from([
-            MacroInstr::Auipc(Reg::G1, "HANS".to_string()).into(),
-            MacroInstr::Jalr(Reg::G1, Reg::G1, "HANS".to_string()).into()
+            MacroInstr::Auipc(Reg::G1, "HANS".to_string(), Part::Upper).into(),
+            MacroInstr::Jalr(Reg::G1, Reg::G1, "HANS".to_string(), Part::Lower).into()
         ]))));
         assert_ne!(parse_macro_1labl("call label  "), Ok(("", Vec::from([
-            MacroInstr::Auipc(Reg::G1, "label".to_string()).into(),
-            MacroInstr::Jalr(Reg::G1, Reg::G1, "label".to_string()).into()
+            MacroInstr::Auipc(Reg::G1, "label".to_string(), Part::Upper).into(),
+            MacroInstr::Jalr(Reg::G1, Reg::G1, "label".to_string(), Part::Lower).into()
         ]))));
     }
 
@@ -1031,12 +1131,16 @@ mod tests {
 
     #[test]
     fn test_parse_instr1labl1reg() {
-        assert_ne!(parse_macro_1labl1reg(""), Ok(("", Instruction::NA.into())));
-        assert_ne!(parse_macro_1labl1reg("lui"), Ok(("", MacroInstr::Lui(Reg::NA, "".to_string()).into())));
-        assert_eq!(parse_macro_1labl1reg("lui a2, stop"), Ok(("", MacroInstr::Lui(Reg::G12, "stop".to_string()).into())));
-        assert_eq!(parse_macro_1labl1reg("auipc s2, helloWorld"), Ok(("", MacroInstr::Auipc(Reg::G18, "helloWorld".to_string()).into())));
-        assert_eq!(parse_macro_1labl1reg("jal   x20, test"), Ok(("", MacroInstr::Jal(Reg::G20, "test".to_string()).into())));
-        assert_ne!(parse_macro_1labl1reg("jal x19, train "), Ok(("", MacroInstr::Jal(Reg::G19, "train".to_string()).into())));
+        assert_ne!(parse_macro_1labl1reg(""), Ok(("", Vec::from([Instruction::NA.into()]))));
+        assert_ne!(parse_macro_1labl1reg("lui"), Ok(("", Vec::from([MacroInstr::Lui(Reg::NA, "".to_string()).into()]))));
+        assert_eq!(parse_macro_1labl1reg("lui a2, stop"), Ok(("", Vec::from([MacroInstr::Lui(Reg::G12, "stop".to_string()).into()]))));
+        assert_eq!(parse_macro_1labl1reg("auipc s2, helloWorld"), Ok(("", Vec::from([MacroInstr::Auipc(Reg::G18, "helloWorld".to_string(), Part::None).into()]))));
+        assert_eq!(parse_macro_1labl1reg("jal   x20, test"), Ok(("", Vec::from([MacroInstr::Jal(Reg::G20, "test".to_string()).into()]))));
+        assert_ne!(parse_macro_1labl1reg("jal x19, train "), Ok(("", Vec::from([MacroInstr::Jal(Reg::G19, "train".to_string()).into()]))));
+        assert_eq!(parse_macro_1labl1reg("la x19, HELLOWORLD"), Ok(("", Vec::from([
+            MacroInstr::Auipc(Reg::G19, "HELLOWORLD".to_string(), Part::Upper).into(),
+            MacroInstr::Addi(Reg::G19, Reg::G19, "HELLOWORLD".to_string(), Part::Lower).into()
+            ]))));
     }
 
     #[test]
@@ -1051,6 +1155,10 @@ mod tests {
         assert_eq!(parse_inst_1imm1reg("auipc x18, 0x20"), Ok(("", Vec::from([Instruction::Auipc(Reg::G18, 32).into()]))));
         assert_eq!(parse_inst_1imm1reg("jal x20, 5"), Ok(("", Vec::from([Instruction::Jal(Reg::G20, 5).into()]))));
         assert_ne!(parse_inst_1imm1reg("jal x19, 125 "), Ok(("", Vec::from([Instruction::Jal(Reg::G19, 125).into()]))));
+        assert_eq!(parse_inst_1imm1reg("la x19, 0x0F"), Ok(("", Vec::from([
+            Instruction::Auipc(Reg::G19, 0).into(),
+            Instruction::Addi(Reg::G19, Reg::G19, 0x0F).into()
+            ]))));
     }
 
     #[test]
@@ -1067,14 +1175,14 @@ mod tests {
     fn test_parse_instr1labl2reg() {
         assert_ne!(parse_macro_1labl2reg("invalid"), Ok(("", Instruction::NA.into())));
         assert_ne!(parse_macro_1labl2reg("   "), Ok(("", Instruction::NA.into())));
-        assert_ne!(parse_macro_1labl2reg("sb x1, x6"), Ok(("", MacroInstr::Sb(Reg::G1, Reg::G6, "".to_string()).into())));
-        assert_ne!(parse_macro_1labl2reg("lb x1, total"), Ok(("", MacroInstr::Lb(Reg::G1, Reg::NA, "total".to_string()).into())));
+        assert_ne!(parse_macro_1labl2reg("sb x1, x6"), Ok(("", MacroInstr::Sb(Reg::G1, Reg::G6, "".to_string(), Part::None).into())));
+        assert_ne!(parse_macro_1labl2reg("lb x1, total"), Ok(("", MacroInstr::Lb(Reg::G1, Reg::NA, "total".to_string(), Part::None).into())));
         assert_eq!(parse_macro_1labl2reg("bgeu  x1, x4, sTaRt"), Ok(("", MacroInstr::Bgeu(Reg::G1, Reg::G4, "sTaRt".to_string()).into())));
         assert_ne!(parse_macro_1labl2reg("slli x1x4,eNND"), Ok(("", MacroInstr::Slli(Reg::G1, Reg::G4, "eNND".to_string()).into())));
         assert_eq!(parse_macro_1labl2reg("blt x10,x10, last"), Ok(("", MacroInstr::Blt(Reg::G10, Reg::G10, "last".to_string()).into())));
-        assert_ne!(parse_macro_1labl2reg("jalr  x6,  x8,test"), Ok(("", MacroInstr::Jalr(Reg::G6, Reg::G8, "test".to_string()).into())));
+        assert_ne!(parse_macro_1labl2reg("jalr  x6,  x8,test"), Ok(("", MacroInstr::Jalr(Reg::G6, Reg::G8, "test".to_string(), Part::None).into())));
         assert_eq!(parse_macro_1labl2reg("lhu x1, x2, hans"), Ok(("", MacroInstr::Lhu(Reg::G1, Reg::G2, "hans".to_string()).into())));
-        assert_eq!(parse_macro_1labl2reg("sb x13,x15,loading"), Ok(("", MacroInstr::Sb(Reg::G13, Reg::G15, "loading".to_string()).into())));
+        assert_eq!(parse_macro_1labl2reg("sb x13,x15,loading"), Ok(("", MacroInstr::Sb(Reg::G13, Reg::G15, "loading".to_string(), Part::None).into())));
         assert_ne!(parse_macro_1labl2reg("beqx1x15,start"), Ok(("", MacroInstr::Beq(Reg::G1, Reg::G15, "start".to_string()).into())));
         assert_ne!(parse_macro_1labl2reg("lbu x12, x15,  dasletzte"), Ok(("", MacroInstr::Lbu(Reg::G12, Reg::G15, "dasletzte".to_string()).into())));
     }
@@ -1125,6 +1233,44 @@ mod tests {
         ]))));
         assert_eq!(parse_inst_3reg("and x6, x8, x14"), Ok(("", Vec::from([Instruction::And(Reg::G6, Reg::G8, Reg::G14).into()]))));
         assert_ne!(parse_inst_3reg("sll x6,  x8, x14"), Ok(("", Vec::from([Instruction::Sll(Reg::G6, Reg::G8, Reg::G14).into()]))));
+    }
+
+    #[test]
+    fn test_parse_inst_multiarg() {
+        assert_ne!(parse_macro_multiarg("push"), Ok(("", Vec::from([Instruction::Addi(Reg::G2, Reg::G2, -4).into()]))));
+        assert_eq!(parse_macro_multiarg("push x12"), Ok(("", Vec::from([
+            Instruction::Addi(Reg::G2, Reg::G2, -8).into(),
+            Instruction::Sw(Reg::G12, Reg::G2, 8).into()
+            ]))));
+        assert_eq!(parse_macro_multiarg("push x12, x13, x14"), Ok(("", Vec::from([
+            Instruction::Addi(Reg::G2, Reg::G2, -16).into(),
+            Instruction::Sw(Reg::G12, Reg::G2, 16).into(),
+            Instruction::Sw(Reg::G13, Reg::G2, 12).into(),
+            Instruction::Sw(Reg::G14, Reg::G2, 8).into()
+            ]))));
+        assert_eq!(parse_macro_multiarg("push   x12,x13,x14"), Ok(("", Vec::from([
+            Instruction::Addi(Reg::G2, Reg::G2, -16).into(),
+            Instruction::Sw(Reg::G12, Reg::G2, 16).into(),
+            Instruction::Sw(Reg::G13, Reg::G2, 12).into(),
+            Instruction::Sw(Reg::G14, Reg::G2, 8).into()
+            ]))));
+        assert_ne!(parse_macro_multiarg("pop"), Ok(("", Vec::from([Instruction::Addi(Reg::G2, Reg::G2, 0).into()]))));
+        assert_eq!(parse_macro_multiarg("pop x12"), Ok(("", Vec::from([
+            Instruction::Lw(Reg::G12, Reg::G2, 4).into(),
+            Instruction::Addi(Reg::G2, Reg::G2, 4).into()
+            ]))));
+        assert_eq!(parse_macro_multiarg("pop x12, x13, x14"), Ok(("", Vec::from([
+            Instruction::Lw(Reg::G12, Reg::G2, 4).into(),
+            Instruction::Lw(Reg::G13, Reg::G2, 8).into(),
+            Instruction::Lw(Reg::G14, Reg::G2, 12).into(),
+            Instruction::Addi(Reg::G2, Reg::G2, 12).into()
+            ]))));
+        assert_eq!(parse_macro_multiarg("pop   x12,x13,x14"), Ok(("", Vec::from([
+            Instruction::Lw(Reg::G12, Reg::G2, 4).into(),
+            Instruction::Lw(Reg::G13, Reg::G2, 8).into(),
+            Instruction::Lw(Reg::G14, Reg::G2, 12).into(),
+            Instruction::Addi(Reg::G2, Reg::G2, 12).into()
+            ]))));
     }
 
     #[test]

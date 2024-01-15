@@ -105,6 +105,13 @@ impl Reg {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum Part {
+    Upper,
+    Lower,
+    None
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum MacroInstr {
     Beq(Reg, Reg, String),
     Bne(Reg, Reg, String),
@@ -114,25 +121,27 @@ pub enum MacroInstr {
     Bgeu(Reg, Reg, String),
 
     Jal(Reg, String),
-    Jalr(Reg, Reg, String),
+    Jalr(Reg, Reg, String, Part),
 
     Lui(Reg, String),
-    Auipc(Reg, String),
+    Auipc(Reg, String, Part),
 
     Slli(Reg, Reg, String),
     Srli(Reg, Reg, String),
     Srai(Reg, Reg, String),
     
-    Lb(Reg, Reg, String), //Load byte
-    Lh(Reg, Reg, String), //Load half
-    Lw(Reg, Reg, String), //Load word
+    Lb(Reg, Reg, String, Part), //Load byte
+    Lh(Reg, Reg, String, Part), //Load half
+    Lw(Reg, Reg, String, Part), //Load word
     
     Lbu(Reg, Reg, String),
     Lhu(Reg, Reg, String),
     
-    Sb(Reg, Reg, String), //Store byte
-    Sh(Reg, Reg, String), //Store half
-    Sw(Reg, Reg, String), //Store word
+    Sb(Reg, Reg, String, Part), //Store byte
+    Sh(Reg, Reg, String, Part), //Store half
+    Sw(Reg, Reg, String, Part), //Store word
+
+    Addi(Reg, Reg, String, Part)
 
     // If there is time and someone has nothing to do..
     //Subi(Reg, Reg, Imm),

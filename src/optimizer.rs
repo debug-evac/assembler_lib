@@ -120,7 +120,9 @@ impl LimitedQueue {
     fn compare_and_insert(&mut self, reg: RegActType) -> i8 {
         for (counter, reg_dep) in self.queue.iter().enumerate() {
             if reg.is_hazard_before(reg_dep) {
-                self.queue.truncate(counter);
+                for _ in counter..3 {
+                    self.limited_insert(RegActType::NA);
+                }
                 self.limited_insert(reg);
                 return counter as i8
             }
@@ -345,9 +347,11 @@ impl MacroInstr {
     }
 }
 
-fn translate_label(total_instructions: i128, label: String, namespaces: &mut Namespaces, current_space: usize) -> i32 {
+fn translate_label(current_line: i128, label: String, namespaces: &mut Namespaces, current_space: usize) -> i32 {
     match namespaces.get_label(label, Some(current_space)) {
-        Some(label_elem) => <i128 as TryInto<i32>>::try_into((total_instructions * 4) - (*label_elem.get_def() * 4)).unwrap(),
+        Some(label_elem) => {
+            <i128 as TryInto<i32>>::try_into((*label_elem.get_def() * 4) - (current_line * 4)).unwrap()
+        },
         None => panic!("[Error] Label does not exist! Could not get position of label!"),
     }
 }
@@ -380,6 +384,17 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
             Some(opera) => {
                 match &opera {
                     Operation::LablInstr(label, instr) => {
+                        let reg_dep = RegActType::from(&opera);
+                        let nop_insert = working_set.compare_and_insert(reg_dep);
+                        if nop_insert > -1 {
+                            let instr_num = 4 - nop_insert;
+                            for _ in 1..instr_num {
+                                code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
+                            }
+                            pointer += (instr_num - 1) as usize;
+                            accumulator += (instr_num - 1) as i128;
+                        }
+                        cond_add_acc_label(&mut code.0, accumulator, std::borrow::Cow::Borrowed(label), space);
                         match instr {
                             Instruction::Beq(_, _, _) |
                             Instruction::Bne(_, _, _) |
@@ -388,28 +403,22 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                             Instruction::Bge(_, _, _) |
                             Instruction::Bgeu(_, _, _) |
                             Instruction::Jal(_, _) |
-                            Instruction::Jalr(_, _, _) => {
-                                working_set.flush();
-                                cond_add_acc_label(&mut code.0, accumulator - 1, std::borrow::Cow::Borrowed(label), space);
-                                pointer += 1;
-                                continue;
-                            },
-                            _ => {
-                                let reg_dep = RegActType::from(&opera);
-                                let nop_insert = working_set.compare_and_insert(reg_dep);
-                                if nop_insert > -1 {
-                                    let instr_num = 4 - nop_insert;
-                                    for _ in 1..instr_num {
-                                        code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
-                                    }
-                                    pointer += (instr_num - 1) as usize;
-                                    accumulator += instr_num as i128;
-                                }
-                                cond_add_acc_label(&mut code.0, accumulator - 1, std::borrow::Cow::Borrowed(label), space);
-                            },
+                            Instruction::Jalr(_, _, _) => working_set.flush(),
+                            _ => (),
                         }
                     },
                     Operation::LablMacro(label, instr) => {
+                        let reg_dep = RegActType::from(&opera);
+                        let nop_insert = working_set.compare_and_insert(reg_dep);
+                        if nop_insert > -1 {
+                            let instr_num = 4 - nop_insert;
+                            for _ in 1..instr_num {
+                                code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
+                            }
+                            pointer += (instr_num - 1) as usize;
+                            accumulator += (instr_num - 1) as i128;
+                        }
+                        cond_add_acc_label(&mut code.0, accumulator, std::borrow::Cow::Borrowed(label), space);
                         match instr {
                             MacroInstr::Beq(_, _, _) |
                             MacroInstr::Bne(_, _, _) |
@@ -418,31 +427,24 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                             MacroInstr::Bge(_, _, _) |
                             MacroInstr::Bgeu(_, _, _) |
                             MacroInstr::Jal(_, _) |
-                            MacroInstr::Jalr(_, _, _, _) => {
-                                working_set.flush();
-                                cond_add_acc_label(&mut code.0, accumulator - 1, std::borrow::Cow::Borrowed(label), space);
-                                pointer += 1;
-                                continue;
-                            },
-                            _ => {
-                                let reg_dep = RegActType::from(&opera);
-                                let nop_insert = working_set.compare_and_insert(reg_dep);
-                                if nop_insert > -1 {
-                                    let instr_num = 4 - nop_insert;
-                                    for _ in 1..instr_num {
-                                        code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
-                                    }
-                                    pointer += (instr_num - 1) as usize;
-                                    accumulator += instr_num as i128;
-                                }
-                                cond_add_acc_label(&mut code.0, accumulator - 1, std::borrow::Cow::Borrowed(label), space);
-                            },
+                            MacroInstr::Jalr(_, _, _, _) => working_set.flush(),
+                            _ => (),
                         }
                     },
                     Operation::Labl(label) => {
-                        cond_add_acc_label(&mut code.0, accumulator - 1, std::borrow::Cow::Borrowed(label), space);
+                        cond_add_acc_label(&mut code.0, accumulator, std::borrow::Cow::Borrowed(label), space);
                     },
                     Operation::Instr(instr) => {
+                        let reg_dep = RegActType::from(&opera);
+                        let nop_insert = working_set.compare_and_insert(reg_dep);
+                        if nop_insert > -1 {
+                            let instr_num = 4 - nop_insert;
+                            for _ in 1..instr_num {
+                                code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
+                            }
+                            pointer += (instr_num - 1) as usize;
+                            accumulator += (instr_num - 1) as i128;
+                        }
                         match instr {
                             Instruction::Beq(_, _, _) |
                             Instruction::Bne(_, _, _) |
@@ -451,26 +453,21 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                             Instruction::Bge(_, _, _) |
                             Instruction::Bgeu(_, _, _) |
                             Instruction::Jal(_, _) |
-                            Instruction::Jalr(_, _, _) => {
-                                working_set.flush();
-                                pointer += 1;
-                                continue;
-                            },
-                            _ => {
-                                let reg_dep = RegActType::from(&opera);
-                                let nop_insert = working_set.compare_and_insert(reg_dep);
-                                if nop_insert > -1 {
-                                    let instr_num = 4 - nop_insert;
-                                    for _ in 1..instr_num {
-                                        code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
-                                    }
-                                    pointer += (instr_num - 1) as usize;
-                                    accumulator += instr_num as i128;
-                                }
-                            },
+                            Instruction::Jalr(_, _, _) => working_set.flush(),
+                            _ => (),
                         }
                     },
                     Operation::Macro(instr) => {
+                        let reg_dep = RegActType::from(&opera);
+                        let nop_insert = working_set.compare_and_insert(reg_dep);
+                        if nop_insert > -1 {
+                            let instr_num = 4 - nop_insert;
+                            for _ in 1..instr_num {
+                                code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
+                            }
+                            pointer += (instr_num - 1) as usize;
+                            accumulator += (instr_num - 1) as i128;
+                        }
                         match instr {
                             MacroInstr::Beq(_, _, _) |
                             MacroInstr::Bne(_, _, _) |
@@ -479,23 +476,8 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                             MacroInstr::Bge(_, _, _) |
                             MacroInstr::Bgeu(_, _, _) |
                             MacroInstr::Jal(_, _) |
-                            MacroInstr::Jalr(_, _, _, _) => {
-                                working_set.flush();
-                                pointer += 1;
-                                continue;
-                            },
-                            _ => {
-                                let reg_dep = RegActType::from(&opera);
-                                let nop_insert = working_set.compare_and_insert(reg_dep);
-                                if nop_insert > -1 {
-                                    let instr_num = 4 - nop_insert;
-                                    for _ in 1..instr_num {
-                                        code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
-                                    }
-                                    pointer += (instr_num - 1) as usize;
-                                    accumulator += instr_num as i128;
-                                }
-                            },
+                            MacroInstr::Jalr(_, _, _, _) => working_set.flush(),
+                            _ => (),
                         }
                     },
                     Operation::Namespace(ns) => {
@@ -591,14 +573,14 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction>
     let mut instructions: Vec<Instruction> = vec![];
     let mut namespace: usize = 0;
 
-    for operation in code.1 {
+    for operation in code.1.iter() {
         match operation {
-            Operation::Namespace(space) => namespace = space,
+            Operation::Namespace(space) => namespace = *space,
             Operation::Macro(instr) | Operation::LablMacro(_, instr) => {
                 instr.translate(&mut code.0, &namespace, &mut instructions);
             },
             Operation::Instr(instr) | Operation::LablInstr(_, instr) => {
-                instructions.push(instr);
+                instructions.push(instr.to_owned());
             }
             Operation::Labl(_) => (),
         };
@@ -820,7 +802,7 @@ mod tests {
         let _ = namespace_ver.insert_recog(label_recog_ver2);
 
         cond_add_acc_label(&mut namespace_ver, 3, Cow::from("START"), 0);
-        cond_add_acc_label(&mut namespace_ver, 7, Cow::from("END"), 0);
+        cond_add_acc_label(&mut namespace_ver, 6, Cow::from("END"), 0);
 
         let operation_vec_ver: Vec<Operation> = Vec::from([
             Operation::Namespace(0),
@@ -850,5 +832,217 @@ mod tests {
         ]);
 
         assert_eq!(code, (namespace_ver, operation_vec_ver));
+    }
+
+    #[test]
+    fn test_label_substitution() {
+        let mut namespace_ver = Namespaces::new();
+        let mut label_recog_ver = LabelRecog::new();
+
+        let mut label = LabelElem::new_refd("_GTLOOP".to_string());
+        label.set_def(7);
+        let _ = label_recog_ver.insert_label(label);
+
+        let mut label = LabelElem::new_refd("_GTSHIFT".to_string());
+        label.set_def(12);
+        let _ = label_recog_ver.insert_label(label);
+
+        let mut label = LabelElem::new_refd("_LTLOOP".to_string());
+        label.set_def(15);
+        let _ = label_recog_ver.insert_label(label);
+
+        let mut label = LabelElem::new_refd("_LTSHIFT".to_string());
+        label.set_def(20);
+        let _ = label_recog_ver.insert_label(label);
+
+        let _ = namespace_ver.insert_recog(label_recog_ver);
+
+        let mut operation_vec: Vec<Operation> = vec![];
+        operation_vec.push(Operation::Namespace(0));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 0)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G16, Reg::G0, 1)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0)));
+
+        operation_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G12, Reg::G13, "_LTLOOP".to_string())));
+        operation_vec.push(Operation::LablInstr(Cow::from("_GTLOOP"), Instruction::And(Reg::G14, Reg::G16, Reg::G13)));
+        operation_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G14, Reg::G0, "_GTSHIFT".to_string())));
+        operation_vec.push(Operation::Instr(Instruction::Sll(Reg::G15, Reg::G12, Reg::G17)));
+        operation_vec.push(Operation::Instr(Instruction::Addn(Reg::G10, Reg::G10, Reg::G15)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G17, Reg::G17, 1)));
+
+        operation_vec.push(Operation::LablInstr(Cow::from("_GTSHIFT"), Instruction::Slli(Reg::G16, Reg::G16, 1)));
+        operation_vec.push(Operation::Macro(MacroInstr::Bge(Reg::G13, Reg::G16, "_GTLOOP".to_string())));
+        operation_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
+
+        operation_vec.push(Operation::LablInstr(Cow::from("_LTLOOP"), Instruction::And(Reg::G14, Reg::G16, Reg::G12)));
+        operation_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G14, Reg::G0, "_LTSHIFT".to_string())));
+        operation_vec.push(Operation::Instr(Instruction::Sll(Reg::G15, Reg::G13, Reg::G17)));
+        operation_vec.push(Operation::Instr(Instruction::Addn(Reg::G10, Reg::G10, Reg::G15)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G17, Reg::G17, 1)));
+
+        operation_vec.push(Operation::LablInstr(Cow::from("_LTSHIFT"), Instruction::Slli(Reg::G16, Reg::G16, 1)));
+        operation_vec.push(Operation::Macro(MacroInstr::Bge(Reg::G12, Reg::G16, "_LTLOOP".to_string())));
+        operation_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
+
+        let instruction_ver: Vec<Instruction> = Vec::from([
+            Instruction::Addi(Reg::G17, Reg::G0, 0),
+            Instruction::Addi(Reg::G16, Reg::G0, 1),
+            Instruction::Addi(Reg::G12, Reg::G10, 0),
+            Instruction::Addi(Reg::G13, Reg::G11, 0),
+            Instruction::Addi(Reg::G10, Reg::G0, 0),
+            Instruction::Addi(Reg::G11, Reg::G0, 0),
+
+            Instruction::Blt(Reg::G12, Reg::G13, 36),
+            Instruction::And(Reg::G14, Reg::G16, Reg::G13),
+            Instruction::Beq(Reg::G14, Reg::G0, 16),
+            Instruction::Sll(Reg::G15, Reg::G12, Reg::G17),
+            Instruction::Addn(Reg::G10, Reg::G10, Reg::G15),
+            Instruction::Addi(Reg::G17, Reg::G17, 1),
+
+            Instruction::Slli(Reg::G16, Reg::G16, 1),
+            Instruction::Bge(Reg::G13, Reg::G16, -24),
+            Instruction::Jalr(Reg::G0, Reg::G1, 0),
+
+            Instruction::And(Reg::G14, Reg::G16, Reg::G12),
+            Instruction::Beq(Reg::G14, Reg::G0, 16),
+            Instruction::Sll(Reg::G15, Reg::G13, Reg::G17),
+            Instruction::Addn(Reg::G10, Reg::G10, Reg::G15),
+            Instruction::Addi(Reg::G17, Reg::G17, 1),
+
+            Instruction::Slli(Reg::G16, Reg::G16, 1),
+            Instruction::Bge(Reg::G12, Reg::G16, -24),
+            Instruction::Jalr(Reg::G0, Reg::G1, 0)
+        ]);
+
+        assert_eq!(substitute_labels((namespace_ver, operation_vec)), instruction_ver);
+    }
+
+    #[test]
+    fn test_optimize() {
+        let mut namespace_ver = Namespaces::new();
+        let mut label_recog_ver = LabelRecog::new();
+
+        let mut label = LabelElem::new_refd("_JUMP2".to_string());
+        label.set_def(7);
+        let _ = label_recog_ver.insert_label(label);
+
+        let mut label = LabelElem::new_refd("_JUMP".to_string());
+        label.set_def(9);
+        let _ = label_recog_ver.insert_label(label);
+
+        let mut label = LabelElem::new_refd("_GTDIVLOOP".to_string());
+        label.set_def(10);
+        let _ = label_recog_ver.insert_label(label);
+
+        let mut label = LabelElem::new_refd("_LTDIVLOOP".to_string());
+        label.set_def(19);
+        let _ = label_recog_ver.insert_label(label);
+
+        let mut label = LabelElem::new_refd("_Vergleich".to_string());
+        label.set_def(30);
+        let _ = label_recog_ver.insert_label(label);
+
+        let _ = namespace_ver.insert_recog(label_recog_ver);
+
+        let mut operation_vec: Vec<Operation> = vec![];
+        operation_vec.push(Operation::Namespace(0));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)));
+        operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0)));
+
+        operation_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G13, "_JUMP".to_string())));
+        operation_vec.push(Operation::Instr(Instruction::Slli(Reg::G13, Reg::G13, 1)));
+        operation_vec.push(Operation::LablInstr(Cow::from("_JUMP2"), Instruction::Subn(Reg::G12, Reg::G12, Reg::G13)));
+        operation_vec.push(Operation::Instr(Instruction::Addn(Reg::G10, Reg::G10, Reg::G17)));
+        operation_vec.push(Operation::LablMacro(Cow::from("_JUMP"), MacroInstr::Blt(Reg::G12, Reg::G13, "_LTDIVLOOP".to_string())));
+
+        operation_vec.push(Operation::LablInstr(Cow::from("_GTDIVLOOP"), Instruction::Slli(Reg::G13, Reg::G13, 1)));
+        operation_vec.push(Operation::Instr(Instruction::Slli(Reg::G17, Reg::G17, 1)));
+        operation_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G13, Reg::G12, "_GTDIVLOOP".to_string())));
+        operation_vec.push(Operation::Instr(Instruction::Srli(Reg::G13, Reg::G13, 1)));
+        operation_vec.push(Operation::Instr(Instruction::Srli(Reg::G17, Reg::G17, 1)));
+        operation_vec.push(Operation::Instr(Instruction::Subn(Reg::G12, Reg::G12, Reg::G13)));
+        operation_vec.push(Operation::Instr(Instruction::Addn(Reg::G10, Reg::G10, Reg::G17)));
+        operation_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G0, "_JUMP".to_string())));
+        operation_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G0, Reg::G0, "_Vergleich".to_string())));
+        operation_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
+
+        operation_vec.push(Operation::LablInstr(Cow::from("_LTDIVLOOP"), Instruction::Srli(Reg::G13, Reg::G13, 1)));
+        operation_vec.push(Operation::Instr(Instruction::Srli(Reg::G17, Reg::G17, 1)));
+        operation_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G12, Reg::G13, "_LTDIVLOOP".to_string())));
+        operation_vec.push(Operation::Instr(Instruction::Slli(Reg::G13, Reg::G13, 1)));
+        operation_vec.push(Operation::Instr(Instruction::Slli(Reg::G17, Reg::G17, 1)));
+        operation_vec.push(Operation::Instr(Instruction::Beq(Reg::G12, Reg::G13, 8)));
+        operation_vec.push(Operation::Instr(Instruction::Srli(Reg::G13, Reg::G13, 1)));
+        operation_vec.push(Operation::Instr(Instruction::Srli(Reg::G17, Reg::G17, 1)));
+        operation_vec.push(Operation::Instr(Instruction::Subn(Reg::G12, Reg::G12, Reg::G13)));
+        operation_vec.push(Operation::Instr(Instruction::Addn(Reg::G10, Reg::G10, Reg::G17)));
+        operation_vec.push(Operation::LablMacro(Cow::from("_Vergleich"), MacroInstr::Bne(Reg::G12, Reg::G0, "_JUMP".to_string())));
+        operation_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
+
+        let instruction_ver: Vec<Instruction> = Vec::from([
+            Instruction::Addi(Reg::G17, Reg::G0, 1),
+            Instruction::Addi(Reg::G12, Reg::G10, 0),
+            Instruction::Addi(Reg::G13, Reg::G11, 0),
+            Instruction::Addi(Reg::G10, Reg::G0, 0),
+            Instruction::Addi(Reg::G11, Reg::G0, 0),
+
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Bne(Reg::G12, Reg::G13, 36),
+            Instruction::Slli(Reg::G13, Reg::G13, 1),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Subn(Reg::G12, Reg::G12, Reg::G13),
+            Instruction::Addn(Reg::G10, Reg::G10, Reg::G17),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Blt(Reg::G12, Reg::G13, 64),
+
+            Instruction::Slli(Reg::G13, Reg::G13, 1), // 16
+            Instruction::Slli(Reg::G17, Reg::G17, 1),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Blt(Reg::G13, Reg::G12, -16), // 20
+            Instruction::Srli(Reg::G13, Reg::G13, 1),
+            Instruction::Srli(Reg::G17, Reg::G17, 1),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Subn(Reg::G12, Reg::G12, Reg::G13),
+            Instruction::Addn(Reg::G10, Reg::G10, Reg::G17),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Bne(Reg::G12, Reg::G0, -56),
+            Instruction::Beq(Reg::G0, Reg::G0, 80), // 20
+            Instruction::Jalr(Reg::G0, Reg::G1, 0),
+
+            Instruction::Srli(Reg::G13, Reg::G13, 1), // THIS 31
+            Instruction::Srli(Reg::G17, Reg::G17, 1),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Blt(Reg::G12, Reg::G13, -20),
+            Instruction::Slli(Reg::G13, Reg::G13, 1),
+            Instruction::Slli(Reg::G17, Reg::G17, 1),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Beq(Reg::G12, Reg::G13, 8),
+            Instruction::Srli(Reg::G13, Reg::G13, 1),
+            Instruction::Srli(Reg::G17, Reg::G17, 1),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Subn(Reg::G12, Reg::G12, Reg::G13),
+            Instruction::Addn(Reg::G10, Reg::G10, Reg::G17),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Bne(Reg::G12, Reg::G0, -140),
+            Instruction::Jalr(Reg::G0, Reg::G1, 0)
+        ]);
+
+        assert_eq!(optimize((namespace_ver, operation_vec)), instruction_ver);
     }
 }

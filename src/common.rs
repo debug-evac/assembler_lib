@@ -141,6 +141,8 @@ pub enum MacroInstr {
     Sh(Reg, Reg, String, Part), //Store half
     Sw(Reg, Reg, String, Part), //Store word
 
+    Addi(Reg, Reg, String, Part)
+
     // If there is time and someone has nothing to do..
     //Subi(Reg, Reg, Imm),
     //Muli(Reg, Reg, Imm),

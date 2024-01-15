@@ -204,6 +204,7 @@ impl From<&Operation<'_>> for RegActType {
                     MacroInstr::Auipc(reg, _, _) |
                     MacroInstr::Jal(reg, _) => RegActType::Write(reg.clone()),
 
+                    MacroInstr::Addi(reg1, reg2, _, _) |
                     MacroInstr::Slli(reg1, reg2, _) |
                     MacroInstr::Srli(reg1, reg2, _) |
                     MacroInstr::Srai(reg1, reg2, _) |
@@ -238,6 +239,12 @@ impl MacroInstr {
         // Do not forget to change the lines function in the parser when changing the amount of lines here! 
         // (TODO: Better method for this)
         match self {
+            MacroInstr::Addi(reg1, reg2, labl, part) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                lines = handle_part(&lines, part);
+                instructions.push(Instruction::Addi(reg1.to_owned(), reg2.to_owned(), lines));
+            },
+
             MacroInstr::Beq(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
                 instructions.push(Instruction::Beq(reg1.to_owned(), reg2.to_owned(), lines));

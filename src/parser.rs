@@ -773,6 +773,37 @@ fn parse_multiline_macro(input: &str) -> IResult<&str, Vec<Operation>> {
     ))(input)
 }
 
+// TODO: Incoporate
+/*let (rest, res) = alt((
+    tuple((
+        map(parse_label_definition, |s| Some(s)),
+        multispace1,
+        map(
+            alt((
+            parse_instruction,
+            parse_multiline_macro
+        )),
+        |s| Some(s)
+        )
+    )),
+    tuple((
+        map(parse_label_definition, |s| Some(s)), 
+        success(""), 
+        success(None)
+    )),
+    tuple((
+        success(None),
+        success(""),
+        map(
+            alt((
+            parse_instruction,
+            parse_multiline_macro
+        )),
+        |s| Some(s)
+        )
+    )),
+))(rest)?;
+Ok((rest, (res.0, res.2)))*/
 #[allow(clippy::type_complexity)]
 fn parse_line(input: &str) -> IResult<&str, (Option<Cow<str>>, Option<Vec<Operation>>)> {
     let (rest, _) = multispace0(input)?;
@@ -885,13 +916,13 @@ fn handle_abs_addr_label_conv<'b>(
     instr_counter: usize, 
     local_counter: usize, 
     smallest_key: &mut usize, 
-    abs_to_label_queue: &mut BTreeMap<usize, i128>, 
+    abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>, 
     instr_list: &'b mut [Operation],
     symbol_map: &mut LabelRecog,
     imm: &Imm
 ) -> Option<Cow<'b, str>> {
-    let current_line: i128 = (instr_counter + local_counter + 1).try_into().expect("[Error] Could not cast usize to i128!");
-    let jump_line: usize = match current_line + (*imm / 4) as i128 {
+    let current_line: usize = instr_counter + local_counter + 1;
+    let jump_line: usize = match current_line as i128 + (*imm / 4) as i128 {
         x if x < 0 => 0,
         x => x.try_into().unwrap()
     };
@@ -902,7 +933,7 @@ fn handle_abs_addr_label_conv<'b>(
             if jump_line < *smallest_key {
                 *smallest_key = jump_line;
             }
-            abs_to_label_queue.insert(jump_line, current_line);
+            abs_to_label_queue.insert(jump_line, Vec::from([current_line]));
             None
         },
         Ordering::Less => {
@@ -944,7 +975,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
     let mut instr_list: Vec<Operation> = vec![];
 
     // Key = line forward; value = current line
-    let mut abs_to_label_queue: BTreeMap<usize, i128> = BTreeMap::new();
+    let mut abs_to_label_queue: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     let mut smallest_key: usize = usize::MAX;
 
     let mut rest = input;
@@ -963,7 +994,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                 rest = line.0;
                 line.1
             },
-            Err(_) => todo!("Custom parser error!"),
+            Err(e) => todo!("Custom parser error! {}", e),
         };
 
         match &mut parsed {
@@ -1100,7 +1131,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
             (None, None) => (),
         }
 
-        if rest.is_empty() {
+        if rest.trim().is_empty() {
             break;
         }
     }
@@ -1484,6 +1515,52 @@ END:
                    Ok(("", (symbols, correct_vec))));
         assert_eq!(subroutines.get_code(), Vec::from([Subroutines::MUL_SUB]));
         // TODO: Probably more test cases!
+    }
+
+    #[test]
+    fn test_parse_abs_addresses() {
+        let source_code = 
+r#" li  x4, 16
+    mv  x3, x4
+    beq x3, x4, 16
+    mul x6, x4, x3
+    lui x4, 0x16
+    j   -12
+"#;
+        let mut subroutines = Subroutines::new();
+
+        let mut symbols = LabelRecog::new();
+
+        let mut label = LabelElem::new_refd("__2".to_string());
+        label.set_scope(false);
+        label.set_def(2);
+        let _ = symbols.insert_label(label);
+
+        label = LabelElem::new_refd("__6".to_string());
+        label.set_scope(false);
+        label.set_def(6);
+        let _ = symbols.insert_label(label);
+
+        label = LabelElem::new_refd("_MUL".to_string());
+        label.set_scope(true);
+        let _ = symbols.insert_label(label);
+        
+        let correct_vec: Vec<Operation> = vec![
+                                                 Operation::Instr(Instruction::Lui(Reg::G4, 0)),
+                                                 Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
+                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
+                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".to_string())),
+                                                 Operation::from(Instruction::Addi(Reg::G10, Reg::G4, 0)),
+                                                 Operation::from(Instruction::Addi(Reg::G11, Reg::G3, 0)),
+                                                 Operation::from(MacroInstr::Jal(Reg::G1, "_MUL".to_string())),
+                                                 Operation::from(Instruction::Addi(Reg::G6, Reg::G10, 0)),
+                                                 Operation::from(Instruction::Lui(Reg::G4, 0x16)),
+                                                 Operation::from(MacroInstr::Jal(Reg::G0, "__2".to_string()))
+                                                ];
+
+        assert_eq!(parse(source_code, &mut Some(&mut subroutines)),
+                   Ok(("", (symbols, correct_vec))));
+        assert_eq!(subroutines.get_code(), Vec::from([Subroutines::MUL_SUB]));
     }
 }
 

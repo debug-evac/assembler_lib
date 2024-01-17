@@ -192,7 +192,9 @@ mod tests {
    #[test]
    fn test_translate_other_instr() {
       let mut instr: Instruction = Instruction::Jal(Reg::G0, 1864135);
-      assert_eq!(0b10011100011011000111000001101111, Instruction::translate_instruction(instr));
+      assert_eq!(0b10_01110_00110_11000_11100_00011_01111, Instruction::translate_instruction(instr));
+      instr = Instruction::Lui(Reg::G12, -2147483648);
+      assert_eq!(0b10_00000_00000_00000_00001_10001_10111, Instruction::translate_instruction(instr));
       instr = Instruction::Lui(Reg::G11, 757305);
       assert_eq!(0b00_00000_10111_00001_01101_10111, Instruction::translate_instruction(instr));
       instr = Instruction::Auipc(Reg::G12, 757305);

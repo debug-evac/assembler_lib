@@ -1194,11 +1194,20 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
         }
     }
 
-    println!("AccurateInstrCounter: {}, BTree: {:?}", accurate_counter, abs_to_label_queue);
+    println!("AccurateInstrCounter: {}, InstrCounter: {}, BTree: {:?}", accurate_counter, instr_counter, abs_to_label_queue);
 
     if !abs_to_label_queue.is_empty() {
-        let jump_label = Cow::from("__".to_string() + &instr_counter.to_string());
-        symbol_map.crt_def_ref(&jump_label.to_string(), false, instr_counter as i128);
+        let jump_label = match &instr_list[instr_counter - 1] {
+            Operation::Labl(labl) => {
+                symbol_map.crt_or_ref_label(&labl.to_string(), true);
+                labl.clone()
+            },
+            _ => {
+                let res = Cow::from("__".to_string() + &instr_counter.to_string());
+                symbol_map.crt_def_ref(&res.to_string(), false, instr_counter as i128);
+                res
+            }
+        };
         for (_, elem) in abs_to_label_queue.iter() {
             for origin in elem.iter() {
                 match &instr_list[*origin] {

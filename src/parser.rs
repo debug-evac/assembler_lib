@@ -147,8 +147,8 @@ _DIV:
     ret
 "#;
 
-    const MUD_SUB: &'static str = r#"
-_MUD:
+    const MOD_SUB: &'static str = r#"
+_MOD:
     addi a7, zero, 1
     mv a2, a0
     mv a3, a1
@@ -203,8 +203,8 @@ _SLR:
         self.code_str_vec.insert(Self::DIV_SUB.to_string());
     }
 
-    pub fn mud_defined(&mut self) {
-        self.code_str_vec.insert(Self::MUD_SUB.to_string());
+    pub fn mod_defined(&mut self) {
+        self.code_str_vec.insert(Self::MOD_SUB.to_string());
     }
 
     pub fn srr_defined(&mut self) {
@@ -950,7 +950,7 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
                     match labl.as_str() {
                         "_MUL" => subs.mul_defined(),
                         "_DIV" => subs.div_defined(),
-                        "_MUD" => subs.mud_defined(),
+                        "_MOD" => subs.mod_defined(),
                         "_SRR" => subs.srr_defined(),
                         "_SLR" => subs.slr_defined(),
                         unknown => println!("[Warning] Label does not point to subroutine: {}", unknown),

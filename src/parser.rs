@@ -980,6 +980,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
 
     let mut rest = input;
     let mut instr_counter: usize = 0;
+    let mut accurate_counter: usize = 0;
 
     let privileged = subroutines.is_none();
 
@@ -1012,7 +1013,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                         Operation::Instr(instr_in) => {
                             match instr_in {
                                 Instruction::Beq(reg1, reg2, imm) => {
-                                    if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, local_counter, &mut smallest_key, 
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, local_counter, &mut smallest_key, 
                                         &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
                                         if local_counter == 0 {
                                             *operation = Operation::LablMacro(label.clone(),
@@ -1023,7 +1024,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                                     }
                                 },
                                 Instruction::Bne(reg1, reg2, imm) => {
-                                    if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, local_counter, &mut smallest_key, 
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, local_counter, &mut smallest_key, 
                                         &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
                                         if local_counter == 0 {
                                             *operation = Operation::LablMacro(label.clone(),
@@ -1034,7 +1035,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                                     }
                                 },
                                 Instruction::Blt(reg1, reg2, imm) => {
-                                    if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, local_counter, &mut smallest_key, 
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, local_counter, &mut smallest_key, 
                                         &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
                                         if local_counter == 0 {
                                             *operation = Operation::LablMacro(label.clone(),
@@ -1045,7 +1046,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                                     }
                                 },
                                 Instruction::Bltu(reg1, reg2, imm) => {
-                                    if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, local_counter, &mut smallest_key, 
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, local_counter, &mut smallest_key, 
                                         &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
                                         if local_counter == 0 {
                                             *operation = Operation::LablMacro(label.clone(),
@@ -1056,7 +1057,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                                     }
                                 },
                                 Instruction::Bge(reg1, reg2, imm) => {
-                                    if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, local_counter, &mut smallest_key, 
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, local_counter, &mut smallest_key, 
                                         &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
                                         if local_counter == 0 {
                                             *operation = Operation::LablMacro(label.clone(),
@@ -1067,7 +1068,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                                     }
                                 },
                                 Instruction::Bgeu(reg1, reg2, imm) => {
-                                    if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, local_counter, &mut smallest_key, 
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, local_counter, &mut smallest_key, 
                                         &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
                                         if local_counter == 0 {
                                             *operation = Operation::LablMacro(label.clone(),
@@ -1078,7 +1079,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                                     }
                                 },
                                 Instruction::Jal(reg, imm) => {
-                                    if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, local_counter, &mut smallest_key, 
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, local_counter, &mut smallest_key, 
                                         &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
                                         if local_counter == 0 {
                                             *operation = Operation::LablMacro(label.clone(),
@@ -1089,7 +1090,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                                     }
                                 },
                                 Instruction::Jalr(reg1, reg2, imm) => {
-                                    if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, local_counter, &mut smallest_key, 
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, local_counter, &mut smallest_key, 
                                         &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
                                         if local_counter == 0 {
                                             *operation = Operation::LablMacro(label.clone(), 
@@ -1114,9 +1115,63 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                 instr_list.append(instr);
             },
             (None, Some(instr)) => {
-                for operation in instr.iter() {
-                    if let Operation::Macro(macro_in) = operation {
-                        handle_label_refs(macro_in, subroutines, &mut symbol_map, &mut local_ref_not_def);
+                for operation in instr.iter_mut() {
+                    match operation {
+                        Operation::Macro(macro_in) => handle_label_refs(macro_in, subroutines, &mut symbol_map, &mut local_ref_not_def),
+                        Operation::Instr(instr_in) => {
+                            match instr_in {
+                                Instruction::Beq(reg1, reg2, imm) => {
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, 0, &mut smallest_key, 
+                                        &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
+                                        *operation = Operation::Macro(MacroInstr::Beq(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    }
+                                },
+                                Instruction::Bne(reg1, reg2, imm) => {
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, 0, &mut smallest_key, 
+                                        &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
+                                        *operation = Operation::Macro(MacroInstr::Bne(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    }
+                                },
+                                Instruction::Blt(reg1, reg2, imm) => {
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, 0, &mut smallest_key, 
+                                        &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
+                                        *operation = Operation::Macro(MacroInstr::Blt(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    }
+                                },
+                                Instruction::Bltu(reg1, reg2, imm) => {
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, 0, &mut smallest_key, 
+                                        &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
+                                        *operation = Operation::Macro(MacroInstr::Bltu(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    }
+                                },
+                                Instruction::Bge(reg1, reg2, imm) => {
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, 0, &mut smallest_key, 
+                                        &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
+                                        *operation = Operation::Macro(MacroInstr::Bge(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    }
+                                },
+                                Instruction::Bgeu(reg1, reg2, imm) => {
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, 0, &mut smallest_key, 
+                                        &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
+                                        *operation = Operation::Macro(MacroInstr::Bgeu(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    }
+                                },
+                                Instruction::Jal(reg, imm) => {
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, 0, &mut smallest_key, 
+                                        &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
+                                        *operation = Operation::Macro(MacroInstr::Jal(reg.clone(), jump_label.to_string())); 
+                                    }
+                                },
+                                Instruction::Jalr(reg1, reg2, imm) => {
+                                    if let Some(jump_label) = handle_abs_addr_label_conv(accurate_counter, 0, &mut smallest_key, 
+                                        &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
+                                        *operation = Operation::Macro(MacroInstr::Jalr(reg1.clone(), reg2.clone(), jump_label.to_string(), Part::None));   
+                                    }
+                                },
+                                _ => (),
+                            };
+                        }
+                        _ => (),
                     }
                 }
 
@@ -1130,6 +1185,8 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
             },
             (None, None) => (),
         }
+
+        accurate_counter += 1;
 
         if rest.trim().is_empty() {
             break;
@@ -1531,9 +1588,13 @@ r#" li  x4, 16
 
         let mut symbols = LabelRecog::new();
 
-        let mut label = LabelElem::new_refd("__2".to_string());
+        let mut label = LabelElem::new_refd("_MUL".to_string());
+        label.set_scope(true);
+        let _ = symbols.insert_label(label);
+
+        label = LabelElem::new_refd("__3".to_string());
         label.set_scope(false);
-        label.set_def(2);
+        label.set_def(3);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("__6".to_string());
@@ -1541,21 +1602,19 @@ r#" li  x4, 16
         label.set_def(6);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("_MUL".to_string());
-        label.set_scope(true);
-        let _ = symbols.insert_label(label);
         
         let correct_vec: Vec<Operation> = vec![
                                                  Operation::Instr(Instruction::Lui(Reg::G4, 0)),
                                                  Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
                                                  Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
-                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".to_string())),
+                                                 Operation::LablMacro(Cow::from("__3"), MacroInstr::Beq(Reg::G3, Reg::G4, "__6".to_string())),
                                                  Operation::from(Instruction::Addi(Reg::G10, Reg::G4, 0)),
                                                  Operation::from(Instruction::Addi(Reg::G11, Reg::G3, 0)),
                                                  Operation::from(MacroInstr::Jal(Reg::G1, "_MUL".to_string())),
                                                  Operation::from(Instruction::Addi(Reg::G6, Reg::G10, 0)),
                                                  Operation::from(Instruction::Lui(Reg::G4, 0x16)),
-                                                 Operation::from(MacroInstr::Jal(Reg::G0, "__2".to_string()))
+                                                 Operation::from(MacroInstr::Jal(Reg::G0, "__3".to_string())),
+                                                 Operation::Labl(Cow::from("__6"))
                                                 ];
 
         assert_eq!(parse(source_code, &mut Some(&mut subroutines)),

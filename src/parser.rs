@@ -950,7 +950,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
             (None, None) => (),
         }
 
-        if rest.is_empty() {
+        if rest.trim().is_empty() {
             break;
         }
     }

@@ -85,7 +85,6 @@ pub struct Subroutines {
 }
 
 impl Subroutines {
-    // TODO:
     const MUL_SUB: &'static str = r#"
 _MUL:
     addi a7, zero, 0
@@ -147,6 +146,7 @@ _DIV:
     ret
 "#;
 
+//just one direction
     const MOD_SUB: &'static str = r#"
 _MOD:
     addi a7, zero, 1

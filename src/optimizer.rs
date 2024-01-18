@@ -219,6 +219,8 @@ impl From<&Operation<'_>> for RegActType {
                     MacroInstr::Sh(reg1, reg2, _, _) |
                     MacroInstr::Sb(reg1, reg2, _, _) |
                     MacroInstr::Sw(reg1, reg2, _, _) => RegActType::Store(reg1.clone(), reg2.clone()),
+
+                    _ => unreachable!(),
                 }
             },
             _ => RegActType::NA,
@@ -343,6 +345,8 @@ impl MacroInstr {
                 lines = handle_part(&lines, part);
                 instructions.push(Instruction::Sw(reg1.to_owned(), reg2.to_owned(), lines));
             },
+
+            _ => unreachable!(),
         };
     }
 }

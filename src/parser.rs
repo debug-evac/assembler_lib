@@ -918,6 +918,269 @@ fn handle_instr_substitution(instr_list: &mut [Operation], elem: &[usize], jump_
     }
 }
 
+fn translate_macros<'a>(
+    macro_in: &MacroInstr,
+    instr_list: &mut Vec<Operation<'a>>,
+    accumulator: &mut i128,
+    pointer: &mut usize,
+    label: Option<Cow<'a, str>>
+) {
+    match &macro_in {
+        MacroInstr::Divn(reg1, reg2, reg3) => {
+            let mut right_list = instr_list.split_off(*pointer);
+            right_list.remove(0);
+            let mut mid_list: Vec<Operation> = vec![];
+
+            if *reg2 != Reg::G10 {
+                mid_list.push(Operation::Instr(Instruction::Addi(Reg::G10, reg2.to_owned(), 0)));
+            }
+            if *reg3 != Reg::G11 {
+                mid_list.push(Instruction::Addi(Reg::G11, reg3.to_owned(), 0).into());
+            }
+            mid_list.push(MacroInstr::Jal(Reg::G1, "_DIV".to_string()).into());
+            if *reg1 != Reg::G10 {
+                mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
+            }
+
+            *accumulator += (mid_list.len() - 1) as i128;
+            *pointer += mid_list.len();
+            if let Some(labl) = label {
+                match mid_list.first().unwrap() {
+                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
+                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
+                    _ => unreachable!(),
+                }
+            }
+            instr_list.append(&mut mid_list);
+            instr_list.append(&mut right_list);
+        },
+        MacroInstr::Muln(reg1, reg2, reg3) => {
+            let mut right_list = instr_list.split_off(*pointer);
+            right_list.remove(0);
+            let mut mid_list: Vec<Operation> = vec![];
+
+            if *reg2 != Reg::G10 {
+                mid_list.push(Operation::Instr(Instruction::Addi(Reg::G10, reg2.to_owned(), 0)));
+            }
+            if *reg3 != Reg::G11 {
+                mid_list.push(Instruction::Addi(Reg::G11, reg3.to_owned(), 0).into());
+            }
+            mid_list.push(MacroInstr::Jal(Reg::G1, "_MUL".to_string()).into());
+            if *reg1 != Reg::G10 {
+                mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
+            }
+
+            *accumulator += (mid_list.len() - 1) as i128;
+            *pointer += mid_list.len();
+            if let Some(labl) = label {
+                match mid_list.first().unwrap() {
+                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
+                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
+                    _ => unreachable!(),
+                }
+            }
+            instr_list.append(&mut mid_list);
+            instr_list.append(&mut right_list);
+        },
+        MacroInstr::Srr(reg1, reg2, imm) => {
+            let mut right_list = instr_list.split_off(*pointer);
+            right_list.remove(0);
+            let mut mid_list: Vec<Operation> = vec![];
+
+            if *reg2 != Reg::G10 {
+                mid_list.push(Instruction::Addi(Reg::G10, reg2.to_owned(), 0).into());
+            }
+            mid_list.push(Instruction::Addi(Reg::G11, Reg::G0, *imm).into());
+            mid_list.push(MacroInstr::Jal(Reg::G1, "_SRR".to_string()).into());
+            if *reg1 != Reg::G10 {
+                mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
+            }
+
+            *accumulator += (mid_list.len() - 1) as i128;
+            *pointer += mid_list.len();
+            if let Some(labl) = label {
+                match mid_list.first().unwrap() {
+                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
+                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
+                    _ => unreachable!(),
+                }
+            }
+            instr_list.append(&mut mid_list);
+            instr_list.append(&mut right_list);
+        },
+        MacroInstr::Slr(reg1, reg2, imm) => {
+            let mut right_list = instr_list.split_off(*pointer);
+            right_list.remove(0);
+            let mut mid_list: Vec<Operation> = vec![];
+
+            if *reg2 != Reg::G10 {
+                mid_list.push(Instruction::Addi(Reg::G10, reg2.to_owned(), 0).into());
+            }
+            mid_list.push(Instruction::Addi(Reg::G11, Reg::G0, *imm).into());
+            mid_list.push(MacroInstr::Jal(Reg::G1, "_SLR".to_string()).into());
+            if *reg1 != Reg::G10 {
+                mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
+            }
+
+            *accumulator += (mid_list.len() - 1) as i128;
+            *pointer += mid_list.len();
+            if let Some(labl) = label {
+                match mid_list.first().unwrap() {
+                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
+                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
+                    _ => unreachable!(),
+                }
+            }
+            instr_list.append(&mut mid_list);
+            instr_list.append(&mut right_list);
+        },
+        MacroInstr::Li(reg, imm) => {
+            instr_list.remove(*pointer);
+            match label {
+                Some(labl) => instr_list.insert(*pointer,
+                                Operation::LablInstr(labl, Instruction::Lui(reg.to_owned(), *imm >> 12))),
+                None => instr_list.insert(*pointer, Instruction::Lui(reg.to_owned(), *imm >> 12).into()),
+            }
+            *pointer += 1;
+            instr_list.insert(*pointer,
+            Instruction::Addi(reg.to_owned(), reg.to_owned(), *imm).into());
+            *pointer += 1;
+            *accumulator += 1;
+        },
+        MacroInstr::LaImm(reg, imm) => {
+            instr_list.remove(*pointer);
+            match label {
+                Some(labl) => instr_list.insert(*pointer,
+                                Operation::LablInstr(labl, Instruction::Auipc(reg.to_owned(), imm >> 12))),
+                None => instr_list.insert(*pointer, Instruction::Auipc(reg.to_owned(), imm >> 12).into()),
+            }
+            *pointer += 1;
+            instr_list.insert(*pointer,
+            Instruction::Addi(reg.to_owned(), reg.to_owned(), *imm).into());
+            *pointer += 1;
+            *accumulator += 1;
+        },
+        MacroInstr::LaLabl(reg, targ_labl) => {
+            instr_list.remove(*pointer);
+            match label {
+                Some(labl) => instr_list.insert(*pointer,
+                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.to_string(), Part::Upper))),
+                None => instr_list.insert(*pointer, MacroInstr::Auipc(reg.to_owned(), targ_labl.to_string(), Part::Upper).into())
+            }
+            *pointer += 1;
+            instr_list.insert(*pointer,
+            MacroInstr::Addi(reg.to_owned(), reg.to_owned(), targ_labl.to_string(), Part::Lower).into());
+            *pointer += 1;
+            *accumulator += 1;
+        },
+        MacroInstr::CallImm(imm) => {
+            instr_list.remove(*pointer);
+            match label {
+                Some(labl) => instr_list.insert(*pointer,
+                                Operation::LablInstr(labl, Instruction::Auipc(Reg::G1, imm >> 12))),
+                None => instr_list.insert(*pointer, Operation::Instr(Instruction::Auipc(Reg::G1, imm >> 12)))
+            }
+            *pointer += 1;
+            instr_list.insert(*pointer,
+            Instruction::Jalr(Reg::G1, Reg::G1, *imm).into());
+            *pointer += 1;
+            *accumulator += 1;
+        },
+        MacroInstr::TailImm(imm) => {
+            instr_list.remove(*pointer);
+            match label {
+                Some(labl) => instr_list.insert(*pointer,
+                                Operation::LablInstr(labl, Instruction::Auipc(Reg::G6, imm >> 12))),
+                None => instr_list.insert(*pointer, Instruction::Auipc(Reg::G6, imm >> 12).into())
+            }
+            *pointer += 1;
+            instr_list.insert(*pointer,
+            Instruction::Jalr(Reg::G0, Reg::G6, *imm).into());
+            *pointer += 1;
+            *accumulator += 1;
+        },
+        MacroInstr::CallLabl(targ_labl) => {
+            instr_list.remove(*pointer);
+            match label {
+                Some(labl) => instr_list.insert(*pointer,
+                                Operation::LablMacro(labl, MacroInstr::Auipc(Reg::G1, targ_labl.to_string(), Part::Upper))),
+                None => instr_list.insert(*pointer, MacroInstr::Auipc(Reg::G1, targ_labl.to_string(), Part::Upper).into())
+            }
+            *pointer += 1;
+            instr_list.insert(*pointer,
+            MacroInstr::Jalr(Reg::G1, Reg::G1, targ_labl.to_string(), Part::Lower).into());
+            *pointer += 1;
+            *accumulator += 1;
+        },
+        MacroInstr::TailLabl(targ_labl) => {
+            instr_list.remove(*pointer);
+            match label {
+                Some(labl) => instr_list.insert(*pointer,
+                                Operation::LablMacro(labl, MacroInstr::Auipc(Reg::G6, targ_labl.to_string(), Part::Upper))),
+                None => instr_list.insert(*pointer, MacroInstr::Auipc(Reg::G6, targ_labl.to_string(), Part::Upper).into())
+            }
+            *pointer += 1;
+            instr_list.insert(*pointer,
+            MacroInstr::Jalr(Reg::G0, Reg::G6, targ_labl.to_string(), Part::Lower).into());
+            *pointer += 1;
+            *accumulator += 1;
+        },
+        MacroInstr::Push(regs) => {
+            let mut right_list = instr_list.split_off(*pointer);
+            right_list.remove(0);
+            let mut mid_list: Vec<Operation> = vec![];
+
+            match label {
+                Some(labl) => mid_list.push(Operation::LablInstr(labl, Instruction::Addi(Reg::G2, Reg::G2, -((regs.len() as i32 * 4) + 4)))),
+                None => mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, -((regs.len() as i32 * 4) + 4)).into())
+            }
+
+            let mut acc: i32 = (regs.len() as i32 * 4) + 4;
+
+            for reg in regs {
+                mid_list.push(Instruction::Sw(reg.to_owned(), Reg::G2, acc).into());
+                acc -= 4;
+            }
+
+            *accumulator += (mid_list.len() - 1) as i128;
+            *pointer += mid_list.len();
+            instr_list.append(&mut mid_list);
+            instr_list.append(&mut right_list);
+        },
+        MacroInstr::Pop(regs) => {
+            let mut right_list = instr_list.split_off(*pointer);
+            right_list.remove(0);
+            let mut mid_list: Vec<Operation> = vec![];
+
+            let regs_len = regs.len() as i32 * 4;
+            let mut acc: i32 = 4;
+
+            match label {
+                Some(labl) => mid_list.push(Operation::LablInstr(labl, Instruction::Lw(regs[0].to_owned(), Reg::G2, acc))),
+                None => mid_list.push(Instruction::Lw(regs[0].to_owned(), Reg::G2, acc).into())
+            }
+
+            for reg in regs {
+                if acc == 4 {
+                    acc += 4;
+                    continue;
+                }
+                mid_list.push(Instruction::Lw(reg.to_owned(), Reg::G2, acc).into());
+                acc += 4;
+            }
+
+            mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, regs_len).into());
+
+            *accumulator += (mid_list.len() - 1) as i128;
+            *pointer += mid_list.len();
+            instr_list.append(&mut mid_list);
+            instr_list.append(&mut right_list);
+        },
+
+        _ => *pointer += 1,
+    }
+}
+
 fn expand_instrs(symbol_map: &mut LabelRecog, instr_list: &mut Vec<Operation>) {
     let mut accumulator: i128 = 0;
     let mut pointer = 0;
@@ -928,128 +1191,12 @@ fn expand_instrs(symbol_map: &mut LabelRecog, instr_list: &mut Vec<Operation>) {
             Some(opera) => {
                 match opera {
                     Operation::Instr(_) => pointer += 1,
-                    Operation::Macro(_) => todo!(),
+                    Operation::Macro(macro_in) => translate_macros(&macro_in, instr_list, &mut accumulator, &mut pointer, None),
                     Operation::LablMacro(labl, macro_in) => {
                         if let Some(label) = symbol_map.get_label(&labl.to_string()) {
                             label.add_def(accumulator);
                         };
-                        match &macro_in {
-                            MacroInstr::Divn(reg1, reg2, reg3) => {
-                                let mut right_list = instr_list.split_off(pointer);
-                                right_list.remove(0);
-                                let mut mid_list: Vec<Operation> = vec![];
-
-                                if *reg2 != Reg::G10 {
-                                    mid_list.push(Operation::LablInstr(labl, Instruction::Addi(Reg::G10, reg2.to_owned(), 0)));
-                                }
-                                if *reg3 != Reg::G11 {
-                                    mid_list.push(Instruction::Addi(Reg::G11, reg3.to_owned(), 0).into());
-                                }
-                                mid_list.push(MacroInstr::Jal(Reg::G1, "_DIV".to_string()).into());
-                                if *reg1 != Reg::G10 {
-                                    mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
-                                }
-
-                                accumulator += (mid_list.len() - 1) as i128;
-                                pointer += mid_list.len();
-                                instr_list.append(&mut mid_list);
-                                instr_list.append(&mut right_list);
-                            },
-                            MacroInstr::Muln(reg1, reg2, reg3) => {
-                                let mut right_list = instr_list.split_off(pointer);
-                                right_list.remove(0);
-                                let mut mid_list: Vec<Operation> = vec![];
-
-                                if *reg2 != Reg::G10 {
-                                    mid_list.push(Operation::Instr(Instruction::Addi(Reg::G10, reg2.to_owned(), 0)));
-                                }
-                                if *reg3 != Reg::G11 {
-                                    mid_list.push(Instruction::Addi(Reg::G11, reg3.to_owned(), 0).into());
-                                }
-                                mid_list.push(MacroInstr::Jal(Reg::G1, "_MUL".to_string()).into());
-                                if *reg1 != Reg::G10 {
-                                    mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
-                                }
-
-                                accumulator += (mid_list.len() - 1) as i128;
-                                pointer += mid_list.len();
-                                match mid_list.first().unwrap() {
-                                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
-                                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
-                                    _ => unreachable!(),
-                                }
-                                instr_list.append(&mut mid_list);
-                                instr_list.append(&mut right_list);
-                            },
-                            MacroInstr::Srr(reg1, reg2, imm) => {
-                                let mut right_list = instr_list.split_off(pointer);
-                                right_list.remove(0);
-                                let mut mid_list: Vec<Operation> = vec![];
-
-                                if *reg2 != Reg::G10 {
-                                    mid_list.push(Instruction::Addi(Reg::G10, reg2.to_owned(), 0).into());
-                                }
-                                mid_list.push(Instruction::Addi(Reg::G11, Reg::G0, *imm).into());
-                                mid_list.push(MacroInstr::Jal(Reg::G1, "_SRR".to_string()).into());
-                                if *reg1 != Reg::G10 {
-                                    mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
-                                }
-
-                                accumulator += (mid_list.len() - 1) as i128;
-                                pointer += mid_list.len();
-                                match mid_list.first().unwrap() {
-                                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
-                                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
-                                    _ => unreachable!(),
-                                }
-                                instr_list.append(&mut mid_list);
-                                instr_list.append(&mut right_list);
-                            },
-                            MacroInstr::Slr(reg1, reg2, imm) => {
-                                let mut right_list = instr_list.split_off(pointer);
-                                right_list.remove(0);
-                                let mut mid_list: Vec<Operation> = vec![];
-
-                                if *reg2 != Reg::G10 {
-                                    mid_list.push(Instruction::Addi(Reg::G10, reg2.to_owned(), 0).into());
-                                }
-                                mid_list.push(Instruction::Addi(Reg::G11, Reg::G0, *imm).into());
-                                mid_list.push(MacroInstr::Jal(Reg::G1, "_SLR".to_string()).into());
-                                if *reg1 != Reg::G10 {
-                                    mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
-                                }
-
-                                accumulator += (mid_list.len() - 1) as i128;
-                                pointer += mid_list.len();
-                                match mid_list.first().unwrap() {
-                                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
-                                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
-                                    _ => unreachable!(),
-                                }
-                                instr_list.append(&mut mid_list);
-                                instr_list.append(&mut right_list);
-                            },
-                            MacroInstr::Li(reg, imm) => {
-                                instr_list.remove(pointer);
-                                instr_list.insert(pointer, 
-                                    Operation::LablInstr(labl, Instruction::Lui(reg.to_owned(), *imm >> 12)));
-                                pointer += 1;
-                                instr_list.insert(pointer, 
-                                Instruction::Addi(reg.to_owned(), reg.to_owned(), *imm).into());
-                                pointer += 1;
-                                accumulator += 1;
-                            },
-                            MacroInstr::LaImm(reg, imm) => todo!(),
-                            MacroInstr::LaLabl(reg, targ_labl) => todo!(),
-                            MacroInstr::CallImm(imm) => todo!(),
-                            MacroInstr::TailImm(imm) => todo!(),
-                            MacroInstr::CallLabl(targ_labl) => todo!(),
-                            MacroInstr::TailLabl(targ_labl) => todo!(),
-                            MacroInstr::Push(regs) => todo!(),
-                            MacroInstr::Pop(regs) => todo!(),
-
-                            _ => pointer += 1,
-                        }
+                        translate_macros(&macro_in, instr_list, &mut accumulator, &mut pointer, Some(labl));
                     },
                     Operation::LablInstr(labl, _) |
                     Operation::Labl(labl) => {
@@ -1065,67 +1212,6 @@ fn expand_instrs(symbol_map: &mut LabelRecog, instr_list: &mut Vec<Operation>) {
             None => break,
         };
     }
-    /*
-        La => Vec::from([
-            Instruction::Auipc(args.0.clone(), args.1 >> 12).into(),
-            Instruction::Addi(args.0.clone(), args.0, args.1).into()
-        ]),
-
-        // Label
-        La => Vec::from([
-            MacroInstr::Auipc(args.0.clone(), args.1.to_string(), Part::Upper).into(),
-            MacroInstr::Addi(args.0.clone(), args.0, args.1.to_string(), Part::Lower).into()
-        ]),
-
-        Push => {
-            let mut returned_vec: Vec<Operation> = Vec::with_capacity(args.len());
-
-            returned_vec.push(Instruction::Addi(Reg::G2, Reg::G2, -((args.len() as i32 * 4) + 4)).into());
-
-            let mut acc: i32 = (args.len() as i32 * 4) + 4;
-
-            for reg in args {
-                returned_vec.push(Instruction::Sw(reg, Reg::G2, acc).into());
-                acc -= 4;
-            }
-
-            returned_vec
-        },
-        Pop => {
-            let mut returned_vec: Vec<Operation> = Vec::with_capacity(args.len());
-
-            let regs_len = args.len() as i32 * 4;
-            let mut acc: i32 = 4;
-            
-            for reg in args {
-                returned_vec.push(Instruction::Lw(reg, Reg::G2, acc).into());
-                acc += 4;
-            }
-
-            returned_vec.push(Instruction::Addi(Reg::G2, Reg::G2, regs_len).into());
-
-            returned_vec
-        },
-        // Imm
-        Call => Vec::from([
-            Instruction::Auipc(Reg::G1, imm >> 12).into(),
-            Instruction::Jalr(Reg::G1, Reg::G1, imm).into()
-        ]),
-        Tail => Vec::from([
-            Instruction::Auipc(Reg::G6, imm >> 12).into(),
-            Instruction::Jalr(Reg::G0, Reg::G6, imm).into()
-        ]),
-        // Label
-        Call => Vec::from([
-            MacroInstr::Auipc(Reg::G1, labl.to_string(), Part::Upper).into(),
-            MacroInstr::Jalr(Reg::G1, Reg::G1, labl.to_string(), Part::Lower).into()
-        ]),
-        Tail => Vec::from([
-            MacroInstr::Auipc(Reg::G6, labl.to_string(), Part::Upper).into(),
-            MacroInstr::Jalr(Reg::G0, Reg::G6, labl.to_string(), Part::Lower).into()
-        ]),
-     */
-    todo!();
 }
 
 pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> IResult<&'a str, (LabelRecog, Vec<Operation<'a>>)> {
@@ -1688,17 +1774,17 @@ r#" li  x4, 16
         label.set_scope(true);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("__4".to_string());
+        label = LabelElem::new_refd("__3".to_string());
         label.set_scope(false);
         label.set_def(4);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("__10".to_string());
+        label = LabelElem::new_refd("__6".to_string());
         label.set_scope(false);
         label.set_def(10);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("__11".to_string());
+        label = LabelElem::new_refd("__7".to_string());
         label.set_scope(false);
         label.set_def(11);
         let _ = symbols.insert_label(label);
@@ -1707,15 +1793,15 @@ r#" li  x4, 16
                                                  Operation::Instr(Instruction::Lui(Reg::G4, 0)),
                                                  Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
                                                  Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
-                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__10".to_string())),
-                                                 Operation::LablInstr(Cow::from("__4"), Instruction::Addi(Reg::G10, Reg::G4, 0)),
+                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".to_string())),
+                                                 Operation::LablInstr(Cow::from("__3"), Instruction::Addi(Reg::G10, Reg::G4, 0)),
                                                  Operation::from(Instruction::Addi(Reg::G11, Reg::G3, 0)),
                                                  Operation::from(MacroInstr::Jal(Reg::G1, "_MUL".to_string())),
                                                  Operation::from(Instruction::Addi(Reg::G6, Reg::G10, 0)),
-                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__11".to_string())),
+                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__7".to_string())),
                                                  Operation::from(Instruction::Lui(Reg::G4, 0x16)),
-                                                 Operation::LablMacro(Cow::from("__10"), MacroInstr::Jal(Reg::G0, "__4".to_string())),
-                                                 Operation::Labl(Cow::from("__11"))
+                                                 Operation::LablMacro(Cow::from("__6"), MacroInstr::Jal(Reg::G0, "__3".to_string())),
+                                                 Operation::Labl(Cow::from("__7"))
                                                 ];
 
         assert_eq!(parse(source_code, &mut Some(&mut subroutines)),

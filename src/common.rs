@@ -141,7 +141,26 @@ pub enum MacroInstr {
     Sh(Reg, Reg, String, Part), //Store half
     Sw(Reg, Reg, String, Part), //Store word
 
-    Addi(Reg, Reg, String, Part)
+    Addi(Reg, Reg, String, Part),
+
+    Divn(Reg, Reg, Reg),
+    Muln(Reg, Reg, Reg),
+
+    Srr(Reg, Reg, Imm),
+    Slr(Reg, Reg, Imm),
+
+    Li(Reg, Imm),
+    LaImm(Reg, Imm),
+    LaLabl(Reg, String),
+
+    CallImm(Imm),
+    TailImm(Imm),
+
+    CallLabl(String),
+    TailLabl(String),
+
+    Push(Vec<Reg>),
+    Pop(Vec<Reg>),
 
     // If there is time and someone has nothing to do..
     //Subi(Reg, Reg, Imm),
@@ -387,6 +406,26 @@ impl LabelRecog {
                 let _ = self.insert_label(label);
                 false
             },
+        }
+    }
+
+    pub fn crt_def_ref(&mut self, label_str: &String, scope: bool, definition: i128) {
+        match self.get_label(label_str) {
+            Some(_) => (),
+            None => {
+                let mut label = LabelElem::new();
+                label.set_name(label_str.clone());
+                label.set_def(definition);
+                label.set_refd();
+                label.set_scope(scope);
+                let _ = self.insert_label(label);
+            },
+        }
+    }
+
+    pub fn set_refd_label(&mut self, label_str: &String) {
+        if let Some(label) = self.get_label(label_str) {
+            label.set_refd();
         }
     }
 

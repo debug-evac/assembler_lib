@@ -141,7 +141,26 @@ pub enum MacroInstr {
     Sh(Reg, Reg, String, Part), //Store half
     Sw(Reg, Reg, String, Part), //Store word
 
-    Addi(Reg, Reg, String, Part)
+    Addi(Reg, Reg, String, Part),
+
+    Divn(Reg, Reg, Reg),
+    Muln(Reg, Reg, Reg),
+
+    Srr(Reg, Reg, Imm),
+    Slr(Reg, Reg, Imm),
+
+    Li(Reg, Imm),
+    LaImm(Reg, Imm),
+    LaLabl(Reg, String),
+
+    CallImm(Imm),
+    TailImm(Imm),
+
+    CallLabl(String),
+    TailLabl(String),
+
+    Push(Vec<Reg>),
+    Pop(Vec<Reg>),
 
     // If there is time and someone has nothing to do..
     //Subi(Reg, Reg, Imm),

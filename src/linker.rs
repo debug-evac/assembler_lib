@@ -16,7 +16,7 @@
 use std::collections::HashMap;
 use crate::common::{LabelRecog, Operation, LabelElem};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Namespaces {
     global_definitions: HashMap<String, usize>,
     global_namespace: Vec<LabelElem>,

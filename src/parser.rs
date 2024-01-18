@@ -848,8 +848,6 @@ fn handle_abs_addr_label_conv<'b>(
         },
         Ordering::Less => {
             // looking back
-            println!("Jump line {}, Current line {}", jump_line, instr_counter);
-
             let jump_label: Cow<'_, str>;
             match &instr_list[jump_line] {
                 Operation::Instr(instr) => {
@@ -1242,8 +1240,6 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
             Err(e) => todo!("Custom parser error! {}", e),
         };
 
-        println!("InstrCounter: {}, BTree: {:?}", instr_counter, abs_to_label_queue);
-
         match &mut parsed {
             (Some(label), Some(instr)) => {
                 handle_label_defs(label, &mut symbol_map, &mut local_ref_not_def, instr_counter);
@@ -1414,8 +1410,6 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
             break;
         }
     }
-
-    println!("InstrCounter: {}, BTree: {:?}", instr_counter, abs_to_label_queue);
 
     if !abs_to_label_queue.is_empty() {
         let jump_label = match &instr_list[instr_counter - 1] {

@@ -157,7 +157,7 @@ _MOD:
     bne a2, a3, 16
     slli a3, a3, 1
     sub a2, a2, a3
-    add a1, a1, a7
+    add a0, a0, a7
     blt a2, a3, 40
     slli a3, a3, 1
     slli a7, a7, 1
@@ -165,10 +165,22 @@ _MOD:
     srli a3, a3, 1
     srli a7, a7, 1
     sub a2, a2, a3
-    add a1, a1, a7
+    add a0, a0, a7
     bne a2, zero, -32
-    sub a0, a2, a1
-    mv a1, zero
+    mv a0, a2
+    beq zero, zero, 48
+    srli a3, a3, 1
+    srli a7, a7, 1
+    blt a2, a3, -8
+    slli a3, a3, 1
+    slli a7, a7, 1
+    beq a2, a3, 8
+    srli a3, a3, 1
+    srli a7, a7, 1
+    sub a2, a2, a3
+    add a0, a0, a7
+    bne a2, zero, -80
+    mv a0, a3
     ret
 "#;
 

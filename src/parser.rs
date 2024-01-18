@@ -740,6 +740,7 @@ fn handle_label_defs(label: &mut Cow<str>, symbol_map: &mut LabelRecog, local_re
 }
 
 fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, local_ref_set: &mut HashSet<String>) {
+    #[allow(unreachable_patterns)]
     match macro_in {
         MacroInstr::Addi(_, _, labl, _) |
 

@@ -73,6 +73,7 @@ enum IntermediateOp {
     Sra,
     Div,
     Mul,
+    Mod,
     Xnor,
     Nor,
     Equal,
@@ -216,6 +217,10 @@ _SLR:
 
     pub fn div_defined(&mut self) {
         self.code_str_vec.insert(Self::DIV_SUB.to_string());
+    }
+
+    pub fn mod_defined(&mut self) {
+        self.code_str_vec.insert(Self::MOD_SUB.to_string());
     }
 
     pub fn srr_defined(&mut self) {
@@ -683,6 +688,7 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
 
         value(IntermediateOp::Div, tag("div")),
         value(IntermediateOp::Mul, tag("mul")),
+        value(IntermediateOp::Mod, tag("mod")),
 
         value(IntermediateOp::Xnor, tag("xnor")),
         value(IntermediateOp::Equal, tag("eq")),
@@ -708,6 +714,7 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
 
         IntermediateOp::Div => MacroInstr::Divn(args.0, args.2, args.4).into(),
         IntermediateOp::Mul => MacroInstr::Muln(args.0, args.2, args.4).into(),
+        IntermediateOp::Mod => MacroInstr::Modn(args.0, args.2, args.4).into(),
 
         IntermediateOp::Equal => Instruction::Equal(args.0, args.2, args.4).into(),
         IntermediateOp::Xnor => Instruction::Xnor(args.0, args.2, args.4).into(),
@@ -892,6 +899,15 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
                 local_ref_set.insert(LABEL.to_string());
             };
         },
+        MacroInstr::Modn(_, _, _) => {
+            if let Some(subs) = subroutines {
+                subs.div_defined();
+            };
+            static LABEL: &str = "_MOD";
+            if !symbol_map.crt_or_ref_label(&LABEL.to_string(), true) {
+                local_ref_set.insert(LABEL.to_string());
+            };
+        },
         MacroInstr::Srr(_, _, _) => {
             if let Some(subs) = subroutines {
                 subs.srr_defined();
@@ -1058,6 +1074,34 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(Reg::G11, reg3.to_owned(), 0).into());
             }
             mid_list.push(MacroInstr::Jal(Reg::G1, "_MUL".to_string()).into());
+            if *reg1 != Reg::G10 {
+                mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
+            }
+
+            *accumulator += (mid_list.len() - 1) as i128;
+            *pointer += mid_list.len();
+            if let Some(labl) = label {
+                match mid_list.first().unwrap() {
+                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
+                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
+                    _ => unreachable!(),
+                }
+            }
+            instr_list.append(&mut mid_list);
+            instr_list.append(&mut right_list);
+        },
+        MacroInstr::Modn(reg1, reg2, reg3) => {
+            let mut right_list = instr_list.split_off(*pointer);
+            right_list.remove(0);
+            let mut mid_list: Vec<Operation> = vec![];
+
+            if *reg2 != Reg::G10 {
+                mid_list.push(Operation::Instr(Instruction::Addi(Reg::G10, reg2.to_owned(), 0)));
+            }
+            if *reg3 != Reg::G11 {
+                mid_list.push(Instruction::Addi(Reg::G11, reg3.to_owned(), 0).into());
+            }
+            mid_list.push(MacroInstr::Jal(Reg::G1, "_MOD".to_string()).into());
             if *reg1 != Reg::G10 {
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }

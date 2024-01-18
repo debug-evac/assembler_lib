@@ -537,6 +537,8 @@ fn parse_macro_1labl2reg(input: &str) -> IResult<&str, Operation> {
         value(MacroInstr::Lb(Reg::NA, Reg::NA, String::new(), Part::None), tag("lb")),
         value(MacroInstr::Lh(Reg::NA, Reg::NA, String::new(), Part::None), tag("lh")),
         value(MacroInstr::Lw(Reg::NA, Reg::NA, String::new(), Part::None), tag("lw")),
+
+        value(MacroInstr::Addi(Reg::NA, Reg::NA, String::new(), Part::None), tag("addi")),
     ))(input)?;
     let (rest, _) = parse_instr_args_seper(rest)?;
     let (rest, args) = tuple((parse_reg, parse_seper, parse_reg, parse_seper, parse_label_name))(rest)?;
@@ -564,6 +566,8 @@ fn parse_macro_1labl2reg(input: &str) -> IResult<&str, Operation> {
         MacroInstr::Lh(_, _, _, ir) => MacroInstr::Lh(args.0, args.2, args.4.to_string(), ir),
         MacroInstr::Lhu(_, _, _) => MacroInstr::Lhu(args.0, args.2, args.4.to_string()),
         MacroInstr::Lw(_, _, _, ir) => MacroInstr::Lw(args.0, args.2, args.4.to_string(), ir),
+
+        MacroInstr::Addi(_, _, _, ir) => MacroInstr::Addi(args.0, args.2, args.4.to_string(), ir),
 
         op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
     };
@@ -760,15 +764,15 @@ fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
     let (rest, _) = multispace0(input)?;
     let (rest, res) = alt((
         tuple((
-            map(parse_label_definition, |s| Some(s)),
+            map(parse_label_definition, Some),
             multispace1,
             map(
                 parse_instruction,
-                |s| Some(s)
+                Some
             )
         )),
         tuple((
-            map(parse_label_definition, |s| Some(s)), 
+            map(parse_label_definition, Some), 
             success(""), 
             success(None)
         )),
@@ -777,7 +781,7 @@ fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
             success(""),
             map(
                 parse_instruction,
-                |s| Some(s)
+                Some
             )
         )),
     ))(rest)?;
@@ -816,7 +820,6 @@ fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, local_ref_set: &m
 }
 
 fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, local_ref_set: &mut HashSet<String>) {
-    #[allow(unreachable_patterns)]
     match macro_in {
         MacroInstr::Addi(_, _, labl, _) |
 
@@ -848,7 +851,6 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
         MacroInstr::Sh(_, _, labl, _) |
         MacroInstr::Sw(_, _, labl, _) | 
         
-        MacroInstr::Addi(_, _, labl, _) |
         MacroInstr::CallLabl(labl) |
         MacroInstr::TailLabl(labl) |
         MacroInstr::LaLabl(_, labl) => {

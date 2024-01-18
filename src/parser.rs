@@ -18,7 +18,9 @@ use nom::{
         opt,
         value,
         map_res,
-        recognize
+        recognize,
+        map,
+        success
     },
     character::complete::{
         alpha1,
@@ -33,6 +35,7 @@ use nom::{
     sequence::{
         tuple,
         separated_pair,
+        pair
     }, multi::separated_list1,
 };
 use std::cmp::Ordering;
@@ -156,42 +159,48 @@ impl std::fmt::Display for LabelInsertError {
     }
 }
 
-impl <'a> From<Instruction> for Operation <'a> {
+impl <'a> From<Instruction> for Operation<'a> {
     fn from(item: Instruction) -> Self {
         Operation::Instr(item)
     }
 }
 
-impl <'a> From<MacroInstr> for Operation <'a> {
+impl <'a> From<MacroInstr> for Operation<'a> {
     fn from(item: MacroInstr) -> Self {
         Operation::Macro(item)
     }
 }
 
-fn parse_label_name(input: &str) -> IResult<&str, Cow<str>> {
-    let (rest, parsed) = alpha1(input)?;
-    let (rest, parsed_l) = alphanumeric0(rest)?;
-
-    Ok((rest, Cow::from(format!("{}{}", parsed, parsed_l))))
+fn parse_label_name(input: &str) -> IResult<&str, &str> {
+    recognize(
+        pair(alpha1, alphanumeric0)
+    )(input)
 }
 
-fn parse_label_definition(input: &str) -> IResult<&str, Cow<str>> {
-    let (rest, scope) = opt(tag("."))(input)?;
-    let (rest, parsed) = parse_label_name(rest)?;
-    let (rest, _) = tag(":")(rest)?;
+fn parse_label_definition(input: &str) -> IResult<&str, &str> {
+    let (rest, parsed) = pair(
+        recognize(
+            pair(
+                opt(nom::character::complete::char('.')),
+                parse_label_name
+        )),
+        nom::character::complete::char(':')
+    )(input)?;
 
-    match scope {
-        Some(local) => Ok((rest, Cow::from(local) + parsed)),
-        None => Ok((rest, parsed))
-    }
+    Ok((rest, parsed.0))
 }
 
-fn parse_label_definition_priv(input: &str) -> IResult<&str, Cow<str>> {
-    let (rest, req_underscore) = tag("_")(input)?;
-    let (rest, parsed) = parse_label_name(rest)?;
-    let (rest, _) = tag(":")(rest)?;
+fn parse_label_definition_priv(input: &str) -> IResult<&str, &str> {
+    let (rest, parsed) = pair(
+        recognize(
+            pair(
+                nom::character::complete::char('_'),
+                parse_label_name
+        )),
+        nom::character::complete::char(':')
+    )(input)?;
 
-    Ok((rest, Cow::from(req_underscore) + parsed))
+    Ok((rest, parsed.0))
 }
 
 fn from_hex(input: &str) -> Result<Imm, std::num::ParseIntError> {
@@ -253,34 +262,24 @@ fn parse_imm(input: &str) -> IResult<&str, Imm> {
 }
 
 fn parse_reg(input: &str) -> IResult<&str, Reg> {
-    let (rest, abs_reg) = opt(tag("x"))(input)?;
-
-    match abs_reg {
-        Some(_) => {
-            let (rest, reg) = map_res(digit1, str::parse)(rest)?;
-            let real_reg = Reg::num_to_enum(&reg);
-
-            if real_reg == Reg::NA {
-                println!("WARNING! Reg::NA RECEIVED! Rest = {}", rest);
-                todo!("Implement own error!");
-            } else {
-                Ok((rest, real_reg))
-            }
-        },
-        None => {
-            let (rest, reg) = map_res(alphanumeric1, Reg::str_to_enum)(rest)?;
-
-            Ok((rest, reg))
-        },
-    }
+    let (rest, reg) = alt((
+        pair(
+            nom::character::complete::char('x'), 
+            map_res(map_res(digit1, str::parse::<u8>), Reg::num_to_enum)
+        ),
+        pair(
+            success('n'),
+            map_res(alphanumeric1, Reg::str_to_enum)
+        )
+    ))(input)?;
+    Ok((rest, reg.1))
 }
 
-// ld x1,0x01 OR ld x1, 0x01
 fn parse_seper(input: &str) -> IResult<&str, &str> {
-    let (rest, not_needed) = tag(",")(input)?;
-    let (rest, _) = opt(tag(" "))(rest)?;
-
-    Ok((rest, not_needed))
+    recognize(
+        pair(nom::character::complete::char(','), 
+        opt(nom::character::complete::char(' ')))
+    )(input)
 }
 
 fn parse_instr_args_seper(input: &str) -> IResult<&str, &str> {
@@ -663,53 +662,37 @@ fn parse_instruction(input: &str) -> IResult<&str, Operation> {
     Ok((rest, op))
 }
 
-// TODO: Incoporate
-/*let (rest, res) = alt((
-    tuple((
-        map(parse_label_definition, |s| Some(s)),
-        multispace1,
-        map(
-            alt((
-            parse_instruction,
-            parse_multiline_macro
-        )),
-        |s| Some(s)
-        )
-    )),
-    tuple((
-        map(parse_label_definition, |s| Some(s)), 
-        success(""), 
-        success(None)
-    )),
-    tuple((
-        success(None),
-        success(""),
-        map(
-            alt((
-            parse_instruction,
-            parse_multiline_macro
-        )),
-        |s| Some(s)
-        )
-    )),
-))(rest)?;
-Ok((rest, (res.0, res.2)))*/
 #[allow(clippy::type_complexity)]
-fn parse_line(input: &str) -> IResult<&str, (Option<Cow<str>>, Option<Operation>)> {
+fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
     let (rest, _) = multispace0(input)?;
-    let (rest, label) = opt(parse_label_definition)(rest)?;
-    if label.is_some() {
-        let (rest, _) = multispace1(rest)?;
-        let (rest, instr) = opt(parse_instruction)(rest)?;
-        Ok((rest, (label, instr)))
-    } else {
-        let (rest, instr) = parse_instruction(rest)?;
-        Ok((rest, (label, Some(instr))))
-    }
+    let (rest, res) = alt((
+        tuple((
+            map(parse_label_definition, |s| Some(s)),
+            multispace1,
+            map(
+                parse_instruction,
+                |s| Some(s)
+            )
+        )),
+        tuple((
+            map(parse_label_definition, |s| Some(s)), 
+            success(""), 
+            success(None)
+        )),
+        tuple((
+            success(None),
+            success(""),
+            map(
+                parse_instruction,
+                |s| Some(s)
+            )
+        )),
+    ))(rest)?;
+    Ok((rest, (res.0, res.2)))
 }
 
 #[allow(clippy::type_complexity)]
-fn parse_line_priv(input: &str) -> IResult<&str, (Option<Cow<str>>, Option<Operation>)> {
+fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
     let (rest, _) = multispace0(input)?;
     let (rest, label) = opt(parse_label_definition_priv)(rest)?;
     if label.is_some() {
@@ -722,7 +705,7 @@ fn parse_line_priv(input: &str) -> IResult<&str, (Option<Cow<str>>, Option<Opera
     }
 }
 
-fn handle_label_defs(label: &mut Cow<str>, symbol_map: &mut LabelRecog, local_ref_set: &mut HashSet<String>, instr_counter: usize) {
+fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, local_ref_set: &mut HashSet<String>, instr_counter: usize) {
     match label.strip_prefix('.') {
         Some(label) => {
             // Local label; Track definitions and references!
@@ -1247,67 +1230,67 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                 match instr {
                     Operation::Macro(macro_in) => {
                         handle_label_refs(macro_in, subroutines, &mut symbol_map, &mut local_ref_not_def);
-                        *instr = Operation::LablMacro(label.clone(), macro_in.to_owned());
+                        *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label), macro_in.to_owned());
                     },
                     Operation::Instr(instr_in) => {
                         match instr_in {
                             Instruction::Beq(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, &mut symbol_map, imm) {
-                                    *instr = Operation::LablMacro(label.clone(),
+                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
                                     MacroInstr::Beq(reg1.clone(), reg2.clone(), jump_label.to_string()));
                                 }
                             },
                             Instruction::Bne(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, 
                                     &mut abs_to_label_queue, &mut instr_list, &mut symbol_map, imm) {
-                                    *instr = Operation::LablMacro(label.clone(),
+                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
                                     MacroInstr::Bne(reg1.clone(), reg2.clone(), jump_label.to_string()));
                                 }
                             },
                             Instruction::Blt(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, &mut symbol_map, imm) {
-                                    *instr = Operation::LablMacro(label.clone(),
+                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
                                     MacroInstr::Blt(reg1.clone(), reg2.clone(), jump_label.to_string()));
                                 }
                             },
                             Instruction::Bltu(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, &mut symbol_map, imm) {
-                                    *instr = Operation::LablMacro(label.clone(),
+                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
                                     MacroInstr::Bltu(reg1.clone(), reg2.clone(), jump_label.to_string()));
                                 }
                             },
                             Instruction::Bge(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, &mut symbol_map, imm) {
-                                    *instr = Operation::LablMacro(label.clone(),
+                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
                                     MacroInstr::Bge(reg1.clone(), reg2.clone(), jump_label.to_string()));
                                 }
                             },
                             Instruction::Bgeu(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, &mut symbol_map, imm) {
-                                    *instr = Operation::LablMacro(label.clone(),
+                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
                                     MacroInstr::Bgeu(reg1.clone(), reg2.clone(), jump_label.to_string()));
                                 }
                             },
                             Instruction::Jal(reg, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, &mut symbol_map, imm) {
-                                    *instr = Operation::LablMacro(label.clone(),
+                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
                                     MacroInstr::Jal(reg.clone(), jump_label.to_string()));
                                 }
                             },
                             Instruction::Jalr(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, &mut symbol_map, imm) {
-                                    *instr = Operation::LablMacro(label.clone(), 
+                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label), 
                                     MacroInstr::Jalr(reg1.clone(), reg2.clone(), jump_label.to_string(), Part::None));
                                 }
                             },
-                            _ => *instr = Operation::LablInstr(label.clone(), instr_in.to_owned()),
+                            _ => *instr = Operation::LablInstr(std::borrow::Cow::Borrowed(label), instr_in.to_owned()),
                         };
                     }
                     _ => (),
@@ -1401,7 +1384,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                     handle_instr_substitution(&mut instr_list, &list, label)
                 };
                 instr_counter += 1;
-                instr_list.push(Operation::Labl(label.clone()));
+                instr_list.push(Operation::Labl(std::borrow::Cow::Borrowed(label)));
             },
             (None, None) => (),
         }
@@ -1442,26 +1425,26 @@ mod tests {
 
     #[test]
     fn test_parse_label() {
-        assert_ne!(parse_label_definition("invalid"), Ok(("", Cow::from("invalid"))));
-        assert_eq!(parse_label_definition("valid0:"), Ok(("", Cow::from("valid0"))));
-        assert_ne!(parse_label_definition("invalid :"), Ok(("", Cow::from("invalid"))));
-        assert_ne!(parse_label_definition(" "), Ok(("", Cow::from(""))));
-        assert_eq!(parse_label_definition("valid:"), Ok(("", Cow::from("valid"))));
-        assert_ne!(parse_label_definition("0invalid:"), Ok(("", Cow::from("0invalid"))));
-        assert_eq!(parse_label_definition("v415alid:"), Ok(("", Cow::from("v415alid"))));
-        assert_eq!(parse_label_definition(".veryvalid:"), Ok(("", Cow::from(".veryvalid"))));
+        assert_ne!(parse_label_definition("invalid"), Ok(("", "invalid")));
+        assert_eq!(parse_label_definition("valid0:"), Ok(("", "valid0")));
+        assert_ne!(parse_label_definition("invalid :"), Ok(("", "invalid")));
+        assert_ne!(parse_label_definition(" "), Ok(("", "")));
+        assert_eq!(parse_label_definition("valid:"), Ok(("", "valid")));
+        assert_ne!(parse_label_definition("0invalid:"), Ok(("", "0invalid")));
+        assert_eq!(parse_label_definition("v415alid:"), Ok(("", "v415alid")));
+        assert_eq!(parse_label_definition(".veryvalid:"), Ok(("", ".veryvalid")));
     }
 
     #[test]
     fn test_parse_label_privileged() {
-        assert_ne!(parse_label_definition_priv("invalid"), Ok(("", Cow::from("invalid"))));
-        assert_ne!(parse_label_definition_priv("invalid0:"), Ok(("", Cow::from("invalid0"))));
-        assert_ne!(parse_label_definition_priv("invalid :"), Ok(("", Cow::from("invalid"))));
-        assert_ne!(parse_label_definition_priv(" "), Ok(("", Cow::from(""))));
-        assert_eq!(parse_label_definition_priv("_valid:"), Ok(("", Cow::from("_valid"))));
-        assert_ne!(parse_label_definition_priv("0invalid:"), Ok(("", Cow::from("0invalid"))));
-        assert_eq!(parse_label_definition_priv("_v415alid:"), Ok(("", Cow::from("_v415alid"))));
-        assert_eq!(parse_label_definition_priv("_veryvalid:"), Ok(("", Cow::from("_veryvalid"))));
+        assert_ne!(parse_label_definition_priv("invalid"), Ok(("", "invalid")));
+        assert_ne!(parse_label_definition_priv("invalid0:"), Ok(("", "invalid0")));
+        assert_ne!(parse_label_definition_priv("invalid :"), Ok(("", "invalid")));
+        assert_ne!(parse_label_definition_priv(" "), Ok(("", "")));
+        assert_eq!(parse_label_definition_priv("_valid:"), Ok(("", "_valid")));
+        assert_ne!(parse_label_definition_priv("0invalid:"), Ok(("", "0invalid")));
+        assert_eq!(parse_label_definition_priv("_v415alid:"), Ok(("", "_v415alid")));
+        assert_eq!(parse_label_definition_priv("_veryvalid:"), Ok(("", "_veryvalid")));
     }
 
     #[test]
@@ -1492,7 +1475,7 @@ mod tests {
     fn test_parse_seper() {
         assert_ne!(parse_seper("invalid"), Ok(("", "")));
         assert_ne!(parse_seper(" "), Ok(("", "")));
-        assert_eq!(parse_seper(", "), Ok(("", ",")));
+        assert_eq!(parse_seper(", "), Ok(("", ", ")));
         assert_eq!(parse_seper(","), Ok(("", ",")));
     }
     
@@ -1670,29 +1653,29 @@ mod tests {
     #[test]
     fn test_parse_line() {
         assert_eq!(parse_line("label: add x1, x5, x6"),
-                   Ok(("", (Some(Cow::from("label")), Some(Instruction::Addn(Reg::G1, Reg::G5, Reg::G6).into())))));
+                   Ok(("", (Some("label"), Some(Instruction::Addn(Reg::G1, Reg::G5, Reg::G6).into())))));
         assert_eq!(parse_line("\ntest:\n\nsub x6, x5, x11"),
-                   Ok(("", (Some(Cow::from("test")), Some(Instruction::Subn(Reg::G6, Reg::G5, Reg::G11).into())))));
+                   Ok(("", (Some("test"), Some(Instruction::Subn(Reg::G6, Reg::G5, Reg::G11).into())))));
         assert_eq!(parse_line("\n\n\nreturn:\n"),
-                   Ok(("", (Some(Cow::from("return")), None))));
+                   Ok(("\n", (Some("return"), None))));
         assert_eq!(parse_line("mv x15, x12\naddi x12, x10, 0x05"),
                    Ok(("\naddi x12, x10, 0x05", (None, Some(Instruction::Addi(Reg::G15, Reg::G12, 0).into())))));
         assert_eq!(parse_line("label:\ndiv x14, x13, x10"),
-                   Ok(("", (Some(Cow::from("label")), Some(MacroInstr::Divn(Reg::G14, Reg::G13, Reg::G10).into())))));
+                   Ok(("", (Some("label"), Some(MacroInstr::Divn(Reg::G14, Reg::G13, Reg::G10).into())))));
     }
 
     #[test]
     fn test_parse_line_privileged() {
         assert_eq!(parse_line_priv("_label: add x1, x5, x6"),
-                    Ok(("", (Some(Cow::from("_label")), Some(Instruction::Addn(Reg::G1, Reg::G5, Reg::G6).into())))));
+                    Ok(("", (Some("_label"), Some(Instruction::Addn(Reg::G1, Reg::G5, Reg::G6).into())))));
         assert_eq!(parse_line_priv("\n_test:\n\nsub x6, x5, x11"),
-                    Ok(("", (Some(Cow::from("_test")), Some(Instruction::Subn(Reg::G6, Reg::G5, Reg::G11).into())))));
+                    Ok(("", (Some("_test"), Some(Instruction::Subn(Reg::G6, Reg::G5, Reg::G11).into())))));
         assert_eq!(parse_line_priv("\n\n\n_return:\n"),
-                    Ok(("", (Some(Cow::from("_return")), None))));
+                    Ok(("", (Some("_return"), None))));
         assert_eq!(parse_line_priv("mv x15, x12\naddi x12, x10, 0x05"),
                     Ok(("\naddi x12, x10, 0x05", (None, Some(Instruction::Addi(Reg::G15, Reg::G12, 0).into())))));
         assert_eq!(parse_line_priv("_label:\ndiv x14, x13, x10"),
-                    Ok(("", (Some(Cow::from("_label")), Some(MacroInstr::Divn(Reg::G14, Reg::G13, Reg::G10).into())))));
+                    Ok(("", (Some("_label"), Some(MacroInstr::Divn(Reg::G14, Reg::G13, Reg::G10).into())))));
     }
 
     #[test]

@@ -89,12 +89,105 @@ pub struct Subroutines {
 }
 
 impl Subroutines {
-    // TODO:
     const MUL_SUB: &'static str = r#"
 _MUL:
+    addi a7, zero, 0
+    addi a6, zero, 1
+    mv a2, a0
+    mv a3, a1
+    mv a0, zero
+    mv a1, zero
+    blt a2, a3, 32
+    and a4, a6, a3
+    beq a4, zero, 12
+    sll a5, a2, a7
+    add a0, a0, a5
+    addi a7, a7, 1
+    slli a6, a6, 1
+    bge a3, a6, -24
+    ret
+    and a4, a6, a2
+    beq a4, zero, 12
+    sll a5, a3, a7
+    add a0, a0, a5
+    addi a7, a7, 1
+    slli a6, a6, 1
+    bge a2, a6, -24
+    ret
 "#;
     const DIV_SUB: &'static str = r#"
 _DIV:
+    addi a7, zero, 1
+    mv a2, a0
+    mv a3, a1
+    mv a0, zero
+    mv a1, zero
+    bne a2, a3, 16
+    slli a3, a3, 1
+    sub a2, a2, a3
+    add a0, a0, a7
+    blt a2, a3, 40
+    slli a3, a3, 1
+    slli a7, a7, 1
+    blt a3, a2, -8
+    srli a3, a3, 1
+    srli a7, a7, 1
+    sub a2, a2, a3
+    add a0, a0, a7
+    bne a2, zero, -32
+    beq zero, zero, 44
+    srli a3, a3, 1
+    srli a7, a7, 1
+    blt a2, a3, -8
+    slli a3, a3, 1
+    slli a7, a7, 1
+    beq a2, a3, 8
+    srli a3, a3, 1
+    srli a7, a7, 1
+    sub a2, a2, a3
+    add a0, a0, a7
+    bne a2, zero, -80
+    ret
+"#;
+
+
+//just one direction
+#[allow(dead_code)]
+    const MOD_SUB: &'static str = r#"
+_MOD:
+    addi a7, zero, 1
+    mv a2, a0
+    mv a3, a1
+    mv a0, zero
+    mv a1, zero
+    bne a2, a3, 16
+    slli a3, a3, 1
+    sub a2, a2, a3
+    add a0, a0, a7
+    blt a2, a3, 40
+    slli a3, a3, 1
+    slli a7, a7, 1
+    blt a3, a2, -8
+    srli a3, a3, 1
+    srli a7, a7, 1
+    sub a2, a2, a3
+    add a0, a0, a7
+    bne a2, zero, -32
+    beq zero, zero, 48
+    srli a3, a3, 1
+    srli a7, a7, 1
+    blt a2, a3, -8
+    slli a3, a3, 1
+    slli a7, a7, 1
+    beq a2, a3, 8
+    srli a3, a3, 1
+    srli a7, a7, 1
+    sub a2, a2, a3
+    add a0, a0, a7
+    blt a2, a3, 8
+    bne a2, zero, -84
+    mv a0, a2
+    ret
 "#;
 
     const SRR_SUB: &'static str = r#"

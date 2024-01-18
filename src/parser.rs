@@ -149,6 +149,7 @@ _DIV:
 
 
 //just one direction
+#[allow(dead_code)]
     const MOD_SUB: &'static str = r#"
 _MOD:
     addi a7, zero, 1

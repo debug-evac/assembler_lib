@@ -146,6 +146,7 @@ _DIV:
     ret
 "#;
 
+
 //just one direction
     const MOD_SUB: &'static str = r#"
 _MOD:
@@ -167,7 +168,6 @@ _MOD:
     sub a2, a2, a3
     add a0, a0, a7
     bne a2, zero, -32
-    mv a0, a2
     beq zero, zero, 48
     srli a3, a3, 1
     srli a7, a7, 1
@@ -179,8 +179,9 @@ _MOD:
     srli a7, a7, 1
     sub a2, a2, a3
     add a0, a0, a7
-    bne a2, zero, -80
-    mv a0, a3
+    blt a2, a3, 8
+    bne a2, zero, -84
+    mv a0, a2
     ret
 "#;
 

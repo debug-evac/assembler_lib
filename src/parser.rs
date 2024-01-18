@@ -217,10 +217,6 @@ _SLR:
         self.code_str_vec.insert(Self::DIV_SUB.to_string());
     }
 
-    pub fn mod_defined(&mut self) {
-        self.code_str_vec.insert(Self::MOD_SUB.to_string());
-    }
-
     pub fn srr_defined(&mut self) {
         self.code_str_vec.insert(Self::SRR_SUB.to_string());
     }

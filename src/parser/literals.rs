@@ -58,10 +58,11 @@ pub fn parse_label_definition(input: &str) -> IResult<&str, &str> {
 pub fn parse_label_definition_priv(input: &str) -> IResult<&str, &str> {
     let (rest, parsed) = pair(
         recognize(
-            pair(
+            tuple((
+                opt(nom::character::complete::char('.')),
                 nom::character::complete::char('_'),
                 parse_label_name
-        )),
+        ))),
         nom::character::complete::char(':')
     )(input)?;
 

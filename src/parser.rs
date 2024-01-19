@@ -13,7 +13,6 @@ use nom::{
     IResult,
     branch::alt,
     combinator::{
-        opt,
         map,
         success,
     },
@@ -21,7 +20,10 @@ use nom::{
         multispace0,
         multispace1, 
     },
-    sequence::tuple
+    sequence::{
+        pair,
+        separated_pair
+    }
 };
 use std::cmp::Ordering;
 use std::collections::{HashSet, BTreeMap};
@@ -219,44 +221,53 @@ impl <'a> From<MacroInstr> for Operation<'a> {
 #[allow(clippy::type_complexity)]
 fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
     let (rest, _) = multispace0(input)?;
-    let (rest, res) = alt((
-        tuple((
+    alt((
+        separated_pair(
             map(parse_label_definition, Some),
             multispace1,
             map(
                 parse_instruction,
                 Some
             )
-        )),
-        tuple((
+        ),
+        pair(
             map(parse_label_definition, Some), 
-            success(""), 
             success(None)
-        )),
-        tuple((
+        ),
+        pair(
             success(None),
-            success(""),
             map(
                 parse_instruction,
                 Some
             )
-        )),
-    ))(rest)?;
-    Ok((rest, (res.0, res.2)))
+        ),
+    ))(rest)
 }
 
 #[allow(clippy::type_complexity)]
 fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
     let (rest, _) = multispace0(input)?;
-    let (rest, label) = opt(parse_label_definition_priv)(rest)?;
-    if label.is_some() {
-        let (rest, _) = multispace1(rest)?;
-        let (rest, instr) = opt(parse_instruction)(rest)?;
-        Ok((rest, (label, instr)))
-    } else {
-        let (rest, instr) = parse_instruction(rest)?;
-        Ok((rest, (label, Some(instr))))
-    }
+    alt((
+        separated_pair(
+            map(parse_label_definition_priv, Some),
+            multispace1,
+            map(
+                parse_instruction,
+                Some
+            )
+        ),
+        pair(
+            map(parse_label_definition_priv, Some), 
+            success(None)
+        ),
+        pair(
+            success(None),
+            map(
+                parse_instruction,
+                Some
+            )
+        ),
+    ))(rest)
 }
 
 fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, local_ref_set: &mut HashSet<String>, instr_counter: usize) {
@@ -996,7 +1007,7 @@ mod tests {
         assert_eq!(parse_line_priv("\n_test:\n\nsub x6, x5, x11"),
                     Ok(("", (Some("_test"), Some(Instruction::Subn(Reg::G6, Reg::G5, Reg::G11).into())))));
         assert_eq!(parse_line_priv("\n\n\n_return:\n"),
-                    Ok(("", (Some("_return"), None))));
+                    Ok(("\n", (Some("_return"), None))));
         assert_eq!(parse_line_priv("mv x15, x12\naddi x12, x10, 0x05"),
                     Ok(("\naddi x12, x10, 0x05", (None, Some(Instruction::Addi(Reg::G15, Reg::G12, 0).into())))));
         assert_eq!(parse_line_priv("_label:\ndiv x14, x13, x10"),
@@ -1217,6 +1228,380 @@ TEST: srli a7, a7, 1
         assert_eq!(parse(source_code, &mut Some(&mut subroutines)),
                    Ok(("", (symbols, correct_vec))));
         assert!(subroutines.get_code().is_empty());
+    }
+
+    fn reset_acc_pointer(accumulator: &mut i128, pointer: &mut usize) {
+        *accumulator = 0;
+        *pointer = 2;
+    }
+
+    #[test]
+    fn test_translate_macros() {
+        let sample_list: Vec<Operation> = Vec::from([
+            Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
+            Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
+            Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
+            Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
+            Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
+        ]);
+
+        let mut accumulator: i128 = 0;
+        let mut pointer: usize = 2;
+
+        {
+            let mut test_list = sample_list.clone();
+            test_list.insert(2, 
+                Operation::Macro(MacroInstr::Divn(Reg::G7, Reg::G20, Reg::G13)));
+            let label: Cow<'_, str> = Cow::from("TEST");
+            
+            translate_macros(&MacroInstr::Divn(Reg::G7, Reg::G20, Reg::G13), 
+            &mut test_list, 
+            &mut accumulator, 
+            &mut pointer, 
+            Some(label.clone()));
+
+            assert_eq!(accumulator, 3);
+            assert_eq!(pointer, 6);
+
+            let cor_vec: Vec<Operation> = Vec::from([
+                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
+                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
+                Operation::LablInstr(label, Instruction::Addi(Reg::G10, Reg::G20, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G13, 0)),
+                Operation::Macro(MacroInstr::Jal(Reg::G1, "_DIV".to_string())),
+                Operation::Instr(Instruction::Addi(Reg::G7, Reg::G10, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
+            ]);
+
+            assert_eq!(test_list, cor_vec);
+        }
+
+        reset_acc_pointer(&mut accumulator, &mut pointer);
+
+        {
+            let mut test_list = sample_list.clone();
+            test_list.insert(2, 
+                Operation::Macro(MacroInstr::Srr(Reg::G7, Reg::G20, 2)));
+            let label: Cow<'_, str> = Cow::from("TEST3");
+            
+            translate_macros(&MacroInstr::Srr(Reg::G7, Reg::G20, 2), 
+            &mut test_list, 
+            &mut accumulator, 
+            &mut pointer, 
+            Some(label.clone()));
+
+            assert_eq!(accumulator, 3);
+            assert_eq!(pointer, 6);
+
+            let cor_vec: Vec<Operation> = Vec::from([
+                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
+                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
+                Operation::LablInstr(label, Instruction::Addi(Reg::G10, Reg::G20, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 2)),
+                Operation::Macro(MacroInstr::Jal(Reg::G1, "_SRR".to_string())),
+                Operation::Instr(Instruction::Addi(Reg::G7, Reg::G10, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
+            ]);
+
+            assert_eq!(test_list, cor_vec);
+        }
+
+        reset_acc_pointer(&mut accumulator, &mut pointer);
+
+        {
+            let mut test_list = sample_list.clone();
+            test_list.insert(2, 
+                Operation::Macro(MacroInstr::Slr(Reg::G7, Reg::G20, 2)));
+            let label: Cow<'_, str> = Cow::from("TEST66");
+            
+            translate_macros(&MacroInstr::Slr(Reg::G7, Reg::G20, 2), 
+            &mut test_list, 
+            &mut accumulator, 
+            &mut pointer, 
+            Some(label.clone()));
+
+            assert_eq!(accumulator, 3);
+            assert_eq!(pointer, 6);
+
+            let cor_vec: Vec<Operation> = Vec::from([
+                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
+                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
+                Operation::LablInstr(label, Instruction::Addi(Reg::G10, Reg::G20, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 2)),
+                Operation::Macro(MacroInstr::Jal(Reg::G1, "_SLR".to_string())),
+                Operation::Instr(Instruction::Addi(Reg::G7, Reg::G10, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
+            ]);
+
+            assert_eq!(test_list, cor_vec);
+        }
+
+        reset_acc_pointer(&mut accumulator, &mut pointer);
+
+        {
+            let mut test_list = sample_list.clone();
+            let target_label = "0800 444 555 666 - JETZT ANRUFEN UND [INSERT PRODUCT] ZUM PREIS VON EINEM BEKOMMEN! LIMITIERTES ANGEBOT";
+            test_list.insert(2, 
+                Operation::Macro(MacroInstr::LaLabl(Reg::G7, 
+                    target_label.to_string())));
+            let label: Cow<'_, str> = Cow::from("TEST80");
+            
+            translate_macros(&MacroInstr::LaLabl(Reg::G7, 
+                target_label.to_string()), 
+            &mut test_list, 
+            &mut accumulator, 
+            &mut pointer, 
+            Some(label.clone()));
+
+            assert_eq!(accumulator, 1);
+            assert_eq!(pointer, 4);
+
+            let cor_vec: Vec<Operation> = Vec::from([
+                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
+                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
+                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G7, target_label.to_string(), Part::Upper)),
+                Operation::Macro(MacroInstr::Addi(Reg::G7, Reg::G7, target_label.to_string(), Part::Lower)),
+                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
+            ]);
+
+            assert_eq!(test_list, cor_vec);
+        }
+
+        reset_acc_pointer(&mut accumulator, &mut pointer);
+
+        {
+            let mut test_list = sample_list.clone();
+            test_list.insert(2, 
+                Operation::Macro(MacroInstr::CallImm(50)));
+            let label: Cow<'_, str> = Cow::from("TEST80");
+            
+            translate_macros(&MacroInstr::CallImm(50), 
+            &mut test_list, 
+            &mut accumulator, 
+            &mut pointer, 
+            Some(label.clone()));
+
+            assert_eq!(accumulator, 1);
+            assert_eq!(pointer, 4);
+
+            let cor_vec: Vec<Operation> = Vec::from([
+                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
+                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
+                Operation::LablInstr(label, Instruction::Auipc(Reg::G1, 0)),
+                Operation::Instr(Instruction::Jalr(Reg::G1, Reg::G1, 50)),
+                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
+            ]);
+
+            assert_eq!(test_list, cor_vec);
+        }
+
+        reset_acc_pointer(&mut accumulator, &mut pointer);
+
+        {
+            let mut test_list = sample_list.clone();
+            test_list.insert(2, 
+                Operation::Macro(MacroInstr::TailImm(50)));
+            let label: Cow<'_, str> = Cow::from("TEST80");
+            
+            translate_macros(&MacroInstr::TailImm(50), 
+            &mut test_list, 
+            &mut accumulator, 
+            &mut pointer, 
+            Some(label.clone()));
+
+            assert_eq!(accumulator, 1);
+            assert_eq!(pointer, 4);
+
+            let cor_vec: Vec<Operation> = Vec::from([
+                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
+                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
+                Operation::LablInstr(label, Instruction::Auipc(Reg::G6, 0)),
+                Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G6, 50)),
+                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
+            ]);
+
+            assert_eq!(test_list, cor_vec);
+        }
+
+        reset_acc_pointer(&mut accumulator, &mut pointer);
+
+        {
+            let mut test_list = sample_list.clone();
+            let target_label = "0800 444 555 666";
+            test_list.insert(2, 
+                Operation::Macro(MacroInstr::CallLabl(target_label.to_string())));
+            let label: Cow<'_, str> = Cow::from("TEST80");
+            
+            translate_macros(&MacroInstr::CallLabl(target_label.to_string()), 
+            &mut test_list, 
+            &mut accumulator, 
+            &mut pointer, 
+            Some(label.clone()));
+
+            assert_eq!(accumulator, 1);
+            assert_eq!(pointer, 4);
+
+            let cor_vec: Vec<Operation> = Vec::from([
+                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
+                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
+                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G1, target_label.to_string(), Part::Upper)),
+                Operation::Macro(MacroInstr::Jalr(Reg::G1, Reg::G1, target_label.to_string(), Part::Lower)),
+                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
+            ]);
+
+            assert_eq!(test_list, cor_vec);
+        }
+
+        reset_acc_pointer(&mut accumulator, &mut pointer);
+
+        {
+            let mut test_list = sample_list.clone();
+            let target_label = "0800 444 555 666";
+            test_list.insert(2, 
+                Operation::Macro(MacroInstr::TailLabl(target_label.to_string())));
+            let label: Cow<'_, str> = Cow::from("TEST80");
+            
+            translate_macros(&MacroInstr::TailLabl(target_label.to_string()), 
+            &mut test_list, 
+            &mut accumulator, 
+            &mut pointer, 
+            Some(label.clone()));
+
+            assert_eq!(accumulator, 1);
+            assert_eq!(pointer, 4);
+
+            let cor_vec: Vec<Operation> = Vec::from([
+                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
+                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
+                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G6, target_label.to_string(), Part::Upper)),
+                Operation::Macro(MacroInstr::Jalr(Reg::G0, Reg::G6, target_label.to_string(), Part::Lower)),
+                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
+            ]);
+
+            assert_eq!(test_list, cor_vec);
+        }
+
+        reset_acc_pointer(&mut accumulator, &mut pointer);
+
+        {
+            let mut test_list = sample_list.clone();
+            test_list.insert(2, 
+                Operation::Macro(MacroInstr::Push(Vec::from([Reg::G15, Reg::G16, Reg::G17]))));
+            let label: Cow<'_, str> = Cow::from("TEST80");
+            
+            translate_macros(&MacroInstr::Push(Vec::from([Reg::G15, Reg::G16, Reg::G17])), 
+            &mut test_list, 
+            &mut accumulator, 
+            &mut pointer, 
+            Some(label.clone()));
+
+            assert_eq!(accumulator, 3);
+            assert_eq!(pointer, 6);
+
+            let cor_vec: Vec<Operation> = Vec::from([
+                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
+                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
+                Operation::LablInstr(label, Instruction::Addi(Reg::G2, Reg::G2, -16)),
+                Operation::Instr(Instruction::Sw(Reg::G15, Reg::G2, 16)),
+                Operation::Instr(Instruction::Sw(Reg::G16, Reg::G2, 12)),
+                Operation::Instr(Instruction::Sw(Reg::G17, Reg::G2, 8)),
+                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
+            ]);
+
+            assert_eq!(test_list, cor_vec);
+        }
+
+        reset_acc_pointer(&mut accumulator, &mut pointer);
+
+        {
+            let mut test_list = sample_list.clone();
+            test_list.insert(2, 
+                Operation::Macro(MacroInstr::Push(Vec::from([Reg::G15, Reg::G16, Reg::G17]))));
+            let label: Cow<'_, str> = Cow::from("TEST80");
+            
+            translate_macros(&MacroInstr::Push(Vec::from([Reg::G15, Reg::G16, Reg::G17])), 
+            &mut test_list, 
+            &mut accumulator, 
+            &mut pointer, 
+            Some(label.clone()));
+
+            assert_eq!(accumulator, 3);
+            assert_eq!(pointer, 6);
+
+            let cor_vec: Vec<Operation> = Vec::from([
+                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
+                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
+                Operation::LablInstr(label, Instruction::Addi(Reg::G2, Reg::G2, -16)),
+                Operation::Instr(Instruction::Sw(Reg::G15, Reg::G2, 16)),
+                Operation::Instr(Instruction::Sw(Reg::G16, Reg::G2, 12)),
+                Operation::Instr(Instruction::Sw(Reg::G17, Reg::G2, 8)),
+                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
+            ]);
+
+            assert_eq!(test_list, cor_vec);
+        }
+
+        reset_acc_pointer(&mut accumulator, &mut pointer);
+
+        {
+            let mut test_list = sample_list.clone();
+            test_list.insert(2, 
+                Operation::Macro(MacroInstr::Pop(Vec::from([Reg::G15, Reg::G16, Reg::G17]))));
+            let label: Cow<'_, str> = Cow::from("TEST80");
+            
+            translate_macros(&MacroInstr::Pop(Vec::from([Reg::G15, Reg::G16, Reg::G17])), 
+            &mut test_list, 
+            &mut accumulator, 
+            &mut pointer, 
+            Some(label.clone()));
+
+            assert_eq!(accumulator, 3);
+            assert_eq!(pointer, 6);
+
+            let cor_vec: Vec<Operation> = Vec::from([
+                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
+                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
+                Operation::LablInstr(label, Instruction::Lw(Reg::G15, Reg::G2, 4)),
+                Operation::Instr(Instruction::Lw(Reg::G16, Reg::G2, 8)),
+                Operation::Instr(Instruction::Lw(Reg::G17, Reg::G2, 12)),
+                Operation::Instr(Instruction::Addi(Reg::G2, Reg::G2, 12)),
+                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
+                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
+            ]);
+
+            assert_eq!(test_list, cor_vec);
+        }
+    }
+
+    #[test]
+    fn test_handle_instr_substitution() {
+        
+    }
+
+    #[test]
+    fn test_handle_label_refs() {
+
     }
 }
 

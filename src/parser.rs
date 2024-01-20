@@ -686,7 +686,7 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
 
         value(IntermediateOp::Div, tag("div")),
         value(IntermediateOp::Mul, tag("mul")),
-        value(IntermediateOp::Remu, tag("mod")),
+        value(IntermediateOp::Remu, tag("remu")),
 
         value(IntermediateOp::Xnor, tag("xnor")),
         value(IntermediateOp::Equal, tag("eq")),

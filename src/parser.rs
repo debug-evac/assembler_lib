@@ -148,11 +148,9 @@ _DIV:
     ret
 "#;
 
-
 //just one direction
-#[allow(dead_code)]
-    const MOD_SUB: &'static str = r#"
-_MOD:
+    const REMU_SUB: &'static str = r#"
+_REMU:
     addi a7, zero, 1
     mv a2, a0
     mv a3, a1
@@ -220,7 +218,7 @@ _SLR:
     }
 
     pub fn mod_defined(&mut self) {
-        self.code_str_vec.insert(Self::MOD_SUB.to_string());
+        self.code_str_vec.insert(Self::REMU_SUB.to_string());
     }
 
     pub fn srr_defined(&mut self) {
@@ -714,7 +712,7 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
 
         IntermediateOp::Div => MacroInstr::Divn(args.0, args.2, args.4).into(),
         IntermediateOp::Mul => MacroInstr::Muln(args.0, args.2, args.4).into(),
-        IntermediateOp::Mod => MacroInstr::Modn(args.0, args.2, args.4).into(),
+        IntermediateOp::Mod => MacroInstr::Remu(args.0, args.2, args.4).into(),
 
         IntermediateOp::Equal => Instruction::Equal(args.0, args.2, args.4).into(),
         IntermediateOp::Xnor => Instruction::Xnor(args.0, args.2, args.4).into(),
@@ -899,11 +897,11 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
                 local_ref_set.insert(LABEL.to_string());
             };
         },
-        MacroInstr::Modn(_, _, _) => {
+        MacroInstr::Remu(_, _, _) => {
             if let Some(subs) = subroutines {
                 subs.mod_defined();
             };
-            static LABEL: &str = "_MOD";
+            static LABEL: &str = "_REMU";
             if !symbol_map.crt_or_ref_label(&LABEL.to_string(), true) {
                 local_ref_set.insert(LABEL.to_string());
             };
@@ -1090,7 +1088,7 @@ fn translate_macros<'a>(
             instr_list.append(&mut mid_list);
             instr_list.append(&mut right_list);
         },
-        MacroInstr::Modn(reg1, reg2, reg3) => {
+        MacroInstr::Remu(reg1, reg2, reg3) => {
             let mut right_list = instr_list.split_off(*pointer);
             right_list.remove(0);
             let mut mid_list: Vec<Operation> = vec![];

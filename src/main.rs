@@ -17,67 +17,88 @@ use clap::{
     Command, 
     value_parser, 
     ArgAction,
-    ArgMatches
+    ArgMatches,
+    crate_authors, crate_version, crate_description, ValueHint
 };
 use parser::Subroutines;
 use std::{
     io::Write,
     fs,
     fs::File,
-    path::{
-        PathBuf,
-        Path
-    },
+    path::PathBuf,
 };
 
 use crate::common::{LabelRecog, Operation};
 
 fn cli_interface() -> ArgMatches {
-    Command::new("Assembler Input")
-    .arg(Arg::new("input assembly files")
+    Command::new("Assembler")
+    .author(crate_authors!(", "))
+    .version(crate_version!())
+    .about(crate_description!())
+    .help_template("\
+{before-help}{name} - {version}
+by {author-with-newline}{about-with-newline}
+{usage-heading} {usage}
+
+{all-args}{after-help}
+
+Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
+")
+    .arg(Arg::new("input")
+                .value_names(["main asm file", "another asm file"])
+                .value_hint(ValueHint::FilePath)
                 .value_parser(value_parser!(PathBuf))
                 .action(ArgAction::Set)
                 .short('i')
                 .num_args(1..=10)
                 .required(true)
                 .long("input")
-                .help("Input assembly files, use \"<PATH>\""))
-    .arg(Arg::new("destination binary file")
+                .help("Input assembly files, use \"<PATH>\"")
+    )
+    .arg(Arg::new("destination")
+                .value_name("output bin file")
+                .value_hint(ValueHint::FilePath)
                 .value_parser(value_parser!(PathBuf))
                 .action(ArgAction::Set)
                 .short('d')
                 .num_args(1)
+                .default_value("a.bin")
                 .required(false)
                 .long("destination")
-                .help("The destination for the output file"))
+                .help("The destination for the output file")
+    )
+    .arg(Arg::new("nop_insert")
+                .long("no-nop-insertion")
+                .action(ArgAction::SetTrue)
+                .required(false)
+                .help("Disallow nop insertion. Currently not respected!")
+    )
     .get_matches()
 }
 
 fn main() {
     let matches = cli_interface();
 
-    let vals: Vec<&PathBuf> = matches.get_many::<PathBuf>("input assembly files")
-    .expect("`file`is required")
+    let vals: Vec<&PathBuf> = matches.get_many::<PathBuf>("input")
+    .expect("At least one assembly input file is required")
     .collect();
     
     let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
     let mut string_vector: Vec<String> = vec![];
 
     for file in vals {
-        let contents = fs::read_to_string(file.as_path());
-        match contents {
+        match fs::read_to_string(file.as_path()) {
             Ok(val) => string_vector.push(val),
-            Err(_) => panic!("File error"),
+            Err(msg) => panic!("[Error] Could not read a file: {}", msg),
         };
     }
 
     let mut subroutines = Subroutines::new();
 
     for val in string_vector.as_slice() {
-        let val = parser::parse(val, &mut Some(&mut subroutines));
-        match val {
+        match parser::parse(val, &mut Some(&mut subroutines)) {
             Ok(val) => parsed_vector.push(val.1),
-            Err(_) => panic!("Parser error"),
+            Err(msg) => panic!("[Error] Parser error: {}", msg),
         }
     }
 
@@ -94,13 +115,13 @@ fn main() {
         Err(mes) => panic!("[Error] could not link assembly files: {:?}", mes),
     };
 
+    let nop_insert = matches.get_flag("nop_insert");
+
     let optimized_code = optimizer::optimize(linked_vector);
     let translated_code = translator::translate(optimized_code);
 
-    let outpath = match matches.get_one::<PathBuf>("destination binary file"){
-        None => Path::new("./a.bin"),
-        Some(assembler_output) => assembler_output,
-    };
+    // always returns Some(_)
+    let outpath = matches.get_one::<PathBuf>("destination").unwrap();
 
     let mut output_file = match File::create(outpath) {
         Ok(file) => file,

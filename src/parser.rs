@@ -217,7 +217,7 @@ _SLR:
         self.code_str_vec.insert(Self::DIV_SUB.to_string());
     }
 
-    pub fn mod_defined(&mut self) {
+    pub fn remu_defined(&mut self) {
         self.code_str_vec.insert(Self::REMU_SUB.to_string());
     }
 
@@ -899,7 +899,7 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
         },
         MacroInstr::Remu(_, _, _) => {
             if let Some(subs) = subroutines {
-                subs.mod_defined();
+                subs.remu_defined();
             };
             static LABEL: &str = "_REMU";
             if !symbol_map.crt_or_ref_label(&LABEL.to_string(), true) {
@@ -1099,7 +1099,7 @@ fn translate_macros<'a>(
             if *reg3 != Reg::G11 {
                 mid_list.push(Instruction::Addi(Reg::G11, reg3.to_owned(), 0).into());
             }
-            mid_list.push(MacroInstr::Jal(Reg::G1, "_MOD".to_string()).into());
+            mid_list.push(MacroInstr::Jal(Reg::G1, "_REMU".to_string()).into());
             if *reg1 != Reg::G10 {
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }

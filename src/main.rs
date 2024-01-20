@@ -115,9 +115,9 @@ fn main() {
         Err(mes) => panic!("[Error] could not link assembly files: {:?}", mes),
     };
 
-    let nop_insert = matches.get_flag("nop_insert");
+    let no_nop_insert = matches.get_flag("nop_insert");
 
-    let optimized_code = optimizer::optimize(linked_vector, nop_insert);
+    let optimized_code = optimizer::optimize(linked_vector, no_nop_insert);
     let translated_code = translator::translate(optimized_code);
 
     // always returns Some(_)

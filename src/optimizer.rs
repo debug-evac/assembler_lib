@@ -593,8 +593,10 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction>
     instructions
 }
 
-pub fn optimize(mut code: (Namespaces, Vec<Operation>), _nop_insert: bool) -> Vec<Instruction> {
-    nop_insertion(&mut code);
+pub fn optimize(mut code: (Namespaces, Vec<Operation>), no_nop_insert: bool) -> Vec<Instruction> {
+    if !no_nop_insert {
+        nop_insertion(&mut code);
+    }
     substitute_labels(code)
 }
 
@@ -1047,6 +1049,6 @@ mod tests {
             Instruction::Jalr(Reg::G0, Reg::G1, 0)
         ]);
 
-        assert_eq!(optimize((namespace_ver, operation_vec), true), instruction_ver);
+        assert_eq!(optimize((namespace_ver, operation_vec), false), instruction_ver);
     }
 }

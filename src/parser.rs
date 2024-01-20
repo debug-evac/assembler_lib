@@ -901,7 +901,7 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
         },
         MacroInstr::Modn(_, _, _) => {
             if let Some(subs) = subroutines {
-                subs.div_defined();
+                subs.mod_defined();
             };
             static LABEL: &str = "_MOD";
             if !symbol_map.crt_or_ref_label(&LABEL.to_string(), true) {

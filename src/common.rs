@@ -144,6 +144,7 @@ pub enum MacroInstr {
 
     Divn(Reg, Reg, Reg),
     Muln(Reg, Reg, Reg),
+    Remu(Reg, Reg, Reg),
 
     Srr(Reg, Reg, Imm),
     Slr(Reg, Reg, Imm),

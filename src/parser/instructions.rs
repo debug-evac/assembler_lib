@@ -218,6 +218,7 @@ impl InstrType {
             
                     IntermediateOp::Div => MacroInstr::Divn(args.0, args.1, args.2).into(),
                     IntermediateOp::Mul => MacroInstr::Muln(args.0, args.1, args.2).into(),
+                    IntermediateOp::Remu => MacroInstr::Remu(args.0, args.1, args.2).into(),
             
                     IntermediateOp::Equal => Instruction::Equal(args.0, args.1, args.2).into(),
                     IntermediateOp::Xnor => Instruction::Xnor(args.0, args.1, args.2).into(),
@@ -270,6 +271,7 @@ enum IntermediateOp {
     Sra,
     Div,
     Mul,
+    Remu,
     Xnor,
     Nor,
     Equal,
@@ -453,6 +455,7 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
 
         value(InstrType::Reg3(IntermediateOp::Div), tag("div")),
         value(InstrType::Reg3(IntermediateOp::Mul), tag("mul")),
+        value(InstrType::Reg3(IntermediateOp::Remu), tag("remu")),
 
         value(InstrType::Reg3(IntermediateOp::Xnor), tag("xnor")),
         value(InstrType::Reg3(IntermediateOp::Equal), tag("eq")),

@@ -1595,16 +1595,6 @@ TEST: srli a7, a7, 1
             assert_eq!(test_list, cor_vec);
         }
     }
-
-    #[test]
-    fn test_handle_instr_substitution() {
-        
-    }
-
-    #[test]
-    fn test_handle_label_refs() {
-
-    }
 }
 
 // Lokale und globale Labels

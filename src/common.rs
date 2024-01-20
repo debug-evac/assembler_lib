@@ -21,8 +21,7 @@ pub type Imm = i32; // always less than 32
 pub enum Reg {
     G0, G1, G2, G3, G4, G5, G6, G7, G8, G9, G10, G11, G12, G13, G14, G15,
     G16, G17, G18, G19, G20, G21, G22, G23, G24, G25, G26, G27, G28, G29,
-    G30, G31,
-    NA,
+    G30, G31
 }
 
 impl Reg {
@@ -174,8 +173,6 @@ pub enum MacroInstr {
 // code length and multiplication.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Instruction {
-    NA,
-
     Addn(Reg, Reg, Reg),
     Subn(Reg, Reg, Reg),
     

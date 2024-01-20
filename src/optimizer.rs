@@ -141,8 +141,6 @@ impl From<&Operation<'_>> for RegActType {
         match item {
             Operation::LablInstr(_, instr) | Operation::Instr(instr) => {
                 match instr {
-                    Instruction::NA => RegActType::NA,
-
                     Instruction::Xnor(reg1, reg2, reg3) |
                     Instruction::Equal(reg1, reg2, reg3) |
                     Instruction::Addn(reg1, reg2, reg3) |

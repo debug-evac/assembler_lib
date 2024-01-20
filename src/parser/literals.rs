@@ -184,9 +184,9 @@ mod tests {
 
     #[test]
     fn test_parse_reg() {
-        assert_ne!(parse_reg("invalid"), Ok(("", Reg::NA)));
-        assert_ne!(parse_reg(" "), Ok(("", Reg::NA)));
-        assert_ne!(parse_reg("  "), Ok(("", Reg::NA)));
+        assert_ne!(parse_reg("invalid"), Ok(("", Reg::G0)));
+        assert_ne!(parse_reg(" "), Ok(("", Reg::G0)));
+        assert_ne!(parse_reg("  "), Ok(("", Reg::G0)));
         assert_eq!(parse_reg("x3"), Ok(("", Reg::G3)));
         assert_eq!(parse_reg("s1"), Ok(("", Reg::G9)));
         assert_eq!(parse_reg("zero"), Ok(("", Reg::G0)));

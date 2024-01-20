@@ -474,6 +474,33 @@ fn handle_instr_substitution(instr_list: &mut [Operation], elem: &[usize], jump_
     }
 }
 
+fn split_list<'a>(instr_list: &mut Vec<Operation<'a>>, pointer: &usize) -> (Vec<Operation<'a>>, Vec<Operation<'a>>) {
+    let mut right_list = instr_list.split_off(*pointer);
+    right_list.remove(0);
+    (right_list, vec![])
+}
+
+fn incorporate_changes<'a>(
+    instr_list: &mut Vec<Operation<'a>>, 
+    mid_list: &mut Vec<Operation<'a>>, 
+    right_list: &mut Vec<Operation<'a>>,
+    accumulator: &mut i128,
+    pointer: &mut usize,
+    label: Option<Cow<'a, str>>
+) {
+    *accumulator += (mid_list.len() - 1) as i128;
+    *pointer += mid_list.len();
+    if let Some(labl) = label {
+        match mid_list.first().unwrap() {
+            Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
+            Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
+            _ => unreachable!(),
+        }
+    }
+    instr_list.append(mid_list);
+    instr_list.append(right_list);
+}
+
 fn translate_macros<'a>(
     macro_in: &MacroInstr,
     instr_list: &mut Vec<Operation<'a>>,
@@ -483,9 +510,7 @@ fn translate_macros<'a>(
 ) {
     match &macro_in {
         MacroInstr::Divn(reg1, reg2, reg3) => {
-            let mut right_list = instr_list.split_off(*pointer);
-            right_list.remove(0);
-            let mut mid_list: Vec<Operation> = vec![];
+            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
             if *reg2 != Reg::G10 {
                 mid_list.push(Operation::Instr(Instruction::Addi(Reg::G10, reg2.to_owned(), 0)));
@@ -498,22 +523,10 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
 
-            *accumulator += (mid_list.len() - 1) as i128;
-            *pointer += mid_list.len();
-            if let Some(labl) = label {
-                match mid_list.first().unwrap() {
-                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
-                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
-                    _ => unreachable!(),
-                }
-            }
-            instr_list.append(&mut mid_list);
-            instr_list.append(&mut right_list);
+            incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
         MacroInstr::Muln(reg1, reg2, reg3) => {
-            let mut right_list = instr_list.split_off(*pointer);
-            right_list.remove(0);
-            let mut mid_list: Vec<Operation> = vec![];
+            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
             if *reg2 != Reg::G10 {
                 mid_list.push(Operation::Instr(Instruction::Addi(Reg::G10, reg2.to_owned(), 0)));
@@ -526,22 +539,10 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
 
-            *accumulator += (mid_list.len() - 1) as i128;
-            *pointer += mid_list.len();
-            if let Some(labl) = label {
-                match mid_list.first().unwrap() {
-                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
-                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
-                    _ => unreachable!(),
-                }
-            }
-            instr_list.append(&mut mid_list);
-            instr_list.append(&mut right_list);
+            incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
         MacroInstr::Remu(reg1, reg2, reg3) => {
-            let mut right_list = instr_list.split_off(*pointer);
-            right_list.remove(0);
-            let mut mid_list: Vec<Operation> = vec![];
+            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
             if *reg2 != Reg::G10 {
                 mid_list.push(Operation::Instr(Instruction::Addi(Reg::G10, reg2.to_owned(), 0)));
@@ -554,22 +555,10 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
 
-            *accumulator += (mid_list.len() - 1) as i128;
-            *pointer += mid_list.len();
-            if let Some(labl) = label {
-                match mid_list.first().unwrap() {
-                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
-                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
-                    _ => unreachable!(),
-                }
-            }
-            instr_list.append(&mut mid_list);
-            instr_list.append(&mut right_list);
+            incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
         MacroInstr::Srr(reg1, reg2, imm) => {
-            let mut right_list = instr_list.split_off(*pointer);
-            right_list.remove(0);
-            let mut mid_list: Vec<Operation> = vec![];
+            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
             if *reg2 != Reg::G10 {
                 mid_list.push(Instruction::Addi(Reg::G10, reg2.to_owned(), 0).into());
@@ -580,22 +569,10 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
 
-            *accumulator += (mid_list.len() - 1) as i128;
-            *pointer += mid_list.len();
-            if let Some(labl) = label {
-                match mid_list.first().unwrap() {
-                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
-                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
-                    _ => unreachable!(),
-                }
-            }
-            instr_list.append(&mut mid_list);
-            instr_list.append(&mut right_list);
+            incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
         MacroInstr::Slr(reg1, reg2, imm) => {
-            let mut right_list = instr_list.split_off(*pointer);
-            right_list.remove(0);
-            let mut mid_list: Vec<Operation> = vec![];
+            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
             if *reg2 != Reg::G10 {
                 mid_list.push(Instruction::Addi(Reg::G10, reg2.to_owned(), 0).into());
@@ -606,17 +583,7 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
 
-            *accumulator += (mid_list.len() - 1) as i128;
-            *pointer += mid_list.len();
-            if let Some(labl) = label {
-                match mid_list.first().unwrap() {
-                    Operation::Instr(instr_in_sec) => mid_list[0] = Operation::LablInstr(labl, instr_in_sec.to_owned()),
-                    Operation::Macro(macro_in_sec) => mid_list[0] = Operation::LablMacro(labl, macro_in_sec.to_owned()),
-                    _ => unreachable!(),
-                }
-            }
-            instr_list.append(&mut mid_list);
-            instr_list.append(&mut right_list);
+            incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
         MacroInstr::Li(reg, imm) => {
             instr_list.remove(*pointer);
@@ -710,9 +677,7 @@ fn translate_macros<'a>(
             *accumulator += 1;
         },
         MacroInstr::Push(regs) => {
-            let mut right_list = instr_list.split_off(*pointer);
-            right_list.remove(0);
-            let mut mid_list: Vec<Operation> = vec![];
+            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
             match label {
                 Some(labl) => mid_list.push(Operation::LablInstr(labl, Instruction::Addi(Reg::G2, Reg::G2, -((regs.len() as i32 * 4) + 4)))),
@@ -732,9 +697,7 @@ fn translate_macros<'a>(
             instr_list.append(&mut right_list);
         },
         MacroInstr::Pop(regs) => {
-            let mut right_list = instr_list.split_off(*pointer);
-            right_list.remove(0);
-            let mut mid_list: Vec<Operation> = vec![];
+            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
             let regs_len = regs.len() as i32 * 4;
             let mut acc: i32 = 4;

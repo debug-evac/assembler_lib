@@ -121,7 +121,7 @@ fn main() {
     let translated_code = translator::translate(optimized_code);
 
     // always returns Some(_)
-    let outpath = matches.get_one::<PathBuf>("destination").unwrap();
+    let outpath = matches.get_one::<PathBuf>("output").unwrap();
 
     let mut output_file = match File::create(outpath) {
         Ok(file) => file,

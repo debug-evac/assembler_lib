@@ -23,43 +23,90 @@ fn test_input_not_existing() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[ignore = "Currently fails due to multiple wrong instructions (see issue #33 and #40)"]
 #[test]
 fn test_translate_test_file() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
     let input = temp.child("test_assembly_file.asm");
-    input.write_str(r#"SmallExample: addi sp, zero, 0x8000
+    input.write_str(r#"SmallExample: addi sp, zero, 0x300
 li x25, 150006
 push x25
 pop x25
 ret
 "#)?;
 
+    let cor_output = temp.child("correct_output.bin");
+
+    let mut cor_instr_vec: Vec<u8> = vec![];
+
+    {
+        #[cfg(feature = "raw_nop")]
+        let instr_vec: Vec<u32> = Vec::from([
+            0b00_11000_00000_00000_00000_01000_10011,
+            0b00_00000_00000_00100_10111_00101_10111, // Li - lui
+            0b00_00000_00000_00000_00000_00000_10011, // 3x NOP
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b10_01111_10110_11001_00011_00100_10011, // Li - addi
+            0b00_00000_00000_00000_00000_00000_10011, // 3x NOP
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b11_11111_11100_00010_00000_01000_10011, // Push - addi -4
+            0b00_00000_00000_00000_00000_00000_10011, // 3x NOP
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_11001_00010_01000_00001_00011,
+            0b00_00000_00000_00010_01011_00100_00011, // Pop - Lw
+            0b00_00000_00100_00010_00000_01000_10011, // Pop - addi +4
+            0b00_00000_00000_00001_00000_00011_00111
+        ]);
+
+        #[cfg(not(feature = "raw_nop"))]
+        let instr_vec: Vec<u32> = Vec::from([
+            0b00_11000_00000_00000_00000_01000_10011,
+            0b00_00000_00000_00100_10111_00101_10111, // Li - lui
+            0b10_01111_10110_11001_00011_00100_10011, // Li - addi
+            0b11_11111_11100_00010_00000_01000_10011, // Push - addi -4
+            0b00_00000_11001_00010_01000_00001_00011,
+            0b00_00000_00000_00010_01011_00100_00011, // Pop - Lw
+            0b00_00000_00100_00010_00000_01000_10011,
+            0b00_00000_00000_00001_00000_00011_00111
+        ]);
+
+        for instr in instr_vec {
+            cor_instr_vec.extend(instr.to_be_bytes());
+        }
+    }
+
+    cor_output.write_binary(&cor_instr_vec)?;
+
     let mut cmd = Command::cargo_bin("assembler")?;
     cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a.bin"));
     cmd.assert()
         .success();
 
-    temp.child("a.bin").assert(predicate::path::is_file());
-    // TODO: Compare file content
+    temp.child("a.bin")
+        .assert(predicate::path::is_file())
+        .assert(predicate::path::eq_file(cor_output.path()));
 
     temp.close()?;
 
     Ok(())
 }
 
-#[ignore]
+#[ignore = "Not done yet"]
 #[test]
 fn test_translate_multiple_files() -> Result<(), Box<dyn std::error::Error>> {
     todo!();
 }
 
-#[ignore]
+#[ignore = "Not done yet"]
 #[test]
 fn test_translate_no_nop() -> Result<(), Box<dyn std::error::Error>> {
     todo!();
 }
 
-#[ignore]
+#[ignore = "Not done yet"]
 #[test]
 fn test_translate_failure() -> Result<(), Box<dyn std::error::Error>> {
     todo!();

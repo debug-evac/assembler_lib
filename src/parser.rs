@@ -710,7 +710,7 @@ fn translate_macros<'a>(
                 None => mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, -(regs.len() as i32 * 4)).into())
             }
 
-            let mut acc: i32 = regs.len() as i32 * 4;
+            let mut acc: i32 = regs.len() as i32 * 4 - 4;
 
             for reg in regs {
                 mid_list.push(Instruction::Sw(reg.to_owned(), Reg::G2, acc).into());
@@ -1544,10 +1544,10 @@ TEST: srli a7, a7, 1
             let cor_vec: Vec<Operation> = Vec::from([
                 Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                Operation::LablInstr(label, Instruction::Addi(Reg::G2, Reg::G2, -16)),
-                Operation::Instr(Instruction::Sw(Reg::G15, Reg::G2, 16)),
-                Operation::Instr(Instruction::Sw(Reg::G16, Reg::G2, 12)),
-                Operation::Instr(Instruction::Sw(Reg::G17, Reg::G2, 8)),
+                Operation::LablInstr(label, Instruction::Addi(Reg::G2, Reg::G2, -12)),
+                Operation::Instr(Instruction::Sw(Reg::G15, Reg::G2, 8)),
+                Operation::Instr(Instruction::Sw(Reg::G16, Reg::G2, 4)),
+                Operation::Instr(Instruction::Sw(Reg::G17, Reg::G2, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
@@ -1576,10 +1576,10 @@ TEST: srli a7, a7, 1
             let cor_vec: Vec<Operation> = Vec::from([
                 Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                Operation::LablInstr(label, Instruction::Addi(Reg::G2, Reg::G2, -16)),
-                Operation::Instr(Instruction::Sw(Reg::G15, Reg::G2, 16)),
-                Operation::Instr(Instruction::Sw(Reg::G16, Reg::G2, 12)),
-                Operation::Instr(Instruction::Sw(Reg::G17, Reg::G2, 8)),
+                Operation::LablInstr(label, Instruction::Addi(Reg::G2, Reg::G2, -12)),
+                Operation::Instr(Instruction::Sw(Reg::G15, Reg::G2, 8)),
+                Operation::Instr(Instruction::Sw(Reg::G16, Reg::G2, 4)),
+                Operation::Instr(Instruction::Sw(Reg::G17, Reg::G2, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
@@ -1608,9 +1608,9 @@ TEST: srli a7, a7, 1
             let cor_vec: Vec<Operation> = Vec::from([
                 Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                Operation::LablInstr(label, Instruction::Lw(Reg::G15, Reg::G2, 4)),
-                Operation::Instr(Instruction::Lw(Reg::G16, Reg::G2, 8)),
-                Operation::Instr(Instruction::Lw(Reg::G17, Reg::G2, 12)),
+                Operation::LablInstr(label, Instruction::Lw(Reg::G15, Reg::G2, 0)),
+                Operation::Instr(Instruction::Lw(Reg::G16, Reg::G2, 4)),
+                Operation::Instr(Instruction::Lw(Reg::G17, Reg::G2, 8)),
                 Operation::Instr(Instruction::Addi(Reg::G2, Reg::G2, 12)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),

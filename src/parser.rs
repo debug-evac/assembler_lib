@@ -1170,14 +1170,40 @@ fn translate_macros<'a>(
         },
         MacroInstr::Li(reg, imm) => {
             instr_list.remove(*pointer);
+            let mut upper_imm = *imm >> 12;
+            let lower_imm = *imm & 0xFFF;
+
+            if lower_imm & 0x800 == 2048 {
+                if upper_imm == -1 {
+                    // just addi
+                    match label {
+                        Some(labl) => instr_list.insert(*pointer,
+                                        Operation::LablInstr(labl, Instruction::Addi(reg.to_owned(), Reg::G0, lower_imm))),
+                        None => instr_list.insert(*pointer, Instruction::Addi(reg.to_owned(), Reg::G0, lower_imm).into()),
+                    }
+                    *pointer += 1;
+                    return;
+                } else {
+                    let mut mask: i32 = 1;
+                    for _ in 0..32 {
+                        let is_set = upper_imm & mask != 0;
+                        if is_set {
+                            upper_imm |= mask;
+                            break;
+                        }
+                        mask <<= 1;
+                    }
+                }
+            }
+            
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablInstr(labl, Instruction::Lui(reg.to_owned(), *imm >> 12))),
-                None => instr_list.insert(*pointer, Instruction::Lui(reg.to_owned(), *imm >> 12).into()),
+                                Operation::LablInstr(labl, Instruction::Lui(reg.to_owned(), upper_imm))),
+                None => instr_list.insert(*pointer, Instruction::Lui(reg.to_owned(), upper_imm).into()),
             }
             *pointer += 1;
             instr_list.insert(*pointer,
-            Instruction::Addi(reg.to_owned(), reg.to_owned(), *imm).into());
+            Instruction::Addi(reg.to_owned(), reg.to_owned(), lower_imm).into());
             *pointer += 1;
             *accumulator += 1;
         },
@@ -1265,11 +1291,11 @@ fn translate_macros<'a>(
             let mut mid_list: Vec<Operation> = vec![];
 
             match label {
-                Some(labl) => mid_list.push(Operation::LablInstr(labl, Instruction::Addi(Reg::G2, Reg::G2, -((regs.len() as i32 * 4) + 4)))),
-                None => mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, -((regs.len() as i32 * 4) + 4)).into())
+                Some(labl) => mid_list.push(Operation::LablInstr(labl, Instruction::Addi(Reg::G2, Reg::G2, -(regs.len() as i32 * 4)))),
+                None => mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, -(regs.len() as i32 * 4)).into())
             }
 
-            let mut acc: i32 = (regs.len() as i32 * 4) + 4;
+            let mut acc: i32 = regs.len() as i32 * 4;
 
             for reg in regs {
                 mid_list.push(Instruction::Sw(reg.to_owned(), Reg::G2, acc).into());
@@ -1286,8 +1312,7 @@ fn translate_macros<'a>(
             right_list.remove(0);
             let mut mid_list: Vec<Operation> = vec![];
 
-            let regs_len = regs.len() as i32 * 4;
-            let mut acc: i32 = 4;
+            let mut acc: i32 = 0;
 
             match label {
                 Some(labl) => mid_list.push(Operation::LablInstr(labl, Instruction::Lw(regs[0].to_owned(), Reg::G2, acc))),
@@ -1295,7 +1320,7 @@ fn translate_macros<'a>(
             }
 
             for reg in regs {
-                if acc == 4 {
+                if acc == 0 {
                     acc += 4;
                     continue;
                 }
@@ -1303,7 +1328,7 @@ fn translate_macros<'a>(
                 acc += 4;
             }
 
-            mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, regs_len).into());
+            mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, regs.len() as i32 * 4).into());
 
             *accumulator += (mid_list.len() - 1) as i128;
             *pointer += mid_list.len();

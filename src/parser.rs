@@ -1170,14 +1170,40 @@ fn translate_macros<'a>(
         },
         MacroInstr::Li(reg, imm) => {
             instr_list.remove(*pointer);
+            let mut upper_imm = *imm >> 12;
+            let lower_imm = *imm & 0xFFF;
+
+            if lower_imm & 0x800 == 2048 {
+                if upper_imm == -1 {
+                    // just addi
+                    match label {
+                        Some(labl) => instr_list.insert(*pointer,
+                                        Operation::LablInstr(labl, Instruction::Addi(reg.to_owned(), Reg::G0, lower_imm))),
+                        None => instr_list.insert(*pointer, Instruction::Addi(reg.to_owned(), Reg::G0, lower_imm).into()),
+                    }
+                    *pointer += 1;
+                    return;
+                } else {
+                    let mut mask: i32 = 1;
+                    for _ in 0..32 {
+                        let is_set = upper_imm & mask != 0;
+                        if is_set {
+                            upper_imm |= mask;
+                            break;
+                        }
+                        mask <<= 1;
+                    }
+                }
+            }
+            
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablInstr(labl, Instruction::Lui(reg.to_owned(), *imm >> 12))),
-                None => instr_list.insert(*pointer, Instruction::Lui(reg.to_owned(), *imm >> 12).into()),
+                                Operation::LablInstr(labl, Instruction::Lui(reg.to_owned(), upper_imm))),
+                None => instr_list.insert(*pointer, Instruction::Lui(reg.to_owned(), upper_imm).into()),
             }
             *pointer += 1;
             instr_list.insert(*pointer,
-            Instruction::Addi(reg.to_owned(), reg.to_owned(), *imm).into());
+            Instruction::Addi(reg.to_owned(), reg.to_owned(), lower_imm).into());
             *pointer += 1;
             *accumulator += 1;
         },

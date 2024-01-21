@@ -1291,11 +1291,11 @@ fn translate_macros<'a>(
             let mut mid_list: Vec<Operation> = vec![];
 
             match label {
-                Some(labl) => mid_list.push(Operation::LablInstr(labl, Instruction::Addi(Reg::G2, Reg::G2, -((regs.len() as i32 * 4) + 4)))),
-                None => mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, -((regs.len() as i32 * 4) + 4)).into())
+                Some(labl) => mid_list.push(Operation::LablInstr(labl, Instruction::Addi(Reg::G2, Reg::G2, -(regs.len() as i32 * 4)))),
+                None => mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, -(regs.len() as i32 * 4)).into())
             }
 
-            let mut acc: i32 = (regs.len() as i32 * 4) + 4;
+            let mut acc: i32 = regs.len() as i32 * 4;
 
             for reg in regs {
                 mid_list.push(Instruction::Sw(reg.to_owned(), Reg::G2, acc).into());
@@ -1312,8 +1312,7 @@ fn translate_macros<'a>(
             right_list.remove(0);
             let mut mid_list: Vec<Operation> = vec![];
 
-            let regs_len = regs.len() as i32 * 4;
-            let mut acc: i32 = 4;
+            let mut acc: i32 = 0;
 
             match label {
                 Some(labl) => mid_list.push(Operation::LablInstr(labl, Instruction::Lw(regs[0].to_owned(), Reg::G2, acc))),
@@ -1321,7 +1320,7 @@ fn translate_macros<'a>(
             }
 
             for reg in regs {
-                if acc == 4 {
+                if acc == 0 {
                     acc += 4;
                     continue;
                 }
@@ -1329,7 +1328,7 @@ fn translate_macros<'a>(
                 acc += 4;
             }
 
-            mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, regs_len).into());
+            mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, regs.len() as i32 * 4).into());
 
             *accumulator += (mid_list.len() - 1) as i128;
             *pointer += mid_list.len();

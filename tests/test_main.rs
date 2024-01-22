@@ -229,8 +229,39 @@ ret
     Ok(())
 }
 
-#[ignore = "Not done yet"]
+#[ignore = "Currently failing due to the linker accepting undefined but referenced labels (see issue #47)"]
 #[test]
-fn test_translate_failure() -> Result<(), Box<dyn std::error::Error>> {
-    todo!();
+fn test_translate_fail_undef_label() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = assert_fs::TempDir::new()?;
+
+    let input = temp.child("test_label_undefined.asm");
+    input.write_str(r#"call nonExistentLabel
+ret
+"#)?;
+
+    let mut cmd = Command::cargo_bin("assembler")?;
+
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a.bin"));
+    cmd.assert()
+        .failure();
+
+    Ok(())
+}
+
+#[test]
+fn test_translate_fail_unknown_instr() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = assert_fs::TempDir::new()?;
+
+    let input = temp.child("test_wrong_instr.asm");
+    input.write_str(r#"aylmao
+ret
+"#)?;
+
+    let mut cmd = Command::cargo_bin("assembler")?;
+
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a2.bin"));
+    cmd.assert()
+        .failure();
+
+    Ok(())
 }

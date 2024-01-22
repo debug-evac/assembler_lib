@@ -610,6 +610,15 @@ fn translate_macros<'a>(
                         mask <<= 1;
                     }
                 }
+            } else if imm.leading_zeros() >= 19 {
+                // If imm fits into 12 bits, then only use addi
+                match label {
+                    Some(labl) => instr_list.insert(*pointer,
+                                    Operation::LablInstr(labl, Instruction::Addi(reg.to_owned(), Reg::G0, imm))),
+                    None => instr_list.insert(*pointer, Instruction::Addi(reg.to_owned(), Reg::G0, imm).into()),
+                }
+                *pointer += 1;
+                return;
             }
 
             match label {
@@ -1063,12 +1072,12 @@ END:
 
         label = LabelElem::new_refd("MUL".to_string());
         label.set_scope(true);
-        label.set_def(3);
+        label.set_def(2);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("END".to_string());
         label.set_scope(true);
-        label.set_def(10);
+        label.set_def(9);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("_MUL".to_string());
@@ -1076,8 +1085,9 @@ END:
         let _ = symbols.insert_label(label);
         
         let correct_vec: Vec<Operation> = vec![
-                                                 Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 16)),
-                                                 Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
+                                                 //Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 16)),
+                                                 //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
+                                                 Operation::LablInstr(Cow::from("START"), Instruction::Addi(Reg::G4, Reg::G0, 16)),
                                                  Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                  Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
                                                  Operation::from(Instruction::Addi(Reg::G10, Reg::G4, 0)),
@@ -1116,22 +1126,23 @@ r#" li  x4, 16
 
         label = LabelElem::new_refd("__3".to_string());
         label.set_scope(false);
-        label.set_def(4);
+        label.set_def(3);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("__6".to_string());
         label.set_scope(false);
-        label.set_def(10);
+        label.set_def(9);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("__7".to_string());
         label.set_scope(false);
-        label.set_def(11);
+        label.set_def(10);
         let _ = symbols.insert_label(label);
         
         let correct_vec: Vec<Operation> = vec![
-                                                 Operation::Instr(Instruction::Lui(Reg::G4, 16)),
-                                                 Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
+                                                 //Operation::Instr(Instruction::Lui(Reg::G4, 16)),
+                                                 //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
+                                                 Instruction::Addi(Reg::G4, Reg::G0, 16).into(),
                                                  Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                  Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".to_string())),
                                                  Operation::LablInstr(Cow::from("__3"), Instruction::Addi(Reg::G10, Reg::G4, 0)),

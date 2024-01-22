@@ -610,7 +610,9 @@ fn translate_macros<'a>(
                         mask <<= 1;
                     }
                 }
-            } else if imm.leading_zeros() >= 19 {
+            }
+            
+            if imm.leading_zeros() >= 19 {
                 // If imm fits into 12 bits, then only use addi
                 match label {
                     Some(labl) => instr_list.insert(*pointer,

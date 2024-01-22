@@ -23,7 +23,6 @@ fn test_input_not_existing() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-//#[ignore = "Currently fails due to multiple wrong instructions (see issue #33 and #40)"]
 #[test]
 fn test_translate_test_file() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
@@ -47,9 +46,6 @@ ret
         0b00_00000_00000_00000_00000_00000_10011,
         0b00_00000_00000_00000_00000_00000_10011,
         0b10_01111_10110_11001_00011_00100_10011, // Li - addi
-        0b00_00000_00000_00000_00000_00000_10011, // 3x NOP
-        0b00_00000_00000_00000_00000_00000_10011,
-        0b00_00000_00000_00000_00000_00000_10011,
         0b11_11111_11100_00010_00000_01000_10011, // Push - addi -4
         0b00_00000_00000_00000_00000_00000_10011, // 3x NOP
         0b00_00000_00000_00000_00000_00000_10011,

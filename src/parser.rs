@@ -1076,7 +1076,7 @@ END:
         let _ = symbols.insert_label(label);
         
         let correct_vec: Vec<Operation> = vec![
-                                                 Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 0)),
+                                                 Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 16)),
                                                  Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
                                                  Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                  Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
@@ -1130,7 +1130,7 @@ r#" li  x4, 16
         let _ = symbols.insert_label(label);
         
         let correct_vec: Vec<Operation> = vec![
-                                                 Operation::Instr(Instruction::Lui(Reg::G4, 0)),
+                                                 Operation::Instr(Instruction::Lui(Reg::G4, 16)),
                                                  Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
                                                  Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                  Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".to_string())),

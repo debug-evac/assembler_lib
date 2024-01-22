@@ -21,46 +21,45 @@ pub type Imm = i32; // always less than 32
 pub enum Reg {
     G0, G1, G2, G3, G4, G5, G6, G7, G8, G9, G10, G11, G12, G13, G14, G15,
     G16, G17, G18, G19, G20, G21, G22, G23, G24, G25, G26, G27, G28, G29,
-    G30, G31,
-    NA,
+    G30, G31
 }
 
 impl Reg {
-    pub fn num_to_enum(reg: &u8) -> Reg {
-        match *reg {
-            reg if reg == Reg::G0 as u8 => Reg::G0,
-            reg if reg == Reg::G1 as u8 => Reg::G1,
-            reg if reg == Reg::G2 as u8 => Reg::G2,
-            reg if reg == Reg::G3 as u8 => Reg::G3,
-            reg if reg == Reg::G4 as u8 => Reg::G4,
-            reg if reg == Reg::G5 as u8 => Reg::G5,
-            reg if reg == Reg::G6 as u8 => Reg::G6,
-            reg if reg == Reg::G7 as u8 => Reg::G7,
-            reg if reg == Reg::G8 as u8 => Reg::G8,
-            reg if reg == Reg::G9 as u8 => Reg::G9,
-            reg if reg == Reg::G10 as u8 => Reg::G10,
-            reg if reg == Reg::G11 as u8 => Reg::G11,
-            reg if reg == Reg::G12 as u8 => Reg::G12,
-            reg if reg == Reg::G13 as u8 => Reg::G13,
-            reg if reg == Reg::G14 as u8 => Reg::G14,
-            reg if reg == Reg::G15 as u8 => Reg::G15,
-            reg if reg == Reg::G16 as u8 => Reg::G16,
-            reg if reg == Reg::G17 as u8 => Reg::G17,
-            reg if reg == Reg::G18 as u8 => Reg::G18,
-            reg if reg == Reg::G19 as u8 => Reg::G19,
-            reg if reg == Reg::G20 as u8 => Reg::G20,
-            reg if reg == Reg::G21 as u8 => Reg::G21,
-            reg if reg == Reg::G22 as u8 => Reg::G22,
-            reg if reg == Reg::G23 as u8 => Reg::G23,
-            reg if reg == Reg::G24 as u8 => Reg::G24,
-            reg if reg == Reg::G25 as u8 => Reg::G25,
-            reg if reg == Reg::G26 as u8 => Reg::G26,
-            reg if reg == Reg::G27 as u8 => Reg::G27,
-            reg if reg == Reg::G28 as u8 => Reg::G28,
-            reg if reg == Reg::G29 as u8 => Reg::G29,
-            reg if reg == Reg::G30 as u8 => Reg::G30,
-            reg if reg == Reg::G31 as u8 => Reg::G31,
-            _ => Reg::NA,
+    pub fn num_to_enum(reg: u8) -> Result<Reg, &'static str> {
+        match reg {
+            reg if reg == Reg::G0 as u8 => Ok(Reg::G0),
+            reg if reg == Reg::G1 as u8 => Ok(Reg::G1),
+            reg if reg == Reg::G2 as u8 => Ok(Reg::G2),
+            reg if reg == Reg::G3 as u8 => Ok(Reg::G3),
+            reg if reg == Reg::G4 as u8 => Ok(Reg::G4),
+            reg if reg == Reg::G5 as u8 => Ok(Reg::G5),
+            reg if reg == Reg::G6 as u8 => Ok(Reg::G6),
+            reg if reg == Reg::G7 as u8 => Ok(Reg::G7),
+            reg if reg == Reg::G8 as u8 => Ok(Reg::G8),
+            reg if reg == Reg::G9 as u8 => Ok(Reg::G9),
+            reg if reg == Reg::G10 as u8 => Ok(Reg::G10),
+            reg if reg == Reg::G11 as u8 => Ok(Reg::G11),
+            reg if reg == Reg::G12 as u8 => Ok(Reg::G12),
+            reg if reg == Reg::G13 as u8 => Ok(Reg::G13),
+            reg if reg == Reg::G14 as u8 => Ok(Reg::G14),
+            reg if reg == Reg::G15 as u8 => Ok(Reg::G15),
+            reg if reg == Reg::G16 as u8 => Ok(Reg::G16),
+            reg if reg == Reg::G17 as u8 => Ok(Reg::G17),
+            reg if reg == Reg::G18 as u8 => Ok(Reg::G18),
+            reg if reg == Reg::G19 as u8 => Ok(Reg::G19),
+            reg if reg == Reg::G20 as u8 => Ok(Reg::G20),
+            reg if reg == Reg::G21 as u8 => Ok(Reg::G21),
+            reg if reg == Reg::G22 as u8 => Ok(Reg::G22),
+            reg if reg == Reg::G23 as u8 => Ok(Reg::G23),
+            reg if reg == Reg::G24 as u8 => Ok(Reg::G24),
+            reg if reg == Reg::G25 as u8 => Ok(Reg::G25),
+            reg if reg == Reg::G26 as u8 => Ok(Reg::G26),
+            reg if reg == Reg::G27 as u8 => Ok(Reg::G27),
+            reg if reg == Reg::G28 as u8 => Ok(Reg::G28),
+            reg if reg == Reg::G29 as u8 => Ok(Reg::G29),
+            reg if reg == Reg::G30 as u8 => Ok(Reg::G30),
+            reg if reg == Reg::G31 as u8 => Ok(Reg::G31),
+            _ => Err("No Register with that name found!"),
         }
     }
 
@@ -175,8 +174,6 @@ pub enum MacroInstr {
 // code length and multiplication.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Instruction {
-    NA,
-
     Addn(Reg, Reg, Reg),
     Subn(Reg, Reg, Reg),
     

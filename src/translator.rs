@@ -57,8 +57,6 @@ impl Instruction {
 
    fn translate_instruction(self) -> u32 {
       match self {
-         Instruction::NA => panic!("NA Instruction received! Fatal error!"),
-
          Instruction::Jal(reg, imm) => jtype_instr(reg, imm),
          Instruction::Jalr(reg1, reg2, imm) => itype_instr(reg1, reg2, imm) + 0b1100111_u32,
 

@@ -22,7 +22,7 @@ fn btype_instr(rs1: Reg, rs2: Reg, imm: Imm) -> u32 {
 fn stype_instr(rs1: Reg, rs2: Reg, imm: Imm) -> u32 {
    let upper =  (imm & 0b11_11111_10000i32) << 20;
    let lower = (imm & 0b1111i32) << 7;
-   ((upper + lower) as u32) + ((rs2 as u32) << 20) + ((rs1 as u32) << 15) + 0b100011_u32
+   ((upper + lower) as u32) + ((rs1 as u32) << 20) + ((rs2 as u32) << 15) + 0b100011_u32
 }
 
 fn itype_instr(rd: Reg, rs1: Reg, imm: Imm) -> u32 {
@@ -57,8 +57,6 @@ impl Instruction {
 
    fn translate_instruction(self) -> u32 {
       match self {
-         Instruction::NA => panic!("NA Instruction received! Fatal error!"),
-
          Instruction::Jal(reg, imm) => jtype_instr(reg, imm),
          Instruction::Jalr(reg1, reg2, imm) => itype_instr(reg1, reg2, imm) + 0b1100111_u32,
 
@@ -168,11 +166,11 @@ mod tests {
    #[test]
    fn test_translate_stype_instr() {
       let mut instr = Instruction::Sb(Reg::G21, Reg::G22, 2953);
-      assert_eq!(0b10_11100_10110_10101_00001_00101_00011, Instruction::translate_instruction(instr));
+      assert_eq!(0b10_11100_10101_10110_00001_00101_00011, Instruction::translate_instruction(instr));
       instr = Instruction::Sh(Reg::G23, Reg::G24, 2953);
-      assert_eq!(0b10111001100010111001010010100011, Instruction::translate_instruction(instr));
+      assert_eq!(0b10_11100_10111_11000_00101_00101_00011, Instruction::translate_instruction(instr));
       instr = Instruction::Sw(Reg::G25, Reg::G26, 2953);
-      assert_eq!(0b10111001101011001010010010100011, Instruction::translate_instruction(instr));
+      assert_eq!(0b10_11100_11001_11010_01001_00101_00011, Instruction::translate_instruction(instr));
    }
 
    #[test]

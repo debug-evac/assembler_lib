@@ -217,7 +217,8 @@ impl InstrType {
                     IntermediateOp::Sra => Instruction::Sra(args.0, args.1, args.2).into(),
             
                     IntermediateOp::Div => MacroInstr::Divn(args.0, args.1, args.2).into(),
-                    IntermediateOp::Mul => MacroInstr::Muln(args.0, args.1, args.2).into(),
+                    IntermediateOp::Mul => Instruction::Muln(args.0, args.1, args.2).into(),
+                    IntermediateOp::Mulh => Instruction::Mulh(args.0, args.1, args.2).into(),
                     IntermediateOp::Remu => MacroInstr::Remu(args.0, args.1, args.2).into(),
             
                     IntermediateOp::Equal => Instruction::Equal(args.0, args.1, args.2).into(),
@@ -270,7 +271,7 @@ enum IntermediateOp {
     Srl,
     Sra,
     Div,
-    Mul,
+    Mul, Mulh,
     Remu,
     Xnor,
     Nor,
@@ -455,6 +456,7 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
 
         value(InstrType::Reg3(IntermediateOp::Div), tag("div")),
         value(InstrType::Reg3(IntermediateOp::Mul), tag("mul")),
+        value(InstrType::Reg3(IntermediateOp::Mulh), tag("mulh")),
         value(InstrType::Reg3(IntermediateOp::Remu), tag("remu")),
 
         value(InstrType::Reg3(IntermediateOp::Xnor), tag("xnor")),
@@ -622,7 +624,8 @@ mod tests {
         assert_ne!(parse_inst_3reg("   "), Ok(("", Instruction::Addi(Reg::G0, Reg::G0, 0).into())));
         assert_ne!(parse_inst_3reg("addi x1, x6, 0xAA"), Ok(("", Instruction::Addi(Reg::G1, Reg::G6, 0xAA).into())));
         assert_ne!(parse_inst_3reg("add x1, x2"), Ok(("", Instruction::Addn(Reg::G1, Reg::G2, Reg::G0).into())));
-        assert_eq!(parse_inst_3reg("mul x1, x4, x6"), Ok(("", MacroInstr::Muln(Reg::G1, Reg::G4, Reg::G6).into())));
+        //assert_eq!(parse_inst_3reg("mul x1, x4, x6"), Ok(("", MacroInstr::Muln(Reg::G1, Reg::G4, Reg::G6).into())));
+        assert_eq!(parse_inst_3reg("mul x1, x4, x6"), Ok(("", Instruction::Muln(Reg::G1, Reg::G4, Reg::G6).into())));
         assert_ne!(parse_inst_3reg("div x10x14,x7"), Ok(("", MacroInstr::Divn(Reg::G10, Reg::G14, Reg::G7).into())));
         assert_eq!(parse_inst_3reg("xor x10,x11, x10"), Ok(("", Instruction::Xor(Reg::G10, Reg::G11, Reg::G10).into())));
         assert_ne!(parse_inst_3reg("xnor x6,  x8,x5"), Ok(("", Instruction::Xnor(Reg::G6, Reg::G8, Reg::G5).into())));
@@ -666,7 +669,8 @@ mod tests {
     fn test_parse_instruction() {
         assert_eq!(parse_instruction("mv x1, x6"), Ok(("", Instruction::Addi(Reg::G1, Reg::G6, 0).into())));
         assert_ne!(parse_instruction("addi x1, 0xAA"), Ok(("", Instruction::Addi(Reg::G1, Reg::G0, 0xAA).into())));
-        assert_eq!(parse_instruction("mul x1, x4, x6"), Ok(("", MacroInstr::Muln(Reg::G1, Reg::G4, Reg::G6).into())));
+        //assert_eq!(parse_instruction("mul x1, x4, x6"), Ok(("", MacroInstr::Muln(Reg::G1, Reg::G4, Reg::G6).into())));
+        assert_eq!(parse_instruction("mul x1, x4, x6"), Ok(("", Instruction::Muln(Reg::G1, Reg::G4, Reg::G6).into())));
         assert_ne!(parse_instruction("xor x10x14,x7"), Ok(("", Instruction::Xor(Reg::G10, Reg::G14, Reg::G7).into())));
         assert_eq!(parse_instruction("add x10,x11, x10"), Ok(("", Instruction::Addn(Reg::G10, Reg::G11, Reg::G10).into())));
         assert_ne!(parse_instruction("xnor x6,  x8,x5"), Ok(("", Instruction::Xnor(Reg::G6, Reg::G8, Reg::G5).into())));

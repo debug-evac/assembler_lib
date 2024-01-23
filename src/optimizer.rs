@@ -141,6 +141,8 @@ impl From<&Operation<'_>> for RegActType {
         match item {
             Operation::LablInstr(_, instr) | Operation::Instr(instr) => {
                 match instr {
+                    Instruction::Muln(reg1, reg2, reg3) |
+                    Instruction::Mulh(reg1, reg2, reg3) |
                     Instruction::Xnor(reg1, reg2, reg3) |
                     Instruction::Equal(reg1, reg2, reg3) |
                     Instruction::Addn(reg1, reg2, reg3) |
@@ -182,7 +184,6 @@ impl From<&Operation<'_>> for RegActType {
                     Instruction::Bltu(reg1, reg2, _) |
                     Instruction::Bge(reg1, reg2, _) |
                     Instruction::Bgeu(reg1, reg2, _) => RegActType::Read2(reg1.clone(), reg2.clone()),
-
 
                     Instruction::Lui(reg, _) |
                     Instruction::Auipc(reg, _) |

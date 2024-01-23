@@ -141,6 +141,8 @@ impl From<&Operation<'_>> for RegActType {
         match item {
             Operation::LablInstr(_, instr) | Operation::Instr(instr) => {
                 match instr {
+                    Instruction::Muln(reg1, reg2, reg3) |
+                    Instruction::Mulh(reg1, reg2, reg3) |
                     Instruction::Xnor(reg1, reg2, reg3) |
                     Instruction::Equal(reg1, reg2, reg3) |
                     Instruction::Addn(reg1, reg2, reg3) |
@@ -182,7 +184,6 @@ impl From<&Operation<'_>> for RegActType {
                     Instruction::Bltu(reg1, reg2, _) |
                     Instruction::Bge(reg1, reg2, _) |
                     Instruction::Bgeu(reg1, reg2, _) => RegActType::Read2(reg1.clone(), reg2.clone()),
-
 
                     Instruction::Lui(reg, _) |
                     Instruction::Auipc(reg, _) |
@@ -737,19 +738,32 @@ mod tests {
         let mut namespace_ver = Namespaces::new();
         let _ = namespace_ver.insert_recog(label_recog_ver);
 
-        let mut operation_vec_ver: Vec<Operation> = vec![];
-        operation_vec_ver.push(Operation::Namespace(0));
-        operation_vec_ver.push(Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)));
-        operation_vec_ver.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
-        operation_vec_ver.push(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
-        operation_vec_ver.push(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
-        operation_vec_ver.push(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
-        operation_vec_ver.push(Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G2)));
-        operation_vec_ver.push(Operation::Instr(Instruction::Addn(Reg::G15, Reg::G1, Reg::G12)));
-        operation_vec_ver.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
-        operation_vec_ver.push(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
-        operation_vec_ver.push(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
-        operation_vec_ver.push(Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G15)));
+        #[cfg(feature = "raw_nop")]
+        let operation_vec_ver: Vec<Operation> = Vec::from([
+            Operation::Namespace(0),
+            Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)),
+            Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
+            Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)),
+            Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)),
+            Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)),
+            Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G2)),
+            Operation::Instr(Instruction::Addn(Reg::G15, Reg::G1, Reg::G12)),
+            Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
+            Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)),
+            Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)),
+            Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G15))
+        ]);
+
+        #[cfg(not(feature = "raw_nop"))]
+        let operation_vec_ver: Vec<Operation> = Vec::from([
+            Operation::Namespace(0),
+            Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)),
+            Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
+            Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G2)),
+            Operation::Instr(Instruction::Addn(Reg::G15, Reg::G1, Reg::G12)),
+            Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
+            Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G15))
+        ]);
 
         assert_eq!(code, (namespace_ver, operation_vec_ver));
     }
@@ -820,9 +834,12 @@ mod tests {
 
         let _ = namespace_ver.insert_recog(label_recog_ver2);
 
-        cond_add_acc_label(&mut namespace_ver, 3, Cow::from("START"), 0);
-        cond_add_acc_label(&mut namespace_ver, 6, Cow::from("END"), 0);
+        #[cfg(feature = "raw_nop")] {
+            cond_add_acc_label(&mut namespace_ver, 3, Cow::from("START"), 0);
+            cond_add_acc_label(&mut namespace_ver, 6, Cow::from("END"), 0);
+        }
 
+        #[cfg(feature = "raw_nop")]
         let operation_vec_ver: Vec<Operation> = Vec::from([
             Operation::Namespace(0),
             Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)),
@@ -846,6 +863,26 @@ mod tests {
             Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
             Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)),
             Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)),
+            Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G15)),
+            Operation::Macro(MacroInstr::Jal(Reg::G0, "START".to_string())),
+        ]);
+
+        #[cfg(not(feature = "raw_nop"))]
+        let operation_vec_ver: Vec<Operation> = Vec::from([
+            Operation::Namespace(0),
+            Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)),
+            Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
+            Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G2)),
+            Operation::Instr(Instruction::Addn(Reg::G15, Reg::G1, Reg::G12)),
+            Operation::Macro(MacroInstr::Jal(Reg::G0, "END".to_string())),
+            Operation::LablInstr(Cow::from("START"), Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
+            Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G15)),
+            Operation::Namespace(1),
+            Operation::Instr(Instruction::Addn(Reg::G0, Reg::G1, Reg::G12)),
+            Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
+            Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G2)),
+            Operation::LablInstr(Cow::from("END"), Instruction::Addn(Reg::G15, Reg::G1, Reg::G12)),
+            Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
             Operation::Instr(Instruction::Subn(Reg::G2, Reg::G12, Reg::G15)),
             Operation::Macro(MacroInstr::Jal(Reg::G0, "START".to_string())),
         ]);
@@ -957,7 +994,7 @@ mod tests {
         let _ = label_recog_ver.insert_label(label);
 
         let mut label = LabelElem::new_refd("_LTDIVLOOP".to_string());
-        label.set_def(19);
+        label.set_def(20);
         let _ = label_recog_ver.insert_label(label);
 
         let mut label = LabelElem::new_refd("_Vergleich".to_string());
@@ -978,7 +1015,7 @@ mod tests {
         operation_vec.push(Operation::Instr(Instruction::Slli(Reg::G13, Reg::G13, 1)));
         operation_vec.push(Operation::LablInstr(Cow::from("_JUMP2"), Instruction::Subn(Reg::G12, Reg::G12, Reg::G13)));
         operation_vec.push(Operation::Instr(Instruction::Addn(Reg::G10, Reg::G10, Reg::G17)));
-        operation_vec.push(Operation::LablMacro(Cow::from("_JUMP"), MacroInstr::Blt(Reg::G12, Reg::G13, "_LTDIVLOOP".to_string())));
+        operation_vec.push(Operation::LablMacro(Cow::from("_JUMP"), MacroInstr::Blt(Reg::G12, Reg::G13, "_LTDIVLOOP".to_string()))); // 9
 
         operation_vec.push(Operation::LablInstr(Cow::from("_GTDIVLOOP"), Instruction::Slli(Reg::G13, Reg::G13, 1)));
         operation_vec.push(Operation::Instr(Instruction::Slli(Reg::G17, Reg::G17, 1)));
@@ -987,8 +1024,8 @@ mod tests {
         operation_vec.push(Operation::Instr(Instruction::Srli(Reg::G17, Reg::G17, 1)));
         operation_vec.push(Operation::Instr(Instruction::Subn(Reg::G12, Reg::G12, Reg::G13)));
         operation_vec.push(Operation::Instr(Instruction::Addn(Reg::G10, Reg::G10, Reg::G17)));
-        operation_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G0, "_JUMP".to_string())));
-        operation_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G0, Reg::G0, "_Vergleich".to_string())));
+        operation_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G0, "_JUMP".to_string()))); // 17
+        operation_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G0, Reg::G0, "_Vergleich".to_string()))); // 18
         operation_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
         operation_vec.push(Operation::LablInstr(Cow::from("_LTDIVLOOP"), Instruction::Srli(Reg::G13, Reg::G13, 1)));
@@ -1001,9 +1038,10 @@ mod tests {
         operation_vec.push(Operation::Instr(Instruction::Srli(Reg::G17, Reg::G17, 1)));
         operation_vec.push(Operation::Instr(Instruction::Subn(Reg::G12, Reg::G12, Reg::G13)));
         operation_vec.push(Operation::Instr(Instruction::Addn(Reg::G10, Reg::G10, Reg::G17)));
-        operation_vec.push(Operation::LablMacro(Cow::from("_Vergleich"), MacroInstr::Bne(Reg::G12, Reg::G0, "_JUMP".to_string())));
+        operation_vec.push(Operation::LablMacro(Cow::from("_Vergleich"), MacroInstr::Bne(Reg::G12, Reg::G0, "_JUMP".to_string()))); // 30
         operation_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
+        #[cfg(feature = "raw_nop")]
         let instruction_ver: Vec<Instruction> = Vec::from([
             Instruction::Addi(Reg::G17, Reg::G0, 1),
             Instruction::Addi(Reg::G12, Reg::G10, 0),
@@ -1021,7 +1059,7 @@ mod tests {
             Instruction::Addn(Reg::G10, Reg::G10, Reg::G17),
             Instruction::Addi(Reg::G0, Reg::G0, 0),
             Instruction::Addi(Reg::G0, Reg::G0, 0),
-            Instruction::Blt(Reg::G12, Reg::G13, 64),
+            Instruction::Blt(Reg::G12, Reg::G13, 68),
 
             Instruction::Slli(Reg::G13, Reg::G13, 1), // 16
             Instruction::Slli(Reg::G17, Reg::G17, 1),
@@ -1044,7 +1082,7 @@ mod tests {
             Instruction::Srli(Reg::G17, Reg::G17, 1),
             Instruction::Addi(Reg::G0, Reg::G0, 0),
             Instruction::Addi(Reg::G0, Reg::G0, 0),
-            Instruction::Blt(Reg::G12, Reg::G13, -20),
+            Instruction::Blt(Reg::G12, Reg::G13, -16),
             Instruction::Slli(Reg::G13, Reg::G13, 1),
             Instruction::Slli(Reg::G17, Reg::G17, 1),
             Instruction::Addi(Reg::G0, Reg::G0, 0),
@@ -1062,6 +1100,45 @@ mod tests {
             Instruction::Jalr(Reg::G0, Reg::G1, 0)
         ]);
 
-        assert_eq!(optimize((namespace_ver, operation_vec), false), instruction_ver);
+        #[cfg(not(feature = "raw_nop"))]
+        let instruction_ver: Vec<Instruction> = Vec::from([
+            Instruction::Addi(Reg::G17, Reg::G0, 1),
+            Instruction::Addi(Reg::G12, Reg::G10, 0),
+            Instruction::Addi(Reg::G13, Reg::G11, 0),
+            Instruction::Addi(Reg::G10, Reg::G0, 0),
+            Instruction::Addi(Reg::G11, Reg::G0, 0),
+
+            Instruction::Bne(Reg::G12, Reg::G13, 16),
+            Instruction::Slli(Reg::G13, Reg::G13, 1),
+            Instruction::Subn(Reg::G12, Reg::G12, Reg::G13),
+            Instruction::Addn(Reg::G10, Reg::G10, Reg::G17),
+            Instruction::Blt(Reg::G12, Reg::G13, 44),
+
+            Instruction::Slli(Reg::G13, Reg::G13, 1),
+            Instruction::Slli(Reg::G17, Reg::G17, 1),
+            Instruction::Blt(Reg::G13, Reg::G12, -8),
+            Instruction::Srli(Reg::G13, Reg::G13, 1),
+            Instruction::Srli(Reg::G17, Reg::G17, 1),
+            Instruction::Subn(Reg::G12, Reg::G12, Reg::G13),
+            Instruction::Addn(Reg::G10, Reg::G10, Reg::G17),
+            Instruction::Bne(Reg::G12, Reg::G0, -32),
+            Instruction::Beq(Reg::G0, Reg::G0, 48),
+            Instruction::Jalr(Reg::G0, Reg::G1, 0),
+
+            Instruction::Srli(Reg::G13, Reg::G13, 1),
+            Instruction::Srli(Reg::G17, Reg::G17, 1),
+            Instruction::Blt(Reg::G12, Reg::G13, -8),
+            Instruction::Slli(Reg::G13, Reg::G13, 1),
+            Instruction::Slli(Reg::G17, Reg::G17, 1),
+            Instruction::Beq(Reg::G12, Reg::G13, 8),
+            Instruction::Srli(Reg::G13, Reg::G13, 1),
+            Instruction::Srli(Reg::G17, Reg::G17, 1),
+            Instruction::Subn(Reg::G12, Reg::G12, Reg::G13),
+            Instruction::Addn(Reg::G10, Reg::G10, Reg::G17),
+            Instruction::Bne(Reg::G12, Reg::G0, -84),
+            Instruction::Jalr(Reg::G0, Reg::G1, 0)
+        ]);
+
+        assert_eq!(optimize((namespace_ver.clone(), operation_vec), false), instruction_ver);
     }
 }

@@ -143,7 +143,7 @@ pub enum MacroInstr {
     Addi(Reg, Reg, String, Part),
 
     Divn(Reg, Reg, Reg),
-    Muln(Reg, Reg, Reg),
+    //Muln(Reg, Reg, Reg),
     Remu(Reg, Reg, Reg),
 
     Srr(Reg, Reg, Imm),
@@ -231,6 +231,11 @@ pub enum Instruction {
     // Custom commands implemented by the Hardware people
     Xnor(Reg, Reg, Reg),
     Equal(Reg, Reg, Reg),
+
+    // ------------------
+    // Some commands from RV32M
+    Muln(Reg, Reg, Reg),
+    Mulh(Reg, Reg, Reg)
 }
 
 #[derive(Debug, Clone, PartialEq)]

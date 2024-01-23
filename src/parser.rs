@@ -43,7 +43,7 @@ pub struct Subroutines {
 }
 
 impl Subroutines {
-    const MUL_SUB: &'static str = r#"
+    /*const MUL_SUB: &'static str = r#"
 _MUL:
     addi a7, zero, 0
     addi a6, zero, 1
@@ -68,7 +68,7 @@ _MUL:
     slli a6, a6, 1
     bge a2, a6, -24
     ret
-"#;
+"#;*/
     const DIV_SUB: &'static str = r#"
 _DIV:
     addi a7, zero, 1
@@ -165,9 +165,9 @@ _SLR:
         Subroutines{ code_str_vec }
     }
 
-    pub fn mul_defined(&mut self) {
+    /*pub fn mul_defined(&mut self) {
         self.code_str_vec.insert(Self::MUL_SUB.to_string());
-    }
+    }*/
 
     pub fn div_defined(&mut self) {
         self.code_str_vec.insert(Self::DIV_SUB.to_string());
@@ -325,14 +325,14 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
         MacroInstr::LaLabl(_, labl) => {
             symbol_map.crt_or_ref_label(labl);
         },
-
+        /*
         MacroInstr::Muln(_, _, _) => {
             if let Some(subs) = subroutines {
                 subs.mul_defined();
             };
             static LABEL: &str = "_MUL";
             symbol_map.crt_or_ref_label(&LABEL.to_string());
-        },
+        },*/
         MacroInstr::Divn(_, _, _) => {
             if let Some(subs) = subroutines {
                 subs.div_defined();
@@ -557,6 +557,7 @@ fn translate_macros<'a>(
 
             incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
+        /*
         MacroInstr::Muln(reg1, reg2, reg3) => {
             let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
@@ -572,7 +573,7 @@ fn translate_macros<'a>(
             }
 
             incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
-        },
+        },*/
         MacroInstr::Remu(reg1, reg2, reg3) => {
             let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
@@ -1100,14 +1101,15 @@ END:
 
         label = LabelElem::new_refd("END".to_string());
         label.set_scope(true);
-        label.set_def(9);
+        label.set_def(6);
+        //label.set_def(9);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("_MUL".to_string());
+        /*label = LabelElem::new_refd("_MUL".to_string());
         label.set_scope(true);
-        let _ = symbols.insert_label(label);
+        let _ = symbols.insert_label(label);*/
         
-        let correct_vec: Vec<Operation> = vec![
+        /*let correct_vec: Vec<Operation> = vec![
                                                  //Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 16)),
                                                  //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
                                                  Operation::LablInstr(Cow::from("START"), Instruction::Addi(Reg::G4, Reg::G0, 16)),
@@ -1120,11 +1122,24 @@ END:
                                                  Operation::from(Instruction::Lui(Reg::G4, 0x16)),
                                                  Operation::from(MacroInstr::Jal(Reg::G0, "MUL".to_string())),
                                                  Operation::Labl(Cow::from("END"))
+                                                ];*/
+
+        let correct_vec: Vec<Operation> = vec![
+                                                //Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 16)),
+                                                //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
+                                                Operation::LablInstr(Cow::from("START"), Instruction::Addi(Reg::G4, Reg::G0, 16)),
+                                                Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
+                                                Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
+                                                Operation::from(Instruction::Muln(Reg::G6, Reg::G4, Reg::G3)),
+                                                Operation::from(Instruction::Lui(Reg::G4, 0x16)),
+                                                Operation::from(MacroInstr::Jal(Reg::G0, "MUL".to_string())),
+                                                Operation::Labl(Cow::from("END"))
                                                 ];
 
         assert_eq!(parse(source_code, &mut Some(&mut subroutines)),
                    Ok(("", (symbols, correct_vec))));
-        assert_eq!(subroutines.get_code(), Vec::from([Subroutines::MUL_SUB]));
+        assert!(subroutines.get_code().is_empty())
+        //assert_eq!(subroutines.get_code(), Vec::from([Subroutines::MUL_SUB]));
         // TODO: Probably more test cases!
     }
 
@@ -1143,26 +1158,28 @@ r#" li  x4, 16
 
         let mut symbols = LabelRecog::new();
 
-        let mut label = LabelElem::new_refd("_MUL".to_string());
+        /*let mut label = LabelElem::new_refd("_MUL".to_string());
         label.set_scope(true);
-        let _ = symbols.insert_label(label);
+        let _ = symbols.insert_label(label);*/
 
-        label = LabelElem::new_refd("__3".to_string());
+        let mut label = LabelElem::new_refd("__3".to_string());
         label.set_scope(false);
         label.set_def(3);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("__6".to_string());
         label.set_scope(false);
-        label.set_def(9);
+        label.set_def(6);
+        //label.set_def(9);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("__7".to_string());
         label.set_scope(false);
-        label.set_def(10);
+        label.set_def(7);
+        //label.set_def(10);
         let _ = symbols.insert_label(label);
         
-        let correct_vec: Vec<Operation> = vec![
+        /*let correct_vec: Vec<Operation> = vec![
                                                  //Operation::Instr(Instruction::Lui(Reg::G4, 16)),
                                                  //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
                                                  Instruction::Addi(Reg::G4, Reg::G0, 16).into(),
@@ -1176,11 +1193,25 @@ r#" li  x4, 16
                                                  Operation::from(Instruction::Lui(Reg::G4, 0x16)),
                                                  Operation::LablMacro(Cow::from("__6"), MacroInstr::Jal(Reg::G0, "__3".to_string())),
                                                  Operation::Labl(Cow::from("__7"))
+                                                ];*/
+        
+        let correct_vec: Vec<Operation> = vec![
+                                                //Operation::Instr(Instruction::Lui(Reg::G4, 16)),
+                                                //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
+                                                Instruction::Addi(Reg::G4, Reg::G0, 16).into(),
+                                                Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
+                                                Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".to_string())),
+                                                Operation::LablInstr(Cow::from("__3"), Instruction::Muln(Reg::G6, Reg::G4, Reg::G3)),
+                                                Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__7".to_string())),
+                                                Operation::from(Instruction::Lui(Reg::G4, 0x16)),
+                                                Operation::LablMacro(Cow::from("__6"), MacroInstr::Jal(Reg::G0, "__3".to_string())),
+                                                Operation::Labl(Cow::from("__7"))
                                                 ];
 
         assert_eq!(parse(source_code, &mut Some(&mut subroutines)),
                    Ok(("", (symbols, correct_vec))));
-        assert_eq!(subroutines.get_code(), Vec::from([Subroutines::MUL_SUB]));
+        assert_eq!(subroutines.get_code().is_empty(), true);
+        //assert_eq!(subroutines.get_code(), Vec::from([Subroutines::MUL_SUB]));
     }
 
     #[test]
@@ -1656,14 +1687,6 @@ TEST: srli a7, a7, 1
         }
     }
 }
-
-// Lokale und globale Labels
-// Lokale labels: .L1:
-// Globale labels: L2:
-// Done
-
-// Pseudo-Opcodes:
-// "call [LABEL]", "jsr []", "pop [REG]" - "ld [REG], [IMM]", "push [REG]" - "st [REG], [IMM]"
 
 // Konstanten:
 // .data

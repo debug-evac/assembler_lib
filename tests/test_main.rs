@@ -229,7 +229,6 @@ ret
     Ok(())
 }
 
-#[ignore = "Currently failing due to the linker accepting undefined but referenced labels (see issue #47)"]
 #[test]
 fn test_translate_fail_undef_label() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;

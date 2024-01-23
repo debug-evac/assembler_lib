@@ -501,6 +501,51 @@ fn incorporate_changes<'a>(
     instr_list.append(right_list);
 }
 
+fn handle_multiline_immediate<'a>(
+    imm: &mut i32, 
+    label: Option<Cow<'a, str>>, 
+    pointer: &mut usize, 
+    instr_list: &mut Vec<Operation<'a>>,
+    instr: &Instruction
+) -> bool {
+
+    if *imm & 0x800 == 2048 {
+        if imm.leading_ones() >= 19 {
+            // just addi
+            match label {
+                Some(labl) => instr_list.insert(*pointer,
+                                Operation::LablInstr(labl, instr.to_owned())),
+                None => instr_list.insert(*pointer, instr.to_owned().into()),
+            }
+            *pointer += 1;
+            return true
+        } else {
+            let mut mask: i32 = 4096;
+            for _ in 12..32 {
+                let is_unset = *imm & mask == 0;
+                if is_unset {
+                    *imm |= mask;
+                    break;
+                }
+                mask <<= 1;
+            }
+        }
+    }
+    
+    if imm.leading_zeros() >= 19 {
+        // If imm fits into 12 bits, then only use addi
+        match label {
+            Some(labl) => instr_list.insert(*pointer,
+                            Operation::LablInstr(labl, instr.to_owned())),
+            None => instr_list.insert(*pointer, instr.to_owned().into()),
+        }
+        *pointer += 1;
+        return true
+    }
+
+    false
+}
+
 fn translate_macros<'a>(
     macro_in: &MacroInstr,
     instr_list: &mut Vec<Operation<'a>>,
@@ -587,63 +632,41 @@ fn translate_macros<'a>(
         },
         MacroInstr::Li(reg, imm) => {
             instr_list.remove(*pointer);
-            let mut imm = *imm;
+            let mut imm_used = *imm;
 
-            if imm & 0x800 == 2048 {
-                if imm.leading_ones() >= 19 {
-                    // just addi
-                    match label {
-                        Some(labl) => instr_list.insert(*pointer,
-                                        Operation::LablInstr(labl, Instruction::Addi(reg.to_owned(), Reg::G0, imm))),
-                        None => instr_list.insert(*pointer, Instruction::Addi(reg.to_owned(), Reg::G0, imm).into()),
-                    }
-                    *pointer += 1;
-                    return;
-                } else {
-                    let mut mask: i32 = 4096;
-                    for _ in 12..32 {
-                        let is_unset = imm & mask == 0;
-                        if is_unset {
-                            imm |= mask;
-                            break;
-                        }
-                        mask <<= 1;
-                    }
-                }
-            }
-            
-            if imm.leading_zeros() >= 19 {
-                // If imm fits into 12 bits, then only use addi
-                match label {
-                    Some(labl) => instr_list.insert(*pointer,
-                                    Operation::LablInstr(labl, Instruction::Addi(reg.to_owned(), Reg::G0, imm))),
-                    None => instr_list.insert(*pointer, Instruction::Addi(reg.to_owned(), Reg::G0, imm).into()),
-                }
-                *pointer += 1;
-                return;
+            match handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Addi(reg.to_owned(), Reg::G0, *imm)) {
+                true => return,
+                false => (),
             }
 
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablInstr(labl, Instruction::Lui(reg.to_owned(), imm))),
-                None => instr_list.insert(*pointer, Instruction::Lui(reg.to_owned(), imm).into()),
+                                Operation::LablInstr(labl, Instruction::Lui(reg.to_owned(), imm_used))),
+                None => instr_list.insert(*pointer, Instruction::Lui(reg.to_owned(), imm_used).into()),
             }
             *pointer += 1;
             instr_list.insert(*pointer,
-            Instruction::Addi(reg.to_owned(), reg.to_owned(), imm).into());
+            Instruction::Addi(reg.to_owned(), reg.to_owned(), imm_used).into());
             *pointer += 1;
             *accumulator += 1;
         },
         MacroInstr::LaImm(reg, imm) => {
             instr_list.remove(*pointer);
+            let mut imm_used = *imm;
+
+            match handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Addi(reg.to_owned(), Reg::G0, *imm)) {
+                true => return,
+                false => (),
+            }
+
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablInstr(labl, Instruction::Auipc(reg.to_owned(), imm >> 12))),
-                None => instr_list.insert(*pointer, Instruction::Auipc(reg.to_owned(), imm >> 12).into()),
+                                Operation::LablInstr(labl, Instruction::Auipc(reg.to_owned(), imm_used))),
+                None => instr_list.insert(*pointer, Instruction::Auipc(reg.to_owned(), imm_used).into()),
             }
             *pointer += 1;
             instr_list.insert(*pointer,
-            Instruction::Addi(reg.to_owned(), reg.to_owned(), *imm).into());
+            Instruction::Addi(reg.to_owned(), reg.to_owned(), imm_used).into());
             *pointer += 1;
             *accumulator += 1;
         },
@@ -662,27 +685,41 @@ fn translate_macros<'a>(
         },
         MacroInstr::CallImm(imm) => {
             instr_list.remove(*pointer);
+            let mut imm_used = *imm;
+
+            match handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Jalr(Reg::G1, Reg::G0, *imm)) {
+                true => return,
+                false => (),
+            }
+
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablInstr(labl, Instruction::Auipc(Reg::G1, imm >> 12))),
-                None => instr_list.insert(*pointer, Operation::Instr(Instruction::Auipc(Reg::G1, imm >> 12)))
+                                Operation::LablInstr(labl, Instruction::Auipc(Reg::G1, imm_used))),
+                None => instr_list.insert(*pointer, Operation::Instr(Instruction::Auipc(Reg::G1, imm_used)))
             }
             *pointer += 1;
             instr_list.insert(*pointer,
-            Instruction::Jalr(Reg::G1, Reg::G1, *imm).into());
+            Instruction::Jalr(Reg::G1, Reg::G1, imm_used).into());
             *pointer += 1;
             *accumulator += 1;
         },
         MacroInstr::TailImm(imm) => {
             instr_list.remove(*pointer);
+            let mut imm_used = *imm;
+
+            match handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Jalr(Reg::G0, Reg::G0, *imm)) {
+                true => return,
+                false => (),
+            }
+
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablInstr(labl, Instruction::Auipc(Reg::G6, imm >> 12))),
-                None => instr_list.insert(*pointer, Instruction::Auipc(Reg::G6, imm >> 12).into())
+                                Operation::LablInstr(labl, Instruction::Auipc(Reg::G6, imm_used))),
+                None => instr_list.insert(*pointer, Instruction::Auipc(Reg::G6, imm_used).into())
             }
             *pointer += 1;
             instr_list.insert(*pointer,
-            Instruction::Jalr(Reg::G0, Reg::G6, *imm).into());
+            Instruction::Jalr(Reg::G0, Reg::G6, imm_used).into());
             *pointer += 1;
             *accumulator += 1;
         },
@@ -1428,14 +1465,15 @@ TEST: srli a7, a7, 1
             &mut pointer, 
             Some(label.clone()));
 
-            assert_eq!(accumulator, 1);
-            assert_eq!(pointer, 4);
+            assert_eq!(accumulator, 0);
+            assert_eq!(pointer, 3);
 
             let cor_vec: Vec<Operation> = Vec::from([
                 Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                Operation::LablInstr(label, Instruction::Auipc(Reg::G1, 0)),
-                Operation::Instr(Instruction::Jalr(Reg::G1, Reg::G1, 50)),
+                //Operation::LablInstr(label, Instruction::Auipc(Reg::G1, 0)),
+                //Operation::Instr(Instruction::Jalr(Reg::G1, Reg::G1, 50)),
+                Operation::LablInstr(label, Instruction::Jalr(Reg::G1, Reg::G0, 50)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
@@ -1458,14 +1496,15 @@ TEST: srli a7, a7, 1
             &mut pointer, 
             Some(label.clone()));
 
-            assert_eq!(accumulator, 1);
-            assert_eq!(pointer, 4);
+            assert_eq!(accumulator, 0);
+            assert_eq!(pointer, 3);
 
             let cor_vec: Vec<Operation> = Vec::from([
                 Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                Operation::LablInstr(label, Instruction::Auipc(Reg::G6, 0)),
-                Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G6, 50)),
+                //Operation::LablInstr(label, Instruction::Auipc(Reg::G6, 0)),
+                //Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G6, 50)),
+                Operation::LablInstr(label, Instruction::Jalr(Reg::G0, Reg::G0, 50)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))

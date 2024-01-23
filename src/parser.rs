@@ -1101,7 +1101,7 @@ END:
 
         label = LabelElem::new_refd("END".to_string());
         label.set_scope(true);
-        label.set_def(7);
+        label.set_def(6);
         //label.set_def(9);
         let _ = symbols.insert_label(label);
 
@@ -1125,8 +1125,9 @@ END:
                                                 ];*/
 
         let correct_vec: Vec<Operation> = vec![
-                                                Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 0)),
-                                                Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
+                                                //Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 16)),
+                                                //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
+                                                Operation::LablInstr(Cow::from("START"), Instruction::Addi(Reg::G4, Reg::G0, 16)),
                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                 Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
                                                 Operation::from(Instruction::Muln(Reg::G6, Reg::G4, Reg::G3)),
@@ -1168,13 +1169,13 @@ r#" li  x4, 16
 
         label = LabelElem::new_refd("__6".to_string());
         label.set_scope(false);
-        label.set_def(7);
+        label.set_def(6);
         //label.set_def(9);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("__7".to_string());
         label.set_scope(false);
-        label.set_def(8);
+        label.set_def(7);
         //label.set_def(10);
         let _ = symbols.insert_label(label);
         
@@ -1195,8 +1196,9 @@ r#" li  x4, 16
                                                 ];*/
         
         let correct_vec: Vec<Operation> = vec![
-                                                Operation::Instr(Instruction::Lui(Reg::G4, 0)),
-                                                Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
+                                                //Operation::Instr(Instruction::Lui(Reg::G4, 16)),
+                                                //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
+                                                Instruction::Addi(Reg::G4, Reg::G0, 16).into(),
                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".to_string())),
                                                 Operation::LablInstr(Cow::from("__3"), Instruction::Muln(Reg::G6, Reg::G4, Reg::G3)),

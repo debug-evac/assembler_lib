@@ -587,40 +587,39 @@ fn translate_macros<'a>(
         },
         MacroInstr::Li(reg, imm) => {
             instr_list.remove(*pointer);
-            let mut upper_imm = *imm >> 12;
-            let lower_imm = *imm & 0xFFF;
+            let mut imm = *imm;
 
-            if lower_imm & 0x800 == 2048 {
-                if upper_imm == -1 {
+            if imm & 0x800 == 2048 {
+                if imm.leading_ones() >= 19 {
                     // just addi
                     match label {
                         Some(labl) => instr_list.insert(*pointer,
-                                        Operation::LablInstr(labl, Instruction::Addi(reg.to_owned(), Reg::G0, lower_imm))),
-                        None => instr_list.insert(*pointer, Instruction::Addi(reg.to_owned(), Reg::G0, lower_imm).into()),
+                                        Operation::LablInstr(labl, Instruction::Addi(reg.to_owned(), Reg::G0, imm))),
+                        None => instr_list.insert(*pointer, Instruction::Addi(reg.to_owned(), Reg::G0, imm).into()),
                     }
                     *pointer += 1;
                     return;
                 } else {
-                    let mut mask: i32 = 1;
-                    for _ in 0..32 {
-                        let is_set = upper_imm & mask != 0;
-                        if is_set {
-                            upper_imm |= mask;
+                    let mut mask: i32 = 4096;
+                    for _ in 12..32 {
+                        let is_unset = imm & mask == 0;
+                        if is_unset {
+                            imm |= mask;
                             break;
                         }
                         mask <<= 1;
                     }
                 }
             }
-            
+
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablInstr(labl, Instruction::Lui(reg.to_owned(), upper_imm))),
-                None => instr_list.insert(*pointer, Instruction::Lui(reg.to_owned(), upper_imm).into()),
+                                Operation::LablInstr(labl, Instruction::Lui(reg.to_owned(), imm))),
+                None => instr_list.insert(*pointer, Instruction::Lui(reg.to_owned(), imm).into()),
             }
             *pointer += 1;
             instr_list.insert(*pointer,
-            Instruction::Addi(reg.to_owned(), reg.to_owned(), lower_imm).into());
+            Instruction::Addi(reg.to_owned(), reg.to_owned(), imm).into());
             *pointer += 1;
             *accumulator += 1;
         },
@@ -1077,7 +1076,7 @@ END:
         let _ = symbols.insert_label(label);
         
         let correct_vec: Vec<Operation> = vec![
-                                                 Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 0)),
+                                                 Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 16)),
                                                  Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
                                                  Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                  Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
@@ -1131,7 +1130,7 @@ r#" li  x4, 16
         let _ = symbols.insert_label(label);
         
         let correct_vec: Vec<Operation> = vec![
-                                                 Operation::Instr(Instruction::Lui(Reg::G4, 0)),
+                                                 Operation::Instr(Instruction::Lui(Reg::G4, 16)),
                                                  Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
                                                  Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                  Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".to_string())),

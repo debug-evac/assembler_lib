@@ -130,8 +130,6 @@ pub fn translate(input: Vec<Instruction>) -> Vec<u8> {
    }
 
    output
-
-   
 }
 
 #[cfg(test)]

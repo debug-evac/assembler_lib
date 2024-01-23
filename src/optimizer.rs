@@ -227,11 +227,27 @@ impl From<&Operation<'_>> for RegActType {
     }
 }
 
-fn handle_part(lines: &i32, part: &Part) -> i32 {
+fn handle_part(lines: &mut i32, part: &Part) {
     match part {
-        Part::Upper => *lines >> 12,
-        Part::Lower => *lines & 0b11_11111_11111,
-        Part::None => *lines,
+        //Part::Upper => *lines >> 12,
+        //Part::Lower => *lines & 0b11_11111_11111,
+        #[cfg(feature = "raw_nop")]
+        Part::Upper => *lines += 12,
+        #[cfg(not(feature = "raw_nop"))]
+        Part::Upper => *lines += 4,
+        Part::Lower => (),
+        Part::None => return,
+    }
+    if *lines & 0x800 == 2048 && lines.leading_ones() < 19 {
+        let mut mask: i32 = 4096;
+        for _ in 12..32 {
+            let is_unset = *lines & mask == 0;
+            if is_unset {
+                *lines |= mask;
+                break;
+            }
+            mask <<= 1;
+        }
     }
 }
 
@@ -242,7 +258,7 @@ impl MacroInstr {
         match self {
             MacroInstr::Addi(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
-                lines = handle_part(&lines, part);
+                handle_part(&mut lines, part);
                 instructions.push(Instruction::Addi(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
@@ -277,7 +293,7 @@ impl MacroInstr {
             },
             MacroInstr::Jalr(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
-                lines = handle_part(&lines, part);
+                handle_part(&mut lines, part);
                 instructions.push(Instruction::Jalr(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
@@ -287,7 +303,7 @@ impl MacroInstr {
             },
             MacroInstr::Auipc(reg, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
-                lines = handle_part(&lines, part);
+                handle_part(&mut lines, part);
                 instructions.push(Instruction::Auipc(reg.to_owned(), lines));
             },
 
@@ -307,17 +323,17 @@ impl MacroInstr {
             // TODO: Evaluate if this is right? Spec paper seems to add upper half of symbol to PC (needed for our case?)
             MacroInstr::Lb(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
-                lines = handle_part(&lines, part);
+                handle_part(&mut lines, part);
                 instructions.push(Instruction::Lb(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Lh(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
-                lines = handle_part(&lines, part);
+                handle_part(&mut lines, part);
                 instructions.push(Instruction::Lh(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Lw(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
-                lines = handle_part(&lines, part);
+                handle_part(&mut lines, part);
                 instructions.push(Instruction::Lw(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Lbu(reg1, reg2, labl) => {
@@ -331,17 +347,17 @@ impl MacroInstr {
 
             MacroInstr::Sb(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
-                lines = handle_part(&lines, part);
+                handle_part(&mut lines, part);
                 instructions.push(Instruction::Sb(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Sh(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
-                lines = handle_part(&lines, part);
+                handle_part(&mut lines, part);
                 instructions.push(Instruction::Sh(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Sw(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
-                lines = handle_part(&lines, part);
+                handle_part(&mut lines, part);
                 instructions.push(Instruction::Sw(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
@@ -485,7 +501,6 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                     },
                     Operation::Namespace(ns) => {
                         space = *ns;
-                        pointer += 1;
                     },
                 }
                 pointer += 1;

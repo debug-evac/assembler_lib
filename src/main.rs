@@ -31,6 +31,7 @@ use std::{
 use crate::common::{LabelRecog, Operation};
 
 fn cli_interface() -> ArgMatches {
+    #[allow(non_upper_case_globals)]
     Command::new("Assembler")
     .author(crate_authors!(", "))
     .version(crate_version!())

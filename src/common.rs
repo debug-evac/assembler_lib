@@ -393,21 +393,13 @@ impl LabelRecog {
 
     // Creates a label, if it does not exist already with the name label_str, scope and the reference.
     // Returns true, if there is already a definition, else false.
-    pub fn crt_or_ref_label(&mut self, label_str: &String, scope: bool) -> bool {
+    pub fn crt_or_ref_label(&mut self, label_str: &String) {
         match self.get_label(label_str) {
-            Some(label) => {
-                label.set_refd();
-                if !label.get_scope() {
-                    *label.get_def() != -1
-                } else {
-                    false
-                }
-            },
+            Some(label) => label.set_refd(),
             None => {
                 let mut label = LabelElem::new_refd(label_str.clone());
-                label.set_scope(scope);
+                label.set_scope(true);
                 let _ = self.insert_label(label);
-                false
             },
         }
     }

@@ -819,10 +819,10 @@ mod tests {
 
         let _ = namespace_ver.insert_recog(label_recog_ver2);
 
-        #[cfg(feature = "raw_nop")]
-        cond_add_acc_label(&mut namespace_ver, 3, Cow::from("START"), 0);
-        #[cfg(feature = "raw_nop")]
-        cond_add_acc_label(&mut namespace_ver, 6, Cow::from("END"), 0);
+        #[cfg(feature = "raw_nop")] {
+            cond_add_acc_label(&mut namespace_ver, 3, Cow::from("START"), 0);
+            cond_add_acc_label(&mut namespace_ver, 6, Cow::from("END"), 0);
+        }
 
         #[cfg(feature = "raw_nop")]
         let operation_vec_ver: Vec<Operation> = Vec::from([
@@ -1091,35 +1091,35 @@ mod tests {
             Instruction::Addi(Reg::G12, Reg::G10, 0),
             Instruction::Addi(Reg::G13, Reg::G11, 0),
             Instruction::Addi(Reg::G10, Reg::G0, 0),
-            Instruction::Addi(Reg::G11, Reg::G0, 0), // removed 1
+            Instruction::Addi(Reg::G11, Reg::G0, 0),
 
             Instruction::Bne(Reg::G12, Reg::G13, 16),
-            Instruction::Slli(Reg::G13, Reg::G13, 1), // removed 3
+            Instruction::Slli(Reg::G13, Reg::G13, 1),
             Instruction::Subn(Reg::G12, Reg::G12, Reg::G13),
-            Instruction::Addn(Reg::G10, Reg::G10, Reg::G17), // removed 2
+            Instruction::Addn(Reg::G10, Reg::G10, Reg::G17),
             Instruction::Blt(Reg::G12, Reg::G13, 44),
 
-            Instruction::Slli(Reg::G13, Reg::G13, 1), // 16
-            Instruction::Slli(Reg::G17, Reg::G17, 1), // removed 2
-            Instruction::Blt(Reg::G13, Reg::G12, -8), // 20 - set
+            Instruction::Slli(Reg::G13, Reg::G13, 1),
+            Instruction::Slli(Reg::G17, Reg::G17, 1),
+            Instruction::Blt(Reg::G13, Reg::G12, -8),
             Instruction::Srli(Reg::G13, Reg::G13, 1),
-            Instruction::Srli(Reg::G17, Reg::G17, 1), // removed 2
+            Instruction::Srli(Reg::G17, Reg::G17, 1),
             Instruction::Subn(Reg::G12, Reg::G12, Reg::G13),
-            Instruction::Addn(Reg::G10, Reg::G10, Reg::G17), // removed 2
+            Instruction::Addn(Reg::G10, Reg::G10, Reg::G17),
             Instruction::Bne(Reg::G12, Reg::G0, -32),
-            Instruction::Beq(Reg::G0, Reg::G0, 48), // 20
+            Instruction::Beq(Reg::G0, Reg::G0, 48),
             Instruction::Jalr(Reg::G0, Reg::G1, 0),
 
-            Instruction::Srli(Reg::G13, Reg::G13, 1), // THIS 31
-            Instruction::Srli(Reg::G17, Reg::G17, 1), // removed 2
-            Instruction::Blt(Reg::G12, Reg::G13, -8), // this is -8
+            Instruction::Srli(Reg::G13, Reg::G13, 1),
+            Instruction::Srli(Reg::G17, Reg::G17, 1),
+            Instruction::Blt(Reg::G12, Reg::G13, -8),
             Instruction::Slli(Reg::G13, Reg::G13, 1),
-            Instruction::Slli(Reg::G17, Reg::G17, 1), // removed 2
+            Instruction::Slli(Reg::G17, Reg::G17, 1),
             Instruction::Beq(Reg::G12, Reg::G13, 8),
             Instruction::Srli(Reg::G13, Reg::G13, 1),
-            Instruction::Srli(Reg::G17, Reg::G17, 1), // removed 2
+            Instruction::Srli(Reg::G17, Reg::G17, 1),
             Instruction::Subn(Reg::G12, Reg::G12, Reg::G13),
-            Instruction::Addn(Reg::G10, Reg::G10, Reg::G17), // removed 2
+            Instruction::Addn(Reg::G10, Reg::G10, Reg::G17),
             Instruction::Bne(Reg::G12, Reg::G0, -84),
             Instruction::Jalr(Reg::G0, Reg::G1, 0)
         ]);

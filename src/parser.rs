@@ -272,14 +272,13 @@ fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation
     ))(rest)
 }
 
-fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, local_ref_set: &mut HashSet<String>, instr_counter: usize) {
+fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, instr_counter: usize) {
     match label.strip_prefix('.') {
         Some(label) => {
             // Local label; Track definitions and references!
             let label_string = &label.to_string();
             // TODO: Evaluate if .unwrap is appropriate!
             symbol_map.crt_or_def_label(label_string, false, instr_counter.try_into().unwrap());
-            local_ref_set.remove(label_string);
         },
         None => {
             // Global label; Do not track definitions and references!
@@ -289,7 +288,7 @@ fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, local_ref_set: &m
     };
 }
 
-fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, local_ref_set: &mut HashSet<String>) {
+fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog) {
     match macro_in {
         MacroInstr::Addi(_, _, labl, _) |
 
@@ -324,9 +323,7 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
         MacroInstr::CallLabl(labl) |
         MacroInstr::TailLabl(labl) |
         MacroInstr::LaLabl(_, labl) => {
-            if !symbol_map.crt_or_ref_label(labl, false) {
-                local_ref_set.insert(labl.clone());
-            }
+            symbol_map.crt_or_ref_label(labl);
         },
 
         MacroInstr::Muln(_, _, _) => {
@@ -334,45 +331,35 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
                 subs.mul_defined();
             };
             static LABEL: &str = "_MUL";
-            if !symbol_map.crt_or_ref_label(&LABEL.to_string(), true) {
-                local_ref_set.insert(LABEL.to_string());
-            };
+            symbol_map.crt_or_ref_label(&LABEL.to_string());
         },
         MacroInstr::Divn(_, _, _) => {
             if let Some(subs) = subroutines {
                 subs.div_defined();
             };
             static LABEL: &str = "_DIV";
-            if !symbol_map.crt_or_ref_label(&LABEL.to_string(), true) {
-                local_ref_set.insert(LABEL.to_string());
-            };
+            symbol_map.crt_or_ref_label(&LABEL.to_string());
         },
         MacroInstr::Remu(_, _, _) => {
             if let Some(subs) = subroutines {
                 subs.remu_defined();
             };
             static LABEL: &str = "_REMU";
-            if !symbol_map.crt_or_ref_label(&LABEL.to_string(), true) {
-                local_ref_set.insert(LABEL.to_string());
-            };
+            symbol_map.crt_or_ref_label(&LABEL.to_string());
         },
         MacroInstr::Srr(_, _, _) => {
             if let Some(subs) = subroutines {
                 subs.srr_defined();
             };
             static LABEL: &str = "_SRR";
-            if !symbol_map.crt_or_ref_label(&LABEL.to_string(), true) {
-                local_ref_set.insert(LABEL.to_string());
-            };
+            symbol_map.crt_or_ref_label(&LABEL.to_string());
         },
         MacroInstr::Slr(_, _, _) => {
             if let Some(subs) = subroutines {
                 subs.slr_defined();
             };
             static LABEL: &str = "_SLR";
-            if !symbol_map.crt_or_ref_label(&LABEL.to_string(), true) {
-                local_ref_set.insert(LABEL.to_string());
-            };
+            symbol_map.crt_or_ref_label(&LABEL.to_string());
         },
 
         _ => (),
@@ -834,7 +821,6 @@ fn expand_instrs(symbol_map: &mut LabelRecog, instr_list: &mut Vec<Operation>) {
 }
 
 pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> IResult<&'a str, (LabelRecog, Vec<Operation<'a>>)> {
-    let mut local_ref_not_def: HashSet<String> = HashSet::new();
     let mut symbol_map = LabelRecog::new();
     let mut instr_list: Vec<Operation> = vec![];
 
@@ -862,11 +848,11 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
 
         match &mut parsed {
             (Some(label), Some(instr)) => {
-                handle_label_defs(label, &mut symbol_map, &mut local_ref_not_def, instr_counter);
+                handle_label_defs(label, &mut symbol_map, instr_counter);
 
                 match instr {
                     Operation::Macro(macro_in) => {
-                        handle_label_refs(macro_in, subroutines, &mut symbol_map, &mut local_ref_not_def);
+                        handle_label_refs(macro_in, subroutines, &mut symbol_map);
                         *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label), macro_in.to_owned());
                     },
                     Operation::Instr(instr_in) => {
@@ -943,7 +929,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
             },
             (None, Some(instr)) => {
                 match instr {
-                    Operation::Macro(macro_in) => handle_label_refs(macro_in, subroutines, &mut symbol_map, &mut local_ref_not_def),
+                    Operation::Macro(macro_in) => handle_label_refs(macro_in, subroutines, &mut symbol_map),
                     Operation::Instr(instr_in) => {
                         match instr_in {
                             Instruction::Beq(reg1, reg2, imm) => {
@@ -1015,7 +1001,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                 instr_list.push(instr.to_owned());
             },
             (Some(label), None) => {
-                handle_label_defs(label, &mut symbol_map, &mut local_ref_not_def, instr_counter);
+                handle_label_defs(label, &mut symbol_map, instr_counter);
                 if let Some(list) = abs_to_label_queue.remove(&(instr_counter + 1)) {
                     symbol_map.set_refd_label(&label.to_string());
                     handle_instr_substitution(&mut instr_list, &list, label)
@@ -1050,8 +1036,6 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
     }
 
     expand_instrs(&mut symbol_map, &mut instr_list);
-
-    // NO! TODO: If labels are still in the hashset, return a custom parser error!
 
     Ok(("", (symbol_map, instr_list)))
 }

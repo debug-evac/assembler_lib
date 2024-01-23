@@ -1622,14 +1622,6 @@ TEST: srli a7, a7, 1
     }
 }
 
-// Lokale und globale Labels
-// Lokale labels: .L1:
-// Globale labels: L2:
-// Done
-
-// Pseudo-Opcodes:
-// "call [LABEL]", "jsr []", "pop [REG]" - "ld [REG], [IMM]", "push [REG]" - "st [REG], [IMM]"
-
 // Konstanten:
 // .data
 // [LABEL] .[ASSEMBLER INSTRUCTION] [IMM]

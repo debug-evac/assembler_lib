@@ -9,7 +9,7 @@ authors = ["Steven Becker <steven.becker@studium.uni-hamburg.de>"]
 publish = false
 
 [features]
-default = ["full_nop"]
+default = ["mem_load_nop"]
 full_nop = ["raw_nop", "mem_load_nop"]
 raw_nop = []
 mem_load_nop = []

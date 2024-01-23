@@ -88,7 +88,6 @@ ret
     Ok(())
 }
 
-#[ignore = "Currently failing due to incorrect label handling of multiline macros (see issue #46)"]
 #[test]
 fn test_translate_multiple_files() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;

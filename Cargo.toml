@@ -27,7 +27,10 @@ predicates = "3.0.4"
 assert_fs = "1.1.0"
 
 [profile.release]
-strip = "debuginfo"
+strip = "symbols"
+codegen-units = 1
+lto = "fat"
+panic = "abort"
 
 [package.metadata.release]
 sign-commit = true

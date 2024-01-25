@@ -74,7 +74,42 @@ Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
                 .required(false)
                 .help("Disallow nop insertion. Currently not respected!")
     )
+    .arg(Arg::new("format")
+                .value_hint(ValueHint::Other)
+                .value_parser(["mif", "bin"])
+                .action(ArgAction::Set)
+                .short('f')
+                .num_args(1)
+                .default_value("mif")
+                .required(false)
+                .long("format")
+                .help("The format in which the output should be written in")
+    )
     .get_matches()
+}
+
+fn write_to_file(output: &PathBuf, translated_code: &Vec<u8>, format: &str) {
+    let mut output_file = match File::create(output) {
+        Ok(file) => file,
+        Err(msg) => panic!("[Error] could not create output file: {}", msg),
+    };
+
+    match format {
+        "mif" => {
+            let depth = translated_code.len() / 4;
+            let width = 32;
+
+            write!(output_file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n").unwrap();
+
+            for (counter, values) in translated_code.chunks_exact(4).enumerate() {
+                write!(output_file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};\n", values[0], values[1], values[2], values[3]).unwrap();
+            }
+
+            write!(output_file, "END;\n").unwrap();
+        },
+        "bin" => output_file.write_all(&translated_code).expect("[Error] could not write to output file!"),
+        _ => unreachable!(),
+    }
 }
 
 fn main() {
@@ -121,14 +156,11 @@ fn main() {
     let optimized_code = optimizer::optimize(linked_vector, no_nop_insert);
     let translated_code = translator::translate(optimized_code);
 
+    let outfmt = matches.get_one::<String>("format").unwrap();
+
     // always returns Some(_)
     let outpath = matches.get_one::<PathBuf>("output").unwrap();
 
-    let mut output_file = match File::create(outpath) {
-        Ok(file) => file,
-        Err(msg) => panic!("[Error] could not create output file: {}", msg),
-    };
-
-    output_file.write_all(&translated_code).expect("[Error] could not write to output file!");
+    write_to_file(outpath, &translated_code, &outfmt);
 }
  

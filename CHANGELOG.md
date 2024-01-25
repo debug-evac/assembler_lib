@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Gitea Codeowners file for responsibility management
+  - No changes in program behavior
+
 ### Changed
 
 - Build option flags for the release build

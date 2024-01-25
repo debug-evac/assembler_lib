@@ -9,7 +9,7 @@ authors = ["Steven Becker <steven.becker@studium.uni-hamburg.de>"]
 publish = ["mafiasi-gitea"]
 
 [features]
-default = ["mem_load_nop"]
+default = []
 full_nop = ["raw_nop", "mem_load_nop"]
 raw_nop = []
 mem_load_nop = []

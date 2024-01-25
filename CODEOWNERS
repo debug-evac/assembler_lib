@@ -1,2 +1,2 @@
 # I should take a look if these files change
-(CODEOWNERS | CHANGELOG.md | Cargo\\.toml) @21sbecker
+/(CODEOWNERS | CHANGELOG.md | Cargo\\.toml) @21sbecker

@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Ability to write simple comments in the assembly code
+  - Use '; < COMMENT >' to comment something in the code, works inline as well as before
+  - Currently does not work for comments after code
+  - Example:
+    ```
+    ; WORKS
+        ; WORKS
+    nop     ; WORKS
+    ; ERROR
+    ```
+
 ## [1.0.1] - 2024-01-26
 
 ### Added

@@ -15,11 +15,12 @@ use nom::{
     combinator::{
         map,
         success,
+        opt
     },
     bytes::complete::escaped,
     multi::many0,
     character::complete::{
-        multispace1, not_line_ending
+        multispace1, not_line_ending, space1
     },
     sequence::{
         pair,
@@ -224,7 +225,7 @@ impl <'a> From<MacroInstr> for Operation<'a> {
 #[allow(clippy::type_complexity)]
 fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
     let (rest, _) = many0(escaped(multispace1, ';', not_line_ending))(input)?;
-    alt((
+    let (rest, parsed) = alt((
         separated_pair(
             map(parse_label_definition, Some),
             multispace1,
@@ -244,13 +245,15 @@ fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
                 Some
             )
         ),
-    ))(rest)
+    ))(rest)?;
+    let (rest, _) = opt(separated_pair(space1, nom::character::complete::char(';'), not_line_ending))(rest)?;
+    Ok((rest, parsed))
 }
 
 #[allow(clippy::type_complexity)]
 fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
     let (rest, _) = many0(escaped(multispace1, ';', not_line_ending))(input)?;
-    alt((
+    let (rest, parsed) = alt((
         separated_pair(
             map(parse_label_definition_priv, Some),
             multispace1,
@@ -270,7 +273,9 @@ fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation
                 Some
             )
         ),
-    ))(rest)
+    ))(rest)?;
+    let (rest, _) = opt(separated_pair(space1, nom::character::complete::char(';'), not_line_ending))(rest)?;
+    Ok((rest, parsed))
 }
 
 fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, instr_counter: usize) {
@@ -1704,7 +1709,7 @@ MUL: beq x3, x4, END    ; mul dead
     mul x6, x4, x3
     lui x4, 0x16
     j MUL               ; YOU BETTER JUMP BACK
-END:
+END:                    ; OI OI OI OI
 "#;
 
         let mut subroutines = Subroutines::new();

@@ -213,7 +213,7 @@ impl From<&Operation<'_>> for RegActType {
                     MacroInstr::Lh(reg1, reg2, _, _) |
                     MacroInstr::Lw(reg1, reg2, _, _) |
                     MacroInstr::Lbu(reg1, reg2, _) |
-                    MacroInstr::Lhu(reg1, reg2, _) => RegActType::Load(reg1.clone(), reg2.clone()),
+                    MacroInstr::Lhu(reg1, reg2, _) => RegActType::Load(reg2.clone(), reg1.clone()),
 
                     MacroInstr::Sh(reg1, reg2, _, _) |
                     MacroInstr::Sb(reg1, reg2, _, _) |

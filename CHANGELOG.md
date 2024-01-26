@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A doc file from the repo, which contained outdated information
   - No changes in program behavior
+- Part of help string for "--no-nop-insertion" flag, which stated that this option was not respected
+  - The flag was respected before, so no changes in program behavior
 
 ### Fixed
 

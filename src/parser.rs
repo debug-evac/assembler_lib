@@ -16,9 +16,10 @@ use nom::{
         map,
         success,
     },
+    bytes::complete::escaped,
+    multi::many0,
     character::complete::{
-        multispace0,
-        multispace1, 
+        multispace0, multispace1, not_line_ending
     },
     sequence::{
         pair,
@@ -222,7 +223,7 @@ impl <'a> From<MacroInstr> for Operation<'a> {
 
 #[allow(clippy::type_complexity)]
 fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
-    let (rest, _) = multispace0(input)?;
+    let (rest, _) = many0(escaped(multispace1, ';', not_line_ending))(input)?;
     alt((
         separated_pair(
             map(parse_label_definition, Some),
@@ -1685,6 +1686,60 @@ TEST: srli a7, a7, 1
 
             assert_eq!(test_list, cor_vec);
         }
+    }
+
+    #[test]
+    fn test_parse_comment() {
+        let source_code = r#"
+    ; stop this hellO
+    ; MULTIPLE COMMENTS
+    ; YES, MULTIPLE COMMENTS
+    ; CAUSE I LIKE IT
+    ; COMMENT, LIKE AND SUBSCRIBE
+    ; OR THIS CODE WILL HAUNT YOU IN YOUR DREAMS
+START:
+    li x4, 16
+    mv x3, x4
+MUL: beq x3, x4, END    ; mul dead
+    mul x6, x4, x3
+    lui x4, 0x16
+    j MUL               ; YOU BETTER JUMP BACK
+END:
+"#;
+
+        let mut subroutines = Subroutines::new();
+
+        let mut symbols = LabelRecog::new();
+        let mut label = LabelElem::new();
+        label.set_name("START".to_string());
+        label.set_scope(true);
+        label.set_def(0);
+        let _ = symbols.insert_label(label);
+
+        label = LabelElem::new_refd("MUL".to_string());
+        label.set_scope(true);
+        label.set_def(2);
+        let _ = symbols.insert_label(label);
+
+        label = LabelElem::new_refd("END".to_string());
+        label.set_scope(true);
+        label.set_def(6);
+        //label.set_def(9);
+        let _ = symbols.insert_label(label);
+
+        let correct_vec: Vec<Operation> = vec![
+                                                Operation::LablInstr(Cow::from("START"), Instruction::Addi(Reg::G4, Reg::G0, 16)),
+                                                Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
+                                                Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
+                                                Operation::from(Instruction::Muln(Reg::G6, Reg::G4, Reg::G3)),
+                                                Operation::from(Instruction::Lui(Reg::G4, 0x16)),
+                                                Operation::from(MacroInstr::Jal(Reg::G0, "MUL".to_string())),
+                                                Operation::Labl(Cow::from("END"))
+                                                ];
+
+        assert_eq!(parse(source_code, &mut Some(&mut subroutines)),
+                   Ok(("", (symbols, correct_vec))));
+        assert!(subroutines.get_code().is_empty())
     }
 }
 

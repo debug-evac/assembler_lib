@@ -13,6 +13,7 @@ mod translator;
 mod common;
 
 use clap::{
+    builder::ArgPredicate,
     Arg, 
     Command, 
     value_parser, 
@@ -45,6 +46,17 @@ by {author-with-newline}{about-with-newline}
 
 Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
 ")
+    .arg(Arg::new("format")
+                .value_hint(ValueHint::Other)
+                .value_parser(["mif", "raw"])
+                .action(ArgAction::Set)
+                .short('f')
+                .num_args(1)
+                .default_value("mif")
+                .required(false)
+                .long("format")
+                .help("The format in which the output should be written in")
+    )
     .arg(Arg::new("input")
                 .value_names(["main asm file", "another asm file"])
                 .value_hint(ValueHint::FilePath)
@@ -64,6 +76,8 @@ Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
                 .short('o')
                 .num_args(1)
                 .default_value("a.bin")
+                .default_value_if("format", ArgPredicate::Equals("raw".into()), Some("a.bin"))
+                .default_value_if("format", ArgPredicate::Equals("mif".into()), Some("a.mif"))
                 .required(false)
                 .long("output")
                 .help("The destination for the output file")
@@ -73,17 +87,6 @@ Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
                 .action(ArgAction::SetTrue)
                 .required(false)
                 .help("Disallow nop insertion. Currently not respected!")
-    )
-    .arg(Arg::new("format")
-                .value_hint(ValueHint::Other)
-                .value_parser(["mif", "bin"])
-                .action(ArgAction::Set)
-                .short('f')
-                .num_args(1)
-                .default_value("mif")
-                .required(false)
-                .long("format")
-                .help("The format in which the output should be written in")
     )
     .get_matches()
 }
@@ -107,7 +110,7 @@ fn write_to_file(output: &PathBuf, translated_code: &Vec<u8>, format: &str) {
 
             write!(output_file, "END;\n").unwrap();
         },
-        "bin" => output_file.write_all(&translated_code).expect("[Error] could not write to output file!"),
+        "raw" => output_file.write_all(&translated_code).expect("[Error] could not write to output file!"),
         _ => unreachable!(),
     }
 }

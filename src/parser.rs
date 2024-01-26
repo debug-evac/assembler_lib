@@ -19,7 +19,7 @@ use nom::{
     bytes::complete::escaped,
     multi::many0,
     character::complete::{
-        multispace0, multispace1, not_line_ending
+        multispace1, not_line_ending
     },
     sequence::{
         pair,
@@ -249,7 +249,7 @@ fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
 
 #[allow(clippy::type_complexity)]
 fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
-    let (rest, _) = multispace0(input)?;
+    let (rest, _) = many0(escaped(multispace1, ';', not_line_ending))(input)?;
     alt((
         separated_pair(
             map(parse_label_definition_priv, Some),

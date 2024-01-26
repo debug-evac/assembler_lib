@@ -1,6 +1,6 @@
 [package]
 name = "assembler"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 description = "An assembler for a fictive RISC-V based CPU"
 repository = "https://git.mafiasi.de/Prj-MR/Assembler"

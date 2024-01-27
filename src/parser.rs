@@ -469,7 +469,7 @@ fn handle_instr_substitution(instr_list: &mut [Operation], elem: &[usize], jump_
 
 fn split_list<'a>(instr_list: &mut Vec<Operation<'a>>, pointer: &usize) -> (Vec<Operation<'a>>, Vec<Operation<'a>>) {
     let mut right_list = instr_list.split_off(*pointer);
-    if right_list.len() > 0 {
+    if !right_list.is_empty() {
         right_list.remove(0);
     }
     (right_list, vec![])
@@ -828,7 +828,7 @@ fn translate_macros<'a>(
 
             for _ in 0..(*num - 1) {
                 for x in 0..instr_num {
-                    mid_list.push(instr_list[saved_pointer + x].clone().into());
+                    mid_list.push(instr_list[saved_pointer + x].clone());
                 }
             }
 
@@ -839,7 +839,7 @@ fn translate_macros<'a>(
             }
 
             *accumulator += (space_needed - 1) as i128;
-            *pointer += space_needed as usize;
+            *pointer += space_needed;
             instr_list.append(&mut mid_list);
             instr_list.append(&mut right_list);
         },

@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     nop     ; WORKS
     ; ERROR
     ```
+- Repeat Macro, which can be used to.. well repeat instructions and macros!
+  - Use 'rep < DEC >, [ MACRO | INSTRUCTION ]' to repeat the macro or instruction DEC amount of times
+  - Nested repeat macros are not supported!
+  - Example:
+    ```
+    ; WORKS
+    rep 20, nop
+    ; ERROR
+    rep 20, rep 40, nop
+    ```
 
 ## [1.0.1] - 2024-01-26
 

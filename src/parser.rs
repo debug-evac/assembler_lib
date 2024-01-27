@@ -469,7 +469,9 @@ fn handle_instr_substitution(instr_list: &mut [Operation], elem: &[usize], jump_
 
 fn split_list<'a>(instr_list: &mut Vec<Operation<'a>>, pointer: &usize) -> (Vec<Operation<'a>>, Vec<Operation<'a>>) {
     let mut right_list = instr_list.split_off(*pointer);
-    right_list.remove(0);
+    if right_list.len() > 0 {
+        right_list.remove(0);
+    }
     (right_list, vec![])
 }
 
@@ -789,7 +791,58 @@ fn translate_macros<'a>(
             instr_list.append(&mut mid_list);
             instr_list.append(&mut right_list);
         },
+        MacroInstr::RepInstr(num, instrni) => {
+            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
+            if mid_list.capacity() < *num as usize {
+                mid_list.reserve((*num as usize) - mid_list.capacity());
+            }
+
+            match label {
+                Some(labl) => mid_list.push(Operation::LablInstr(labl, instrni.clone())),
+                None => mid_list.push(instrni.clone().into())
+            }
+
+            for _ in 0..(*num - 1) {
+                mid_list.push(instrni.clone().into());
+            }
+
+            *accumulator += (*num - 1) as i128;
+            *pointer += *num as usize;
+            instr_list.append(&mut mid_list);
+            instr_list.append(&mut right_list);
+        },
+        MacroInstr::RepMacro(num, macroni) => {
+            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
+
+            let saved_pointer = *pointer;
+
+            translate_macros(macroni, instr_list, accumulator, pointer, None);
+
+            let instr_num = *pointer - saved_pointer;
+            let space_needed = instr_num * (*num as usize);
+
+            if mid_list.capacity() < space_needed {
+                mid_list.reserve(space_needed - mid_list.capacity());
+            }
+
+            for _ in 0..(*num - 1) {
+                for x in 0..instr_num {
+                    mid_list.push(instr_list[saved_pointer + x].clone().into());
+                }
+            }
+
+            if let Some(labl) = label {
+                if let Operation::Instr(instrinin) = &instr_list[saved_pointer] {
+                    instr_list[saved_pointer] = Operation::LablInstr(labl, instrinin.clone());
+                }
+            }
+
+            *accumulator += (space_needed - 1) as i128;
+            *pointer += space_needed as usize;
+            instr_list.append(&mut mid_list);
+            instr_list.append(&mut right_list);
+        },
         _ => *pointer += 1,
     }
 }
@@ -1745,6 +1798,54 @@ END:                    ; OI OI OI OI
         assert_eq!(parse(source_code, &mut Some(&mut subroutines)),
                    Ok(("", (symbols, correct_vec))));
         assert!(subroutines.get_code().is_empty())
+    }
+
+    #[test]
+    fn test_parse_repeat() {
+        let source_code = r#"
+    ; testing repeat
+TESTING: rep 1000, nop
+"#;
+
+        let mut subroutines = Subroutines::new();
+
+        let mut symbols = LabelRecog::new();
+        let mut label = LabelElem::new();
+        label.set_name("TESTING".to_string());
+        label.set_scope(true);
+        label.set_def(0);
+        let _ = symbols.insert_label(label);
+
+        let mut correct_vec: Vec<Operation> = vec![];
+
+        correct_vec.push(Operation::LablInstr(Cow::from("TESTING"), Instruction::Addi(Reg::G0, Reg::G0, 0)));
+
+        for _ in 0..999 {
+            correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
+        }
+
+        assert_eq!(parse(source_code, &mut Some(&mut subroutines)),
+                   Ok(("", (symbols.clone(), correct_vec))));
+        assert!(subroutines.get_code().is_empty());
+
+        let source_code_two = r#"
+    ; testing repeat with macros
+TESTING: rep 50, pop x15
+"#;
+
+        let mut sec_correct_vec: Vec<Operation> = vec![];
+
+        sec_correct_vec.push(Operation::LablInstr(Cow::from("TESTING"), Instruction::Lw(Reg::G15, Reg::G2, 0)));
+        sec_correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G2, Reg::G2, 4)));
+
+        for _ in 0..49 {
+            sec_correct_vec.push(Operation::Instr(Instruction::Lw(Reg::G15, Reg::G2, 0)));
+            sec_correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G2, Reg::G2, 4)));
+        }
+
+        assert_eq!(parse(source_code_two, &mut Some(&mut subroutines)),
+                   Ok(("", (symbols, sec_correct_vec))));
+        assert!(subroutines.get_code().is_empty());
     }
 }
 

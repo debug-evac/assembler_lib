@@ -245,7 +245,7 @@ fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
     alt((
         separated_pair(
             map(parse_label_definition, Some),
-            multispace1,
+            parse_multiline_comments,
             map(
                 parse_instruction,
                 Some
@@ -274,7 +274,7 @@ fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation
     alt((
         separated_pair(
             map(parse_label_definition_priv, Some),
-            multispace1,
+            parse_multiline_comments,
             map(
                 parse_instruction,
                 Some
@@ -1771,7 +1771,9 @@ TEST: srli a7, a7, 1
     ; CAUSE I LIKE IT
     ; COMMENT, LIKE AND SUBSCRIBE
     ; OR THIS CODE WILL HAUNT YOU IN YOUR DREAMS
-START:
+START:                  ; TEST
+                        ; HANS?
+                        ; lit testing omg
     li x4, 16
     mv x3, x4
 MUL: beq x3, x4, END    ; mul dead
@@ -1779,6 +1781,8 @@ MUL: beq x3, x4, END    ; mul dead
     lui x4, 0x16
     j MUL               ; YOU BETTER JUMP BACK
 END:                    ; TEST
+; TEST2
+; better worth it
 "#;
 
         let mut subroutines = Subroutines::new();

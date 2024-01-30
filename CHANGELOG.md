@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Examples for assembly code under the "examples" directory
+
+### Added
+
+- Examples for assembly code under the "examples" directory
 - Ability to write single line comments in the assembly code
   - Use '; < COMMENT >' to comment something in the code, works inline as well as before
   - Example:

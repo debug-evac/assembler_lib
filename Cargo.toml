@@ -1,6 +1,6 @@
 [package]
 name = "assembler"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 description = "An assembler for a fictive RISC-V based CPU"
 repository = "https://git.mafiasi.de/Prj-MR/Assembler"
@@ -9,7 +9,7 @@ authors = ["Steven Becker <steven.becker@studium.uni-hamburg.de>"]
 publish = ["mafiasi-gitea"]
 
 [features]
-default = ["mem_load_nop"]
+default = []
 full_nop = ["raw_nop", "mem_load_nop"]
 raw_nop = []
 mem_load_nop = []
@@ -27,7 +27,10 @@ predicates = "3.0.4"
 assert_fs = "1.1.0"
 
 [profile.release]
-strip = "debuginfo"
+strip = "symbols"
+codegen-units = 1
+lto = "fat"
+panic = "abort"
 
 [package.metadata.release]
 sign-commit = true

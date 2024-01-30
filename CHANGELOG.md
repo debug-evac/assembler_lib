@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Examples for assembly code under the "examples" directory
+
+## [1.0.1] - 2024-01-26
+
+### Added
+
+- Gitea Codeowners file for responsibility management
+  - No changes in program behavior
+
+### Changed
+
+- Build option flags for the release build
+  - Binaries are now significantly smaller & probably faster in execution as well
+  - Release builds now take a little bit more time
+
+### Removed
+
+- A doc file from the repo, which contained outdated information
+  - No changes in program behavior
+- Part of help string for "--no-nop-insertion" flag, which stated that this option was not respected
+  - The flag was respected before, so no changes in program behavior
+
+### Fixed
+
+- NOP insertion for load instructions
+  - The wrong register was being used to look for hazards
+
 ## [1.0.0] - 2024-01-23
 
 ### Added
@@ -30,5 +59,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Forwarding unit, Multiplication hardware instruction
 
 <!-- next-url -->
-[Unreleased]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.0.0...HEAD
+[Unreleased]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.0.1...HEAD
+[1.0.1]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.0.0...1.0.1
 [1.0.0]: https://git.mafiasi.de/Prj-MR/Assembler/compare/05d33c7556d2d3d08d2bc21aa930810ab19428c1...1.0.0

@@ -86,7 +86,7 @@ Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
                 .long("no-nop-insertion")
                 .action(ArgAction::SetTrue)
                 .required(false)
-                .help("Disallow nop insertion. Currently not respected!")
+                .help("Disallow nop insertion")
     )
     .get_matches()
 }

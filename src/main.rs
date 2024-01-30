@@ -111,22 +111,22 @@ Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
 }
 
 fn write_to_file(output: &PathBuf, translated_code: &Vec<u8>, format: &str, size: (u16, u8)) -> Result<(), String> {
-    let mut output_file = match File::create(output) {
-        Ok(file) => file,
-        Err(msg) => return Err(format!("Could not create file!\n{msg}")),
-    };
+    let mut output_file: File;
 
     match format {
         "mif" => {
             let depth = size.0;
             let width = size.1;
 
-            writeln!(output_file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN").unwrap();
-
             if width == 32 {
                 if (depth as usize) < translated_code.len() {
                     return Err(format!("MIF depth is smaller than the instruction count! {} < {}", depth, translated_code.len()));
                 }
+                output_file = match File::create(output) {
+                    Ok(file) => file,
+                    Err(msg) => return Err(format!("Could not create file!\n{msg}")),
+                };
+                writeln!(output_file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN").unwrap();
                 for (counter, values) in translated_code.chunks_exact(4).enumerate() {
                     writeln!(output_file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", values[0], values[1], values[2], values[3]).unwrap();
                 }
@@ -134,6 +134,11 @@ fn write_to_file(output: &PathBuf, translated_code: &Vec<u8>, format: &str, size
                 if ((depth as usize) / 4) < translated_code.len() {
                     return Err(format!("MIF depth is smaller than the instruction count! {} < {}", (depth / 4), translated_code.len()));
                 }
+                output_file = match File::create(output) {
+                    Ok(file) => file,
+                    Err(msg) => return Err(format!("Could not create file!\n{msg}")),
+                };
+                writeln!(output_file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN").unwrap();
                 for (counter, value) in translated_code.iter().enumerate() {
                     writeln!(output_file, "{counter}\t: {:08b};", value).unwrap();
                 }
@@ -144,6 +149,10 @@ fn write_to_file(output: &PathBuf, translated_code: &Vec<u8>, format: &str, size
             writeln!(output_file, "END;").unwrap();
         },
         "raw" => {
+            output_file = match File::create(output) {
+                Ok(file) => file,
+                Err(msg) => return Err(format!("Could not create file!\n{msg}")),
+            };
             if let Err(msg) = output_file.write_all(translated_code) {
                 return Err(format!("Could not write to output file!\n{msg}"));
             }

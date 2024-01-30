@@ -20,12 +20,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `--width` that specifies the width of a word
     - Possible values are 8 and 32
   - The default format is now "mif"
+- Better error handling for output file writes
 
 ### Changed
 
 - Default output path
   - Default output path of "mif" files is now "./a.mif"
   - Default output path of "raw" files is now "./a.bin"
+
+### Fixed
+
+- Writing output file if the file cannot be written to due to an error
 
 ## [1.0.1] - 2024-01-26
 

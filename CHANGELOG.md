@@ -12,6 +12,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Examples for assembly code under the "examples" directory
+- New CLI arguments
+  - `--format` or `-f` that specifies in which format the output should appear
+    - Possible values are "raw" and "mif"
+  - `--depth` that specifies the address count of the "mif" format file
+    - Possible values are 1 to 65535
+  - `--width` that specifies the width of a word
+    - Possible values are 8 and 32
+  - The default format is now "mif"
+
+### Changed
+
+- Default output path
+  - Default output path of "mif" files is now "./a.mif"
+  - Default output path of "raw" files is now "./a.bin"
 
 ## [1.0.1] - 2024-01-26
 

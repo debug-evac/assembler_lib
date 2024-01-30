@@ -20,7 +20,7 @@ use nom::{
     bytes::complete::escaped,
     multi::many0,
     character::complete::{
-        multispace1, not_line_ending, space1
+        multispace1, not_line_ending
     },
     sequence::{
         pair,
@@ -222,10 +222,27 @@ impl <'a> From<MacroInstr> for Operation<'a> {
     }
 }
 
+fn parse_multiline_comments(input: &str) -> IResult<&str, bool> {
+    let (rest, parsed) = opt(
+        many0(
+            escaped(multispace1, ';', not_line_ending)
+        )
+    )(input)?;
+    if parsed.is_none() {
+        // is only None at EOF
+        let (rest, _) = nom::bytes::complete::take::<usize, &str, nom::error::Error<&str>>(rest.len())(rest)?;
+        return Ok((rest, true))
+    }
+    Ok((rest, false))
+}
+
 #[allow(clippy::type_complexity)]
 fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
-    let (rest, _) = many0(escaped(multispace1, ';', not_line_ending))(input)?;
-    let (rest, parsed) = alt((
+    let (rest, early) = parse_multiline_comments(input)?;
+    if early {
+        return Ok((rest, (None, None)))
+    }
+    alt((
         separated_pair(
             map(parse_label_definition, Some),
             multispace1,
@@ -245,15 +262,16 @@ fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
                 Some
             )
         ),
-    ))(rest)?;
-    let (rest, _) = opt(separated_pair(space1, nom::character::complete::char(';'), not_line_ending))(rest)?;
-    Ok((rest, parsed))
+    ))(rest)
 }
 
 #[allow(clippy::type_complexity)]
 fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
-    let (rest, _) = many0(escaped(multispace1, ';', not_line_ending))(input)?;
-    let (rest, parsed) = alt((
+    let (rest, early) = parse_multiline_comments(input)?;
+    if early {
+        return Ok((rest, (None, None)))
+    }
+    alt((
         separated_pair(
             map(parse_label_definition_priv, Some),
             multispace1,
@@ -273,9 +291,7 @@ fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation
                 Some
             )
         ),
-    ))(rest)?;
-    let (rest, _) = opt(separated_pair(space1, nom::character::complete::char(';'), not_line_ending))(rest)?;
-    Ok((rest, parsed))
+    ))(rest)
 }
 
 fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, instr_counter: usize) {
@@ -1762,7 +1778,7 @@ MUL: beq x3, x4, END    ; mul dead
     mul x6, x4, x3
     lui x4, 0x16
     j MUL               ; YOU BETTER JUMP BACK
-END:                    ; OI OI OI OI
+END:                    ; TEST
 "#;
 
         let mut subroutines = Subroutines::new();

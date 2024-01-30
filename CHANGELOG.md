@@ -11,15 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Ability to write simple comments in the assembly code
+- Ability to write single line comments in the assembly code
   - Use '; < COMMENT >' to comment something in the code, works inline as well as before
-  - Currently does not work for comments after code
   - Example:
     ```
     ; WORKS
         ; WORKS
     nop     ; WORKS
-    ; ERROR
+    ; WORKS LIKE A CHAMP ^^
     ```
 - Repeat Macro, which can be used to.. well repeat instructions and macros!
   - Use 'rep < DEC >, [ MACRO | INSTRUCTION ]' to repeat the macro or instruction DEC amount of times

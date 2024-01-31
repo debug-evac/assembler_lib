@@ -16,7 +16,7 @@ There are several ways to install the assembler. We recommend using the first me
 Once installed, you need to run the following:
 
 ```
-cargo binstall assembler --git https://git.mafiasi.de/Prj-MR/Assembler --pkg-url="{ repo }/releases/download/{ version }/{ name }-{ target }.{ archive-format }" --pkg-fmt "bin"
+cargo binstall assembler --git https://git.mafiasi.de/Prj-MR/Assembler --only-signed
 ```
 
 Then enter your username & password for Gitea. The installation is done.

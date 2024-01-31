@@ -31,7 +31,7 @@ To use the binary, you either have it in the directory you are in (not ideal) or
 
 ### From Source 
 
-If you have or want to compile the assembler from source, then you need to install cargo. See [this](https://www.rust-lang.org/tools/install) for instructions on how to install it. Once installed, you can use either of these methods to build the assembler from source. We recommend using the Cargo registry, which is a bit more involved, however ensures best compatibility and usability.
+If you have or want to compile the assembler from source, then you need to install cargo. See [this](https://www.rust-lang.org/tools/install) for instructions on how to install it. Once installed, you can use either of these methods to build the assembler from source. We recommend using the Cargo registry, which is a bit more involved, however ensures best compatibility and usability. When using `cargo install`, you may need to add the path of the bin directory to the system path variable. Please look up how to do that for your system.
 
 #### Using `cargo install` with Cargo registry
 
@@ -73,7 +73,48 @@ You can then use `cargo install --path .` to compile the assembler from source a
 ## Usage
 
 ```
+$ assembler --help
 
+Assembler - 1.0.1
+by Steven Becker <steven.becker@studium.uni-hamburg.de>
+An assembler for a fictive RISC-V based CPU
+
+Usage: assembler [OPTIONS] --input <main asm file> <another asm file>...
+
+Options:
+  -f, --format <format>
+          The format in which the output should be written in [default: mif] [possible values: mif, raw]
+  -i, --input <main asm file> <another asm file>...
+          Input assembly files, use "<PATH>"
+  -o, --output <output bin file>
+          The destination for the output file [default: a.bin]
+      --depth <address count>
+          Depth for MIF format. Does not do anything, if format != mif. [default: 1024]
+      --width <word width in bits>
+          Width for MIF format. Does not do anything, if format != mif. [default: 32] [possible values: 8, 32]
+      --no-nop-insertion
+          Disallow nop insertion
+  -h, --help
+          Print help
+  -V, --version
+          Print version
+
+Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
 ```
 
 For more information, please head to the [wiki](https://git.mafiasi.de/Prj-MR/Assembler/wiki).
+
+## Support
+
+Please open an issue if you encounter any bugs or irregularities and include information on how to reproduce that. We will promptly fix it then!
+
+## Contributing
+
+Pull requests are welcome. For major changes, please open an issue first
+to discuss what you would like to change.
+
+Please make sure to update tests as appropriate.
+
+## License
+
+[MPL-2.0](https://www.mozilla.org/en-US/MPL/2.0/)

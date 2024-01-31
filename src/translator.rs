@@ -129,7 +129,7 @@ pub fn translate(input: Vec<Instruction>) -> Vec<u8> {
    let mut output: Vec<u8> = vec![];
 
    for instr in input.iter(){
-      output.extend(Instruction::translate_instruction(instr.clone()).to_be_bytes());
+      output.extend(Instruction::translate_instruction(instr.clone()).to_le_bytes());
    }
 
    output

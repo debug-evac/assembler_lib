@@ -263,3 +263,23 @@ ret
 
     Ok(())
 }
+
+#[test]
+fn test_faraway_calls() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = assert_fs::TempDir::new()?;
+
+    let input = temp.child("test_far_call.asm");
+    input.write_str(r#"
+call farAway
+rep 3356, nop
+farAway: j farAway
+"#)?;
+
+    let mut cmd = Command::cargo_bin("assembler")?;
+
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a.bin"));
+    cmd.assert()
+        .success();
+
+    Ok(())
+}

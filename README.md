@@ -69,3 +69,11 @@ To uninstall the assembler, use `cargo uninstall assembler`.
 This method is highly discouraged. You can clone this repo to your PC by using `git clone https://git.mafiasi.de/Prj-MR/Assembler -b stable`. We do not recommend using any other branch than stable. 
 
 You can then use `cargo install --path .` to compile the assembler from source and install it.
+
+## Usage
+
+```
+
+```
+
+For more information, please head to the [wiki](https://git.mafiasi.de/Prj-MR/Assembler/wiki).

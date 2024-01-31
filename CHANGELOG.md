@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simple readme.md
 - Examples for assembly code under the "examples" directory
 
+### Fixed
+
+- Bit masking for immediates in shift operations with immediates
+  - This resulted in incorrect amount of shifts
+- Endianness
+  - Little endian is now used for binary output
+
 ## [1.0.1] - 2024-01-26
 
 ### Added

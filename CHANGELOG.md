@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Simple readme.md
 - Examples for assembly code under the "examples" directory
 
 ## [1.0.1] - 2024-01-26

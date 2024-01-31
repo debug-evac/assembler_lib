@@ -69,7 +69,7 @@ ret
     ]);
 
     for instr in instr_vec.iter() {
-        cor_instr_vec.extend(instr.to_be_bytes());
+        cor_instr_vec.extend(instr.to_le_bytes());
     }
 
     cor_output.write_binary(&cor_instr_vec)?;
@@ -151,7 +151,7 @@ ret
     ]);
 
     for instr in instr_vec.iter() {
-        cor_instr_vec.extend(instr.to_be_bytes());
+        cor_instr_vec.extend(instr.to_le_bytes());
     }
 
     cor_output.write_binary(&cor_instr_vec)?;
@@ -209,7 +209,7 @@ ret
     ]);
 
     for instr in instr_vec.iter() {
-        cor_instr_vec.extend(instr.to_be_bytes());
+        cor_instr_vec.extend(instr.to_le_bytes());
     }
 
     cor_output.write_binary(&cor_instr_vec)?;

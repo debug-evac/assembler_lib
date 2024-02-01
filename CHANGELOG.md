@@ -31,6 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     ; ERROR
     rep 20, rep 40, nop
     ```
+- More tests
+
+### Fixed
+
+- `call <LABL>` and `tail <LABL>`
+  - Using these resulted in wrong jumps
 
 ## [1.0.1] - 2024-01-26
 

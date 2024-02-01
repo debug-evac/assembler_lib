@@ -45,11 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     ```
 - More tests
 
-### Fixed
-
-- `call <LABL>` and `tail <LABL>`
-  - Using these resulted in wrong jumps
-
 ### Changed
 
 - Default output path
@@ -64,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - This resulted in incorrect amount of shifts
 - Endianness
   - Little endian is now used for binary output
+- `call <LABL>` and `tail <LABL>`
+  - Using these resulted in wrong jumps
 
 ## [1.0.1] - 2024-01-26
 

@@ -411,7 +411,7 @@ fn translate_label(current_line: i128, label: String, namespaces: &mut Namespace
 
 fn cond_add_acc_label(namespaces: &mut Namespaces, accumulator: i128, label: Cow<str>, space: usize) {
     if accumulator != 0 {
-        match label.strip_prefix(".") {
+        match label.strip_prefix('.') {
             Some(labell) => {
                 match namespaces.get_label(labell.to_string(), Some(space)) {
                     Some(lablel) => lablel.add_def(accumulator),

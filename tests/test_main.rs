@@ -75,7 +75,7 @@ ret
     cor_output.write_binary(&cor_instr_vec)?;
 
     let mut cmd = Command::cargo_bin("assembler")?;
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a.bin"));
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a.bin")).arg("-f").arg("raw");
     cmd.assert()
         .success();
 
@@ -158,7 +158,8 @@ ret
 
     let mut cmd = Command::cargo_bin("assembler")?;
     cmd.arg("-i").arg(main_in.path()).arg(sec_in.path())
-                 .arg("-o").arg(temp.path().join("a.bin"));
+                 .arg("-o").arg(temp.path().join("a.bin"))
+                 .arg("-f").arg("raw");
     cmd.assert()
         .success();
 
@@ -215,7 +216,8 @@ ret
 
     let mut cmd = Command::cargo_bin("assembler")?;
     cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a.bin"))
-                                   .arg("--no-nop-insertion");
+                                   .arg("--no-nop-insertion")
+                                   .arg("-f").arg("raw");
     cmd.assert()
         .success();
 

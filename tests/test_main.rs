@@ -88,6 +88,7 @@ ret
     Ok(())
 }
 
+#[cfg(not(feature = "raw_nop"))]
 #[test]
 fn test_translate_multiple_files() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
@@ -264,6 +265,7 @@ ret
     Ok(())
 }
 
+#[cfg(not(feature = "raw_nop"))]
 #[test]
 fn test_faraway_calls() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;

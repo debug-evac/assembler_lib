@@ -53,3 +53,4 @@ pkg-fmt = "bin"
 [package.metadata.binstall.signing]
 algorithm = "minisign"
 pubkey = "RWQ6OyUDGTMQlRVb+YQi+iU6m3qkoDFa3MdTKpwRMb4OpSy/5IOXbM8b"
+file = "{ url }.minisig"

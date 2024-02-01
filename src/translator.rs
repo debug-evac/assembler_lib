@@ -97,9 +97,9 @@ impl Instruction {
          Instruction::Sltiu(reg1, reg2, imm) => itype_instr(reg1, reg2, imm) + 0b0010011_u32 + funct3(3), 
 
          // S-Type instruction
-         Instruction::Sb(reg1, reg2, imm) => stype_instr(reg1, reg2, imm),
-         Instruction::Sh(reg1, reg2, imm) => stype_instr(reg1, reg2, imm) + funct3(1),
-         Instruction::Sw(reg1, reg2, imm) => stype_instr(reg1, reg2, imm) + funct3(2),
+         Instruction::Sb(reg1, reg2, imm) => stype_instr(reg1, reg2, imm) + funct3(4),
+         Instruction::Sh(reg1, reg2, imm) => stype_instr(reg1, reg2, imm) + funct3(5),
+         Instruction::Sw(reg1, reg2, imm) => stype_instr(reg1, reg2, imm) + funct3(6),
 
          // R-Type instruction; 3 regs
          Instruction::Addn(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2),
@@ -169,11 +169,13 @@ mod tests {
    #[test]
    fn test_translate_stype_instr() {
       let mut instr = Instruction::Sb(Reg::G21, Reg::G22, 2953);
-      assert_eq!(0b10_11100_10101_10110_00001_00101_00011, Instruction::translate_instruction(instr));
+      //println!("{:#034b}", Instruction::translate_instruction(instr.clone()));
+      //println!("{:#034b}", (0b10_11100_10101_10110_10001_00101_00011 as u32));
+      assert_eq!(0b10_11100_10101_10110_10001_00101_00011, Instruction::translate_instruction(instr));
       instr = Instruction::Sh(Reg::G23, Reg::G24, 2953);
-      assert_eq!(0b10_11100_10111_11000_00101_00101_00011, Instruction::translate_instruction(instr));
+      assert_eq!(0b10_11100_10111_11000_10101_00101_00011, Instruction::translate_instruction(instr));
       instr = Instruction::Sw(Reg::G25, Reg::G26, 2953);
-      assert_eq!(0b10_11100_11001_11010_01001_00101_00011, Instruction::translate_instruction(instr));
+      assert_eq!(0b10_11100_11001_11010_11001_00101_00011, Instruction::translate_instruction(instr));
    }
 
    #[test]

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [1.1.0] - 2024-02-01
+
 ### Added
 
 - Simple readme.md
@@ -108,6 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Forwarding unit, Multiplication hardware instruction
 
 <!-- next-url -->
-[Unreleased]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.0.1...HEAD
+[Unreleased]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.1.0...HEAD
+[1.1.0]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.0.1...1.1.0
 [1.0.1]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.0.0...1.0.1
 [1.0.0]: https://git.mafiasi.de/Prj-MR/Assembler/compare/05d33c7556d2d3d08d2bc21aa930810ab19428c1...1.0.0

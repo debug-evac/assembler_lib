@@ -162,6 +162,9 @@ pub enum MacroInstr {
     Push(Vec<Reg>),
     Pop(Vec<Reg>),
 
+    RepMacro(u32, Box<MacroInstr>),
+    RepInstr(u32, Instruction)
+
     // If there is time and someone has nothing to do..
     //Subi(Reg, Reg, Imm),
     //Muli(Reg, Reg, Imm),

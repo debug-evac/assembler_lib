@@ -15,10 +15,12 @@ use nom::{
     combinator::{
         map,
         success,
+        opt
     },
+    bytes::complete::escaped,
+    multi::many0,
     character::complete::{
-        multispace0,
-        multispace1, 
+        multispace1, not_line_ending
     },
     sequence::{
         pair,
@@ -220,13 +222,30 @@ impl <'a> From<MacroInstr> for Operation<'a> {
     }
 }
 
+fn parse_multiline_comments(input: &str) -> IResult<&str, bool> {
+    let (rest, parsed) = opt(
+        many0(
+            escaped(multispace1, ';', not_line_ending)
+        )
+    )(input)?;
+    if parsed.is_none() {
+        // is only None at EOF
+        let (rest, _) = nom::bytes::complete::take::<usize, &str, nom::error::Error<&str>>(rest.len())(rest)?;
+        return Ok((rest, true))
+    }
+    Ok((rest, false))
+}
+
 #[allow(clippy::type_complexity)]
 fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
-    let (rest, _) = multispace0(input)?;
+    let (rest, early) = parse_multiline_comments(input)?;
+    if early {
+        return Ok((rest, (None, None)))
+    }
     alt((
         separated_pair(
             map(parse_label_definition, Some),
-            multispace1,
+            parse_multiline_comments,
             map(
                 parse_instruction,
                 Some
@@ -248,11 +267,14 @@ fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
 
 #[allow(clippy::type_complexity)]
 fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
-    let (rest, _) = multispace0(input)?;
+    let (rest, early) = parse_multiline_comments(input)?;
+    if early {
+        return Ok((rest, (None, None)))
+    }
     alt((
         separated_pair(
             map(parse_label_definition_priv, Some),
-            multispace1,
+            parse_multiline_comments,
             map(
                 parse_instruction,
                 Some
@@ -463,7 +485,9 @@ fn handle_instr_substitution(instr_list: &mut [Operation], elem: &[usize], jump_
 
 fn split_list<'a>(instr_list: &mut Vec<Operation<'a>>, pointer: &usize) -> (Vec<Operation<'a>>, Vec<Operation<'a>>) {
     let mut right_list = instr_list.split_off(*pointer);
-    right_list.remove(0);
+    if !right_list.is_empty() {
+        right_list.remove(0);
+    }
     (right_list, vec![])
 }
 
@@ -783,7 +807,58 @@ fn translate_macros<'a>(
             instr_list.append(&mut mid_list);
             instr_list.append(&mut right_list);
         },
+        MacroInstr::RepInstr(num, instrni) => {
+            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
+            if mid_list.capacity() < *num as usize {
+                mid_list.reserve((*num as usize) - mid_list.capacity());
+            }
+
+            match label {
+                Some(labl) => mid_list.push(Operation::LablInstr(labl, instrni.clone())),
+                None => mid_list.push(instrni.clone().into())
+            }
+
+            for _ in 0..(*num - 1) {
+                mid_list.push(instrni.clone().into());
+            }
+
+            *accumulator += (*num - 1) as i128;
+            *pointer += *num as usize;
+            instr_list.append(&mut mid_list);
+            instr_list.append(&mut right_list);
+        },
+        MacroInstr::RepMacro(num, macroni) => {
+            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
+
+            let saved_pointer = *pointer;
+
+            translate_macros(macroni, instr_list, accumulator, pointer, None);
+
+            let instr_num = *pointer - saved_pointer;
+            let space_needed = instr_num * (*num as usize);
+
+            if mid_list.capacity() < space_needed {
+                mid_list.reserve(space_needed - mid_list.capacity());
+            }
+
+            for _ in 0..(*num - 1) {
+                for x in 0..instr_num {
+                    mid_list.push(instr_list[saved_pointer + x].clone());
+                }
+            }
+
+            if let Some(labl) = label {
+                if let Operation::Instr(instrinin) = &instr_list[saved_pointer] {
+                    instr_list[saved_pointer] = Operation::LablInstr(labl, instrinin.clone());
+                }
+            }
+
+            *accumulator += (space_needed - 1) as i128;
+            *pointer += space_needed;
+            instr_list.append(&mut mid_list);
+            instr_list.append(&mut right_list);
+        },
         _ => *pointer += 1,
     }
 }
@@ -1685,6 +1760,112 @@ TEST: srli a7, a7, 1
 
             assert_eq!(test_list, cor_vec);
         }
+    }
+
+    #[test]
+    fn test_parse_comment() {
+        let source_code = r#"
+    ; stop this hellO
+    ; MULTIPLE COMMENTS
+    ; YES, MULTIPLE COMMENTS
+    ; CAUSE I LIKE IT
+    ; COMMENT, LIKE AND SUBSCRIBE
+    ; OR THIS CODE WILL HAUNT YOU IN YOUR DREAMS
+START:                  ; TEST
+                        ; HANS?
+                        ; lit testing omg
+    li x4, 16
+    mv x3, x4
+MUL: beq x3, x4, END    ; mul dead
+    mul x6, x4, x3
+    lui x4, 0x16
+    j MUL               ; YOU BETTER JUMP BACK
+END:                    ; TEST
+; TEST2
+; better worth it
+"#;
+
+        let mut subroutines = Subroutines::new();
+
+        let mut symbols = LabelRecog::new();
+        let mut label = LabelElem::new();
+        label.set_name("START".to_string());
+        label.set_scope(true);
+        label.set_def(0);
+        let _ = symbols.insert_label(label);
+
+        label = LabelElem::new_refd("MUL".to_string());
+        label.set_scope(true);
+        label.set_def(2);
+        let _ = symbols.insert_label(label);
+
+        label = LabelElem::new_refd("END".to_string());
+        label.set_scope(true);
+        label.set_def(6);
+        //label.set_def(9);
+        let _ = symbols.insert_label(label);
+
+        let correct_vec: Vec<Operation> = vec![
+                                                Operation::LablInstr(Cow::from("START"), Instruction::Addi(Reg::G4, Reg::G0, 16)),
+                                                Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
+                                                Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
+                                                Operation::from(Instruction::Muln(Reg::G6, Reg::G4, Reg::G3)),
+                                                Operation::from(Instruction::Lui(Reg::G4, 0x16)),
+                                                Operation::from(MacroInstr::Jal(Reg::G0, "MUL".to_string())),
+                                                Operation::Labl(Cow::from("END"))
+                                                ];
+
+        assert_eq!(parse(source_code, &mut Some(&mut subroutines)),
+                   Ok(("", (symbols, correct_vec))));
+        assert!(subroutines.get_code().is_empty())
+    }
+
+    #[test]
+    fn test_parse_repeat() {
+        let source_code = r#"
+    ; testing repeat
+TESTING: rep 1000, nop
+"#;
+
+        let mut subroutines = Subroutines::new();
+
+        let mut symbols = LabelRecog::new();
+        let mut label = LabelElem::new();
+        label.set_name("TESTING".to_string());
+        label.set_scope(true);
+        label.set_def(0);
+        let _ = symbols.insert_label(label);
+
+        let mut correct_vec: Vec<Operation> = vec![];
+
+        correct_vec.push(Operation::LablInstr(Cow::from("TESTING"), Instruction::Addi(Reg::G0, Reg::G0, 0)));
+
+        for _ in 0..999 {
+            correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
+        }
+
+        assert_eq!(parse(source_code, &mut Some(&mut subroutines)),
+                   Ok(("", (symbols.clone(), correct_vec))));
+        assert!(subroutines.get_code().is_empty());
+
+        let source_code_two = r#"
+    ; testing repeat with macros
+TESTING: rep 50, pop x15
+"#;
+
+        let mut sec_correct_vec: Vec<Operation> = vec![];
+
+        sec_correct_vec.push(Operation::LablInstr(Cow::from("TESTING"), Instruction::Lw(Reg::G15, Reg::G2, 0)));
+        sec_correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G2, Reg::G2, 4)));
+
+        for _ in 0..49 {
+            sec_correct_vec.push(Operation::Instr(Instruction::Lw(Reg::G15, Reg::G2, 0)));
+            sec_correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G2, Reg::G2, 4)));
+        }
+
+        assert_eq!(parse(source_code_two, &mut Some(&mut subroutines)),
+                   Ok(("", (symbols, sec_correct_vec))));
+        assert!(subroutines.get_code().is_empty());
     }
 }
 

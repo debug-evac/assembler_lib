@@ -9,12 +9,13 @@
 use nom::{
     IResult,
     bytes::complete::tag,
-    character::complete::space1,
+    character::complete::{space1, digit1},
     branch::alt,
     combinator::{
         opt,
         value,
-        recognize
+        recognize,
+        map_res
     },
     sequence::{
         tuple,
@@ -474,6 +475,31 @@ fn parse_macro_multiarg(input: &str) -> IResult<&str, Operation> {
     instr.translate_parse(rest)
 }
 
+fn parse_special_macro(input: &str) -> IResult<&str, Operation> {
+    map_res(tuple((
+        tag("rep"), 
+        space1, 
+        separated_pair(map_res(digit1, str::parse), parse_seper, parse_instruction)
+    )),
+    |parsed| {
+        match parsed.2.1 {
+            Operation::Namespace(_) |
+            Operation::LablMacro(_, _) |
+            Operation::LablInstr(_, _) |
+            Operation::Labl(_) => unreachable!(),
+            Operation::Instr(instr_in) => Ok(MacroInstr::RepInstr(parsed.2.0, instr_in).into()),
+            Operation::Macro(macro_in) => {
+                match macro_in {
+                    MacroInstr::RepInstr(_, _) |
+                    MacroInstr::RepMacro(_, _) => Err("[Error] Repeat Macro contains repeat macro!"),
+                    op => Ok(MacroInstr::RepMacro(parsed.2.0, Box::new(op)).into()),
+                }
+            },
+        }
+    }
+    )(input)
+}
+
 pub fn parse_instruction(input: &str) -> IResult<&str, Operation> {
     let (rest, op) = alt((
         parse_macro_noparm,
@@ -487,7 +513,8 @@ pub fn parse_instruction(input: &str) -> IResult<&str, Operation> {
         parse_inst_1imm1reg,
         parse_inst_1imm2reg_up,
         parse_inst_3reg,
-        parse_macro_multiarg
+        parse_macro_multiarg,
+        parse_special_macro
     ))(input)?;
 
     Ok((rest, op))
@@ -675,6 +702,7 @@ mod tests {
         assert_eq!(parse_instruction("add x10,x11, x10"), Ok(("", Instruction::Addn(Reg::G10, Reg::G11, Reg::G10).into())));
         assert_ne!(parse_instruction("xnor x6,  x8,x5"), Ok(("", Instruction::Xnor(Reg::G6, Reg::G8, Reg::G5).into())));
         assert_eq!(parse_instruction("srr x5, x8, 7"), Ok(("", MacroInstr::Srr(Reg::G5, Reg::G8, 7).into())));
+        assert_eq!(parse_instruction("rep 20, nop"), Ok(("", MacroInstr::RepInstr(20, Instruction::Addi(Reg::G0, Reg::G0, 0)).into())));
         // More tests & seperate
     }
 }

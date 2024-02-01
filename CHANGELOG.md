@@ -24,6 +24,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Possible values are 8 and 32
   - The default format is now "mif"
 - Better error handling for output file writes
+- Ability to write single line comments in the assembly code
+  - Use '; < COMMENT >' to comment something in the code, works inline as well as before
+  - Example:
+    ```
+    ; WORKS
+        ; WORKS
+    nop     ; WORKS
+    ; WORKS LIKE A CHAMP ^^
+    ```
+- Repeat Macro, which can be used to.. well repeat instructions and macros!
+  - Use 'rep < DEC >, [ MACRO | INSTRUCTION ]' to repeat the macro or instruction DEC amount of times
+  - Nested repeat macros are not supported!
+  - Example:
+    ```
+    ; WORKS
+    rep 20, nop
+    ; ERROR
+    rep 20, rep 40, nop
+    ```
 
 ### Changed
 

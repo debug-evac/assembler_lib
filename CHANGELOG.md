@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Simple readme.md
 - Cargo binstall metadata
-  - binstall command is now shorter and supports verifying signatures automatically!
+  - binstall command is now shorter!
 - Examples for assembly code under the "examples" directory
 - New CLI arguments
   - `--format` or `-f` that specifies in which format the output should appear

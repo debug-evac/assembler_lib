@@ -88,6 +88,7 @@ ret
     Ok(())
 }
 
+#[cfg(not(feature = "raw_nop"))]
 #[test]
 fn test_translate_multiple_files() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
@@ -142,7 +143,7 @@ ret
         0b11_11111_11100_00010_00000_01000_10011, // Push - addi -4
         0b00_00000_11001_00010_01000_00001_00011, // Push - sw
         0b00_00000_00000_00000_00000_00100_10111, // Call - auipc - 5
-        0b00_00000_10000_00001_00000_00111_00111, // Call - jalr - 6
+        0b00_00000_10100_00001_00000_00111_00111, // Call - jalr - 6
         0b00_00000_00000_00010_01011_00100_00011, // Pop - Lw
         0b00_00000_00100_00010_00000_01000_10011, // Pop - addi +4
         0b00_00000_00000_00001_00000_00011_00111, // ret
@@ -262,6 +263,55 @@ ret
     cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a2.bin"));
     cmd.assert()
         .failure();
+
+    Ok(())
+}
+
+#[cfg(not(feature = "raw_nop"))]
+#[test]
+fn test_faraway_calls() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = assert_fs::TempDir::new()?;
+
+    let input = temp.child("test_far_call.asm");
+    input.write_str(r#"
+call farAway
+rep 1024, nop
+farAway: j farAway
+"#)?;
+
+    let cor_output = temp.child("correct_output.bin");
+
+    let mut cor_instr_vec: Vec<u8> = vec![];
+
+    let mut instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_00100_10111, // auipc call farAway
+        0b00_00000_01100_00001_00000_00111_00111, // jalr
+    ]);
+
+    for _ in 0..1024 {
+        instr_vec.push(0b00_00000_00000_00000_00000_00000_10011); // nop
+    }
+
+    instr_vec.push(0b00_00000_00000_00000_00000_00011_01111); // jal
+
+    for instr in instr_vec.iter() {
+        cor_instr_vec.extend(instr.to_le_bytes());
+    }
+
+    cor_output.write_binary(&cor_instr_vec)?;
+
+    let mut cmd = Command::cargo_bin("assembler")?;
+
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a.bin"))
+                 .arg("-f").arg("raw");
+    cmd.assert()
+        .success();
+
+    temp.child("a.bin")
+        .assert(predicate::path::is_file())
+        .assert(predicate::path::eq_file(cor_output.path()));
+
+    temp.close()?;
 
     Ok(())
 }

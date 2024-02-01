@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     ; ERROR
     rep 20, rep 40, nop
     ```
+- More tests
 
 ### Changed
 
@@ -58,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - This resulted in incorrect amount of shifts
 - Endianness
   - Little endian is now used for binary output
+- `call <LABL>` and `tail <LABL>`
+  - Using these resulted in wrong jumps
 
 ## [1.0.1] - 2024-01-26
 

@@ -232,21 +232,55 @@ fn handle_part(lines: &mut i32, part: &Part) {
         //Part::Upper => *lines >> 12,
         //Part::Lower => *lines & 0b11_11111_11111,
         #[cfg(feature = "raw_nop")]
-        Part::Upper => *lines += 12,
+        Part::Upper => {
+            if *lines < 2_i32.pow(12) {
+                *lines += 20;
+            } else {
+                *lines += 24;
+            }
+        },
+        #[cfg(feature = "raw_nop")]
+        Part::Lower => {
+            if *lines < 2_i32.pow(12) {
+                *lines += 16;
+            } else {
+                *lines += 20;
+            }
+        },
         #[cfg(not(feature = "raw_nop"))]
-        Part::Upper => *lines += 4,
-        Part::Lower => (),
+        Part::Upper => {
+            // 4 plus offset of lower
+            if *lines < 2_i32.pow(12) {
+                *lines += 8;
+            } else {
+                *lines += 12;
+            }
+        },
+        #[cfg(not(feature = "raw_nop"))]
+        Part::Lower => {
+            // next instruction (4) + 4
+            if *lines < 2_i32.pow(12) {
+                *lines += 4;
+            } else {
+                *lines += 8;
+            }
+            return
+        },
         Part::None => return,
     }
-    if *lines & 0x800 == 2048 && lines.leading_ones() < 19 {
-        let mut mask: i32 = 4096;
-        for _ in 12..32 {
-            let is_unset = *lines & mask == 0;
-            if is_unset {
-                *lines |= mask;
-                break;
+    if *lines & 0x800 == 2048 {
+        if lines.leading_ones() >= 19 {
+            *lines = 0;
+        } else {
+            let mut mask: i32 = 4096;
+            for _ in 12..32 {
+                let is_unset = *lines & mask == 0;
+                if is_unset {
+                    *lines |= mask;
+                    break;
+                }
+                mask <<= 1;
             }
-            mask <<= 1;
         }
     }
 }

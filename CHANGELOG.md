@@ -11,7 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Simple readme.md
+- Cargo binstall metadata
+  - binstall command is now shorter and supports verifying signatures automatically!
 - Examples for assembly code under the "examples" directory
+- New CLI arguments
+  - `--format` or `-f` that specifies in which format the output should appear
+    - Possible values are "raw" and "mif"
+  - `--depth` that specifies the address count of the "mif" format file
+    - Possible values are 1 to 65535
+  - `--width` that specifies the width of a word
+    - Possible values are 8 and 32
+  - The default format is now "mif"
+- Better error handling for output file writes
 - Ability to write single line comments in the assembly code
   - Use '; < COMMENT >' to comment something in the code, works inline as well as before
   - Example:
@@ -37,6 +49,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `call <LABL>` and `tail <LABL>`
   - Using these resulted in wrong jumps
+
+### Changed
+
+- Default output path
+  - Default output path of "mif" files is now "./a.mif"
+  - Default output path of "raw" files is now "./a.bin"
+
+### Fixed
+
+- Writing output file if the file cannot be written to due to an error
+  - File is now not written
+- Bit masking for immediates in shift operations with immediates
+  - This resulted in incorrect amount of shifts
+- Endianness
+  - Little endian is now used for binary output
 
 ## [1.0.1] - 2024-01-26
 

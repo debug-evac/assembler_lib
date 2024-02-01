@@ -45,3 +45,11 @@ pre-release-replacements = [
   {file="CHANGELOG.md", search="<!-- next-url -->", replace="<!-- next-url -->\n[Unreleased]: https://git.mafiasi.de/Prj-MR/Assembler/compare/{{tag_name}}...HEAD", exactly=1},
 ]
 target = "x86_64-unknown-linux-gnu"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/{ version }/{ name }-{ target }.{ archive-format }"
+pkg-fmt = "bin"
+
+[package.metadata.binstall.signing]
+algorithm = "minisign"
+pubkey = "RWQ6OyUDGTMQlRVb+YQi+iU6m3qkoDFa3MdTKpwRMb4OpSy/5IOXbM8b"

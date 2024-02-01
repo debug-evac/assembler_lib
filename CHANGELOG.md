@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Cargo binstall metadata
+  - binstall command is now shorter and supports verifying signatures automatically!
 - Examples for assembly code under the "examples" directory
 
 ### Fixed

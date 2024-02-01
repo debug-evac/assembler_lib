@@ -13,6 +13,7 @@ mod translator;
 mod common;
 
 use clap::{
+    builder::ArgPredicate,
     Arg, 
     Command, 
     value_parser, 
@@ -28,7 +29,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::common::{LabelRecog, Operation};
+use crate::common::{LabelRecog, Operation, present_error};
 
 fn cli_interface() -> ArgMatches {
     #[allow(non_upper_case_globals)]
@@ -45,6 +46,16 @@ by {author-with-newline}{about-with-newline}
 
 Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
 ")
+    .arg(Arg::new("format")
+                .value_hint(ValueHint::Other)
+                .value_parser(["mif", "raw"])
+                .action(ArgAction::Set)
+                .short('f')
+                .num_args(1)
+                .default_value("mif")
+                .long("format")
+                .help("The format in which the output should be written in")
+    )
     .arg(Arg::new("input")
                 .value_names(["main asm file", "another asm file"])
                 .value_hint(ValueHint::FilePath)
@@ -64,9 +75,31 @@ Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
                 .short('o')
                 .num_args(1)
                 .default_value("a.bin")
+                .default_value_if("format", ArgPredicate::Equals("raw".into()), Some("a.bin"))
+                .default_value_if("format", ArgPredicate::Equals("mif".into()), Some("a.mif"))
                 .required(false)
                 .long("output")
                 .help("The destination for the output file")
+    )
+    .arg(Arg::new("format-depth")
+                .value_name("address count")
+                .value_hint(ValueHint::Other)
+                .value_parser(value_parser!(u16).range(1..65536))
+                .long("depth")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .default_value("1024")
+                .help("Depth for MIF format. Does not do anything, if format != mif.")
+    )
+    .arg(Arg::new("format-width")
+                .value_name("word width in bits")
+                .value_hint(ValueHint::Other)
+                .value_parser(["8", "32"])
+                .long("width")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .default_value("32")
+                .help("Width for MIF format. Does not do anything, if format != mif.")
     )
     .arg(Arg::new("nop_insert")
                 .long("no-nop-insertion")
@@ -75,6 +108,58 @@ Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
                 .help("Disallow nop insertion")
     )
     .get_matches()
+}
+
+fn write_to_file(output: &PathBuf, translated_code: &Vec<u8>, format: &str, size: (u16, u8)) -> Result<(), String> {
+    let mut output_file: File;
+
+    match format {
+        "mif" => {
+            let depth = size.0;
+            let width = size.1;
+
+            if width == 32 {
+                if (depth as usize) < translated_code.len() {
+                    return Err(format!("MIF depth is smaller than the instruction count! {} < {}", depth, translated_code.len()));
+                }
+                output_file = match File::create(output) {
+                    Ok(file) => file,
+                    Err(msg) => return Err(format!("Could not create file!\n{msg}")),
+                };
+                writeln!(output_file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN").unwrap();
+                for (counter, values) in translated_code.chunks_exact(4).enumerate() {
+                    writeln!(output_file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", values[0], values[1], values[2], values[3]).unwrap();
+                }
+            } else if width == 8 {
+                if ((depth as usize) / 4) < translated_code.len() {
+                    return Err(format!("MIF depth is smaller than the instruction count! {} < {}", (depth / 4), translated_code.len()));
+                }
+                output_file = match File::create(output) {
+                    Ok(file) => file,
+                    Err(msg) => return Err(format!("Could not create file!\n{msg}")),
+                };
+                writeln!(output_file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN").unwrap();
+                for (counter, value) in translated_code.iter().enumerate() {
+                    writeln!(output_file, "{counter}\t: {:08b};", value).unwrap();
+                }
+            } else {
+                return Err(format!("Expected width of either 8 or 32 bits, got '{width}'!"));
+            }
+            
+            writeln!(output_file, "END;").unwrap();
+        },
+        "raw" => {
+            output_file = match File::create(output) {
+                Ok(file) => file,
+                Err(msg) => return Err(format!("Could not create file!\n{msg}")),
+            };
+            if let Err(msg) = output_file.write_all(translated_code) {
+                return Err(format!("Could not write to output file!\n{msg}"));
+            }
+        },
+        _ => unreachable!(),
+    }
+    Ok(())
 }
 
 fn main() {
@@ -122,13 +207,13 @@ fn main() {
     let translated_code = translator::translate(optimized_code);
 
     // always returns Some(_)
+    let outfmt = matches.get_one::<String>("format").unwrap();
     let outpath = matches.get_one::<PathBuf>("output").unwrap();
+    let depth = matches.get_one("format-depth").unwrap();
+    let width = str::parse::<u8>(matches.get_one::<String>("format-width").unwrap()).unwrap();
 
-    let mut output_file = match File::create(outpath) {
-        Ok(file) => file,
-        Err(msg) => panic!("[Error] could not create output file: {}", msg),
-    };
-
-    output_file.write_all(&translated_code).expect("[Error] could not write to output file!");
+    if let Err(msg) = write_to_file(outpath, &translated_code, outfmt, (*depth, width)) {
+        present_error(msg);
+    }
 }
  

@@ -52,7 +52,7 @@ fn funct3(value: u8) -> u32 {
 
 impl Instruction {
    fn mask(imm: i32, mask: u8) -> i32 {
-      imm & 2_i32.pow(((mask + 1) as u32) - 1)
+      imm & (2_i32.pow((mask + 1) as u32) - 1)
    }
 
    fn translate_instruction(self) -> u32 {
@@ -129,7 +129,7 @@ pub fn translate(input: Vec<Instruction>) -> Vec<u8> {
    let mut output: Vec<u8> = vec![];
 
    for instr in input.iter(){
-      output.extend(Instruction::translate_instruction(instr.clone()).to_be_bytes());
+      output.extend(Instruction::translate_instruction(instr.clone()).to_le_bytes());
    }
 
    output
@@ -161,7 +161,7 @@ mod tests {
       instr = Instruction::Andi(Reg::G15, Reg::G16, 2953);
       assert_eq!(0b10111000100110000111011110010011, Instruction::translate_instruction(instr));
       instr = Instruction::Srli(Reg::G17, Reg::G18, 2953);
-      assert_eq!(0b00_00000_00000_10010_10110_00100_10011, Instruction::translate_instruction(instr));
+      assert_eq!(0b00_00000_01001_10010_10110_00100_10011, Instruction::translate_instruction(instr));
       instr = Instruction::Sltiu(Reg::G19, Reg::G20, 2953);
       assert_eq!(0b10111000100110100011100110010011, Instruction::translate_instruction(instr));
    }

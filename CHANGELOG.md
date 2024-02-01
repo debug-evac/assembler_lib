@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Simple readme.md
 - Cargo binstall metadata
   - binstall command is now shorter and supports verifying signatures automatically!
 - Examples for assembly code under the "examples" directory
@@ -33,9 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Writing output file if the file cannot be written to due to an error
-
-### Fixed
-
+  - File is now not written
 - Bit masking for immediates in shift operations with immediates
   - This resulted in incorrect amount of shifts
 - Endianness

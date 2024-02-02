@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Running tests with all-features flag
+- Bug that resulted in wrong jump and load addresses when using read after write nop insertion compilation flag
 
 ## [1.1.1] - 2024-02-02
 

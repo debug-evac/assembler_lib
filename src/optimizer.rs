@@ -246,6 +246,7 @@ fn handle_part(lines: &mut i32, part: &Part) {
             } else {
                 *lines += 20;
             }
+            return
         },
         #[cfg(not(feature = "raw_nop"))]
         Part::Upper => {
@@ -1211,9 +1212,27 @@ mod tests {
 
             instructions.push(Instruction::Auipc(Reg::G0, 0));
 
+            #[cfg(feature = "raw_nop")] {
+                instructions.push(Instruction::Addi(Reg::G0, Reg::G0, 0));
+                instructions.push(Instruction::Addi(Reg::G0, Reg::G0, 0));
+                instructions.push(Instruction::Addi(Reg::G0, Reg::G0, 0));
+            }
+
             for (test, corr) in test_addi_macros {
                 test.translate(&mut namespace, &cs, &mut instructions);
-                assert_eq!(instructions[3], corr);
+                #[cfg(feature = "raw_nop")] {
+                    assert_eq!(instructions[6], corr);
+                    instructions.remove(6);
+                }
+                #[cfg(not(feature = "raw_nop"))] {
+                    assert_eq!(instructions[3], corr);
+                    instructions.remove(3);
+                }
+            }
+
+            #[cfg(feature = "raw_nop")] {
+                instructions.remove(5);
+                instructions.remove(4);
                 instructions.remove(3);
             }
 

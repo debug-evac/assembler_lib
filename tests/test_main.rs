@@ -323,3 +323,101 @@ farAway: j farAway
 
     Ok(())
 }
+
+#[test]
+fn test_mif_format_32() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = assert_fs::TempDir::new()?;
+
+    let input = temp.child("test_mif_format.asm");
+    input.write_str(r#"
+rep 3, nop
+"#)?;
+
+    let cor_output = temp.child("correct_output.mif");
+
+    let mut cor_instr_vec: Vec<u8> = vec![];
+
+    let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00000_00000_10011, // nop
+        0b00_00000_00000_00000_00000_00000_10011, // nop
+        0b00_00000_00000_00000_00000_00000_10011  // nop
+    ]);
+
+    for instr in instr_vec.iter() {
+        cor_instr_vec.extend(instr.to_le_bytes());
+    }
+
+    let mut output_str = "DEPTH = 1024;\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
+
+    for (counter, values) in cor_instr_vec.chunks_exact(4).enumerate() {
+        output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\n", values[0], values[1], values[2], values[3]));
+    }
+
+    output_str.push_str("END;\n");
+
+    cor_output.write_str(&output_str)?;
+
+    let mut cmd = Command::cargo_bin("assembler")?;
+
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a.mif"))
+                 .arg("--width").arg("32");
+    cmd.assert()
+        .success();
+
+    temp.child("a.mif")
+        .assert(predicate::path::is_file())
+        .assert(predicate::path::eq_file(cor_output.path()));
+
+    temp.close()?;
+
+    Ok(())
+}
+
+#[test]
+fn test_mif_format_8() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = assert_fs::TempDir::new()?;
+
+    let input = temp.child("test_mif_format.asm");
+    input.write_str(r#"
+rep 3, nop
+"#)?;
+
+    let cor_output = temp.child("correct_output.mif");
+
+    let mut cor_instr_vec: Vec<u8> = vec![];
+
+    let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00000_00000_10011, // nop
+        0b00_00000_00000_00000_00000_00000_10011, // nop
+        0b00_00000_00000_00000_00000_00000_10011  // nop
+    ]);
+
+    for instr in instr_vec.iter() {
+        cor_instr_vec.extend(instr.to_le_bytes());
+    }
+
+    let mut output_str = "DEPTH = 1024;\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
+
+    for (counter, value) in cor_instr_vec.iter().enumerate() {
+        output_str.push_str(&format!("{counter}\t: {:08b};\n", value));
+    }
+
+    output_str.push_str("END;\n");
+
+    cor_output.write_str(&output_str)?;
+
+    let mut cmd = Command::cargo_bin("assembler")?;
+
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a.mif"))
+                 .arg("--width").arg("8");
+    cmd.assert()
+        .success();
+
+    temp.child("a.mif")
+        .assert(predicate::path::is_file())
+        .assert(predicate::path::eq_file(cor_output.path()));
+
+    temp.close()?;
+
+    Ok(())
+}

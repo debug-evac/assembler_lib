@@ -21,6 +21,7 @@ use clap::{
     ArgMatches,
     crate_authors, crate_version, crate_description, ValueHint
 };
+use indicatif_log_bridge::LogWrapper;
 use parser::Subroutines;
 use std::{
     io::Write,
@@ -28,7 +29,7 @@ use std::{
     fs::File,
     path::PathBuf,
 };
-use indicatif::{ProgressStyle, ProgressBar};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use console::Term;
 
 use crate::common::{LabelRecog, Operation, present_error};
@@ -165,6 +166,18 @@ fn write_to_file(output: &PathBuf, translated_code: &Vec<u8>, format: &str, size
 }
 
 fn main() {
+    let logger =
+        env_logger::Builder::from_env(
+            env_logger::Env::default().default_filter_or("info"))
+            .format_timestamp(None)
+            .build();
+
+    let multi = MultiProgress::new();
+
+    LogWrapper::new(multi.clone(), logger)
+        .try_init()
+        .unwrap();
+
     let matches = cli_interface();
 
     let vals: Vec<&PathBuf> = matches.get_many::<PathBuf>("input")
@@ -174,7 +187,7 @@ fn main() {
     let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
     let mut string_vector: Vec<String> = vec![];
 
-    let progbar = ProgressBar::new(6);
+    let progbar = multi.add(ProgressBar::new(6));
     progbar.set_style(
         ProgressStyle::with_template(
             if Term::stdout().size().1 > 80 {

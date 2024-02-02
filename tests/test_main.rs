@@ -88,7 +88,6 @@ ret
     Ok(())
 }
 
-#[cfg(not(feature = "raw_nop"))]
 #[test]
 fn test_translate_multiple_files() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
@@ -127,7 +126,7 @@ ret
         0b00_00000_00000_00000_00000_00000_10011, // 3x NOP
         0b00_00000_00000_00000_00000_00000_10011,
         0b00_00000_00000_00000_00000_00000_10011,
-        0b00_00000_10000_00001_00000_00111_00111, // Call - jalr - 15
+        0b00_00001_00000_00001_00000_00111_00111, // Call - jalr - 15
         0b00_00000_00000_00010_01011_00100_00011, // Pop - Lw
         0b00_00000_00100_00010_00000_01000_10011, // Pop - addi +4
         0b00_00000_00000_00001_00000_00011_00111, // ret
@@ -167,7 +166,7 @@ ret
     let get_vec = std::fs::read(temp.child("a.bin").path())?;
 
     for (counter, var) in get_vec.chunks(4).enumerate() {
-        let read_val = u32::from_be_bytes(var.try_into().unwrap());
+        let read_val = u32::from_le_bytes(var.try_into().unwrap());
         let cor_val = *instr_vec.get(counter).unwrap();
         if cor_val != read_val {
             println!("Line: {}\nExpected: {:#034b}\nGot: {:#034b}", counter, cor_val, read_val);
@@ -267,7 +266,6 @@ ret
     Ok(())
 }
 
-#[cfg(not(feature = "raw_nop"))]
 #[test]
 fn test_faraway_calls() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
@@ -283,6 +281,16 @@ farAway: j farAway
 
     let mut cor_instr_vec: Vec<u8> = vec![];
 
+    #[cfg(feature = "raw_nop")]
+    let mut instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_00100_10111, // auipc call farAway
+        0b00_00000_00000_00000_00000_00000_10011,
+        0b00_00000_00000_00000_00000_00000_10011,
+        0b00_00000_00000_00000_00000_00000_10011,
+        0b00_00000_11000_00001_00000_00111_00111, // jalr
+    ]);
+
+    #[cfg(not(feature = "raw_nop"))]
     let mut instr_vec: Vec<u32> = Vec::from([
         0b00_00000_00000_00000_00100_00100_10111, // auipc call farAway
         0b00_00000_01100_00001_00000_00111_00111, // jalr

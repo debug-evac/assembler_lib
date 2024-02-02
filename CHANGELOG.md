@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Aarch64 (arm64) MacOS target for binaries
+
 ### Fixed
 
 - Local labels not being found in nop insertion optimization step

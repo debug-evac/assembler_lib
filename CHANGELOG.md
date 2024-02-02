@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Simple progress bar for tracking... well, progress!
+
 ## [1.1.1] - 2024-02-02
 
 ### Added

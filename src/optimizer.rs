@@ -452,6 +452,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                         let nop_insert = working_set.compare_and_insert(reg_dep);
                         if nop_insert > -1 {
                             let instr_num = 4 - nop_insert;
+                            debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
                                 code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                             }
@@ -476,6 +477,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                         let nop_insert = working_set.compare_and_insert(reg_dep);
                         if nop_insert > -1 {
                             let instr_num = 4 - nop_insert;
+                            debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
                                 code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                             }
@@ -503,6 +505,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                         let nop_insert = working_set.compare_and_insert(reg_dep);
                         if nop_insert > -1 {
                             let instr_num = 4 - nop_insert;
+                            debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
                                 code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                             }
@@ -526,6 +529,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                         let nop_insert = working_set.compare_and_insert(reg_dep);
                         if nop_insert > -1 {
                             let instr_num = 4 - nop_insert;
+                            debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
                                 code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                             }

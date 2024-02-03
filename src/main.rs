@@ -23,7 +23,7 @@ use clap::{
     crate_authors, crate_version, crate_description, ValueHint
 };
 use indicatif_log_bridge::LogWrapper;
-use log::log_enabled;
+use log::{log_enabled, error};
 use parser::Subroutines;
 use std::{
     io::Write,
@@ -34,7 +34,7 @@ use std::{
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use console::Term;
 
-use crate::common::{LabelRecog, Operation, present_error};
+use crate::common::{LabelRecog, Operation};
 
 fn cli_interface() -> ArgMatches {
     #[allow(non_upper_case_globals)]
@@ -267,7 +267,8 @@ fn main() {
     let width = str::parse::<u8>(matches.get_one::<String>("format-width").unwrap()).unwrap();
 
     if let Err(msg) = write_to_file(outpath, &translated_code, outfmt, (*depth, width)) {
-        present_error(msg);
+        error!("{msg}");
+        std::process::exit(1)
     }
 
     let line = format!(

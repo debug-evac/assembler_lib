@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - You can choose the log level by using the env "RUST_LOG", ex. `RUST_LOG=warn assembler ...`
   - Progress information and status messages are available via the `info` log level (default)
   - Logs are always written to stderr
+  - Log level "debug" gives you more insight in the proceedings of the assembler, especially what instruction generates which machine code
 
 ## [1.1.1] - 2024-02-02
 

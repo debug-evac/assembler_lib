@@ -968,7 +968,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
 
         match &mut parsed {
             (Some(label), Some(instr)) => {
-                debug!("({instr_counter}) - Parsed Label '{label}' and instruction '{:?}'", instr);
+                debug!("({instr_counter}) - Parsed label '{label}' and instruction '{:?}'", instr);
                 handle_label_defs(label, &mut symbol_map, instr_counter);
 
                 match instr {
@@ -1123,7 +1123,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                 instr_list.push(instr.to_owned());
             },
             (Some(label), None) => {
-                debug!("({instr_counter}) - Parsed Label '{label}'");
+                debug!("({instr_counter}) - Parsed label '{label}'");
                 handle_label_defs(label, &mut symbol_map, instr_counter);
                 if let Some(list) = abs_to_label_queue.remove(&(instr_counter + 1)) {
                     symbol_map.set_refd_label(&label.to_string());

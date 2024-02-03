@@ -20,6 +20,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Logs are always written to stderr
   - Log level "debug" gives you more insight in the proceedings of the assembler, especially what instruction generates which machine code
 - More test coverage
+- New hardware supported instructions
+  - `mulhu R1, R2, R3` - Unsigned high multiplication
+  - `mulhsu R1, R2, R3` - Unsigned and signed high multiplication
+
+### Changed
+
+- Internal representation of some instructions (renamed)
+  - No changes in behavior
+
+### Removed
+
+- Multiplication subroutine and handling
+  - Multiplication was hardware supported before and code has been commented out
+  - No changes in behavior
 
 ### Fixed
 

@@ -46,32 +46,6 @@ pub struct Subroutines {
 }
 
 impl Subroutines {
-    /*const MUL_SUB: &'static str = r#"
-_MUL:
-    addi a7, zero, 0
-    addi a6, zero, 1
-    mv a2, a0
-    mv a3, a1
-    mv a0, zero
-    mv a1, zero
-    blt a2, a3, 32
-    and a4, a6, a3
-    beq a4, zero, 12
-    sll a5, a2, a7
-    add a0, a0, a5
-    addi a7, a7, 1
-    slli a6, a6, 1
-    bge a3, a6, -24
-    ret
-    and a4, a6, a2
-    beq a4, zero, 12
-    sll a5, a3, a7
-    add a0, a0, a5
-    addi a7, a7, 1
-    slli a6, a6, 1
-    bge a2, a6, -24
-    ret
-"#;*/
     const DIV_SUB: &'static str = r#"
 _DIV:
     addi a7, zero, 1
@@ -167,10 +141,6 @@ _SLR:
 
         Subroutines{ code_str_vec }
     }
-
-    /*pub fn mul_defined(&mut self) {
-        self.code_str_vec.insert(Self::MUL_SUB.to_string());
-    }*/
 
     pub fn div_defined(&mut self) {
         self.code_str_vec.insert(Self::DIV_SUB.to_string());
@@ -348,15 +318,7 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
         MacroInstr::LaLabl(_, labl) => {
             symbol_map.crt_or_ref_label(labl);
         },
-        /*
-        MacroInstr::Muln(_, _, _) => {
-            if let Some(subs) = subroutines {
-                subs.mul_defined();
-            };
-            static LABEL: &str = "_MUL";
-            symbol_map.crt_or_ref_label(&LABEL.to_string());
-        },*/
-        MacroInstr::Divn(_, _, _) => {
+        MacroInstr::Div(_, _, _) => {
             if let Some(subs) = subroutines {
                 subs.div_defined();
             };
@@ -566,7 +528,7 @@ fn translate_macros<'a>(
     label: Option<Cow<'a, str>>
 ) {
     match &macro_in {
-        MacroInstr::Divn(reg1, reg2, reg3) => {
+        MacroInstr::Div(reg1, reg2, reg3) => {
             let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
             if *reg2 != Reg::G10 {
@@ -584,23 +546,6 @@ fn translate_macros<'a>(
 
             incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
-        /*
-        MacroInstr::Muln(reg1, reg2, reg3) => {
-            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
-
-            if *reg2 != Reg::G10 {
-                mid_list.push(Operation::Instr(Instruction::Addi(Reg::G10, reg2.to_owned(), 0)));
-            }
-            if *reg3 != Reg::G11 {
-                mid_list.push(Instruction::Addi(Reg::G11, reg3.to_owned(), 0).into());
-            }
-            mid_list.push(MacroInstr::Jal(Reg::G1, "_MUL".to_string()).into());
-            if *reg1 != Reg::G10 {
-                mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
-            }
-
-            incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
-        },*/
         MacroInstr::Remu(reg1, reg2, reg3) => {
             let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
@@ -1172,29 +1117,29 @@ mod tests {
     #[test]
     fn test_parse_line() {
         assert_eq!(parse_line("label: add x1, x5, x6"),
-                   Ok(("", (Some("label"), Some(Instruction::Addn(Reg::G1, Reg::G5, Reg::G6).into())))));
+                   Ok(("", (Some("label"), Some(Instruction::Add(Reg::G1, Reg::G5, Reg::G6).into())))));
         assert_eq!(parse_line("\ntest:\n\nsub x6, x5, x11"),
-                   Ok(("", (Some("test"), Some(Instruction::Subn(Reg::G6, Reg::G5, Reg::G11).into())))));
+                   Ok(("", (Some("test"), Some(Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into())))));
         assert_eq!(parse_line("\n\n\nreturn:\n"),
                    Ok(("\n", (Some("return"), None))));
         assert_eq!(parse_line("mv x15, x12\naddi x12, x10, 0x05"),
                    Ok(("\naddi x12, x10, 0x05", (None, Some(Instruction::Addi(Reg::G15, Reg::G12, 0).into())))));
         assert_eq!(parse_line("label:\ndiv x14, x13, x10"),
-                   Ok(("", (Some("label"), Some(MacroInstr::Divn(Reg::G14, Reg::G13, Reg::G10).into())))));
+                   Ok(("", (Some("label"), Some(MacroInstr::Div(Reg::G14, Reg::G13, Reg::G10).into())))));
     }
 
     #[test]
     fn test_parse_line_privileged() {
         assert_eq!(parse_line_priv("_label: add x1, x5, x6"),
-                    Ok(("", (Some("_label"), Some(Instruction::Addn(Reg::G1, Reg::G5, Reg::G6).into())))));
+                    Ok(("", (Some("_label"), Some(Instruction::Add(Reg::G1, Reg::G5, Reg::G6).into())))));
         assert_eq!(parse_line_priv("\n_test:\n\nsub x6, x5, x11"),
-                    Ok(("", (Some("_test"), Some(Instruction::Subn(Reg::G6, Reg::G5, Reg::G11).into())))));
+                    Ok(("", (Some("_test"), Some(Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into())))));
         assert_eq!(parse_line_priv("\n\n\n_return:\n"),
                     Ok(("\n", (Some("_return"), None))));
         assert_eq!(parse_line_priv("mv x15, x12\naddi x12, x10, 0x05"),
                     Ok(("\naddi x12, x10, 0x05", (None, Some(Instruction::Addi(Reg::G15, Reg::G12, 0).into())))));
         assert_eq!(parse_line_priv("_label:\ndiv x14, x13, x10"),
-                    Ok(("", (Some("_label"), Some(MacroInstr::Divn(Reg::G14, Reg::G13, Reg::G10).into())))));
+                    Ok(("", (Some("_label"), Some(MacroInstr::Div(Reg::G14, Reg::G13, Reg::G10).into())))));
     }
 
     #[test]
@@ -1229,32 +1174,13 @@ END:
         //label.set_def(9);
         let _ = symbols.insert_label(label);
 
-        /*label = LabelElem::new_refd("_MUL".to_string());
-        label.set_scope(true);
-        let _ = symbols.insert_label(label);*/
-        
-        /*let correct_vec: Vec<Operation> = vec![
-                                                 //Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 16)),
-                                                 //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
-                                                 Operation::LablInstr(Cow::from("START"), Instruction::Addi(Reg::G4, Reg::G0, 16)),
-                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
-                                                 Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
-                                                 Operation::from(Instruction::Addi(Reg::G10, Reg::G4, 0)),
-                                                 Operation::from(Instruction::Addi(Reg::G11, Reg::G3, 0)),
-                                                 Operation::from(MacroInstr::Jal(Reg::G1, "_MUL".to_string())),
-                                                 Operation::from(Instruction::Addi(Reg::G6, Reg::G10, 0)),
-                                                 Operation::from(Instruction::Lui(Reg::G4, 0x16)),
-                                                 Operation::from(MacroInstr::Jal(Reg::G0, "MUL".to_string())),
-                                                 Operation::Labl(Cow::from("END"))
-                                                ];*/
-
         let correct_vec: Vec<Operation> = vec![
                                                 //Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 16)),
                                                 //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
                                                 Operation::LablInstr(Cow::from("START"), Instruction::Addi(Reg::G4, Reg::G0, 16)),
                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                 Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
-                                                Operation::from(Instruction::Muln(Reg::G6, Reg::G4, Reg::G3)),
+                                                Operation::from(Instruction::Mul(Reg::G6, Reg::G4, Reg::G3)),
                                                 Operation::from(Instruction::Lui(Reg::G4, 0x16)),
                                                 Operation::from(MacroInstr::Jal(Reg::G0, "MUL".to_string())),
                                                 Operation::Labl(Cow::from("END"))
@@ -1263,7 +1189,6 @@ END:
         assert_eq!(parse(source_code, &mut Some(&mut subroutines)),
                    Ok(("", (symbols, correct_vec))));
         assert!(subroutines.get_code().is_empty())
-        //assert_eq!(subroutines.get_code(), Vec::from([Subroutines::MUL_SUB]));
         // TODO: Probably more test cases!
     }
 
@@ -1303,29 +1228,13 @@ r#" li  x4, 16
         //label.set_def(10);
         let _ = symbols.insert_label(label);
         
-        /*let correct_vec: Vec<Operation> = vec![
-                                                 //Operation::Instr(Instruction::Lui(Reg::G4, 16)),
-                                                 //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
-                                                 Instruction::Addi(Reg::G4, Reg::G0, 16).into(),
-                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
-                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".to_string())),
-                                                 Operation::LablInstr(Cow::from("__3"), Instruction::Addi(Reg::G10, Reg::G4, 0)),
-                                                 Operation::from(Instruction::Addi(Reg::G11, Reg::G3, 0)),
-                                                 Operation::from(MacroInstr::Jal(Reg::G1, "_MUL".to_string())),
-                                                 Operation::from(Instruction::Addi(Reg::G6, Reg::G10, 0)),
-                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__7".to_string())),
-                                                 Operation::from(Instruction::Lui(Reg::G4, 0x16)),
-                                                 Operation::LablMacro(Cow::from("__6"), MacroInstr::Jal(Reg::G0, "__3".to_string())),
-                                                 Operation::Labl(Cow::from("__7"))
-                                                ];*/
-        
         let correct_vec: Vec<Operation> = vec![
                                                 //Operation::Instr(Instruction::Lui(Reg::G4, 16)),
                                                 //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
                                                 Instruction::Addi(Reg::G4, Reg::G0, 16).into(),
                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".to_string())),
-                                                Operation::LablInstr(Cow::from("__3"), Instruction::Muln(Reg::G6, Reg::G4, Reg::G3)),
+                                                Operation::LablInstr(Cow::from("__3"), Instruction::Mul(Reg::G6, Reg::G4, Reg::G3)),
                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__7".to_string())),
                                                 Operation::from(Instruction::Lui(Reg::G4, 0x16)),
                                                 Operation::LablMacro(Cow::from("__6"), MacroInstr::Jal(Reg::G0, "__3".to_string())),
@@ -1335,7 +1244,6 @@ r#" li  x4, 16
         assert_eq!(parse(source_code, &mut Some(&mut subroutines)),
                    Ok(("", (symbols, correct_vec))));
         assert_eq!(subroutines.get_code().is_empty(), true);
-        //assert_eq!(subroutines.get_code(), Vec::from([Subroutines::MUL_SUB]));
     }
 
     #[test]
@@ -1413,8 +1321,8 @@ TEST: srli a7, a7, 1
 
         correct_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G13, "__9".to_string())));
         correct_vec.push(Operation::Instr(Instruction::Slli(Reg::G13, Reg::G13, 1)));
-        correct_vec.push(Operation::Instr(Instruction::Subn(Reg::G12, Reg::G12, Reg::G13)));
-        correct_vec.push(Operation::Instr(Instruction::Addn(Reg::G10, Reg::G10, Reg::G17)));
+        correct_vec.push(Operation::Instr(Instruction::Sub(Reg::G12, Reg::G12, Reg::G13)));
+        correct_vec.push(Operation::Instr(Instruction::Add(Reg::G10, Reg::G10, Reg::G17)));
         correct_vec.push(Operation::LablMacro(Cow::from("__9"), MacroInstr::Blt(Reg::G12, Reg::G13, "__19".to_string())));
 
         correct_vec.push(Operation::LablInstr(Cow::from("__10"), Instruction::Slli(Reg::G13, Reg::G13, 1)));
@@ -1422,8 +1330,8 @@ TEST: srli a7, a7, 1
         correct_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G13, Reg::G12, "__10".to_string())));
         correct_vec.push(Operation::Instr(Instruction::Srli(Reg::G13, Reg::G13, 1)));
         correct_vec.push(Operation::Instr(Instruction::Srli(Reg::G17, Reg::G17, 1)));
-        correct_vec.push(Operation::Instr(Instruction::Subn(Reg::G12, Reg::G12, Reg::G13)));
-        correct_vec.push(Operation::Instr(Instruction::Addn(Reg::G10, Reg::G10, Reg::G17)));
+        correct_vec.push(Operation::Instr(Instruction::Sub(Reg::G12, Reg::G12, Reg::G13)));
+        correct_vec.push(Operation::Instr(Instruction::Add(Reg::G10, Reg::G10, Reg::G17)));
         correct_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G0, "__9".to_string())));
         correct_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G0, Reg::G0, "__29".to_string())));
 
@@ -1435,8 +1343,8 @@ TEST: srli a7, a7, 1
         correct_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G12, Reg::G13, "TEST".to_string())));
         correct_vec.push(Operation::Instr(Instruction::Srli(Reg::G13, Reg::G13, 1)));
         correct_vec.push(Operation::LablInstr(Cow::from("TEST"), Instruction::Srli(Reg::G17, Reg::G17, 1)));
-        correct_vec.push(Operation::Instr(Instruction::Subn(Reg::G12, Reg::G12, Reg::G13)));
-        correct_vec.push(Operation::Instr(Instruction::Addn(Reg::G10, Reg::G10, Reg::G17)));
+        correct_vec.push(Operation::Instr(Instruction::Sub(Reg::G12, Reg::G12, Reg::G13)));
+        correct_vec.push(Operation::Instr(Instruction::Add(Reg::G10, Reg::G10, Reg::G17)));
         correct_vec.push(Operation::LablMacro(Cow::from("__29"), MacroInstr::Bne(Reg::G12, Reg::G0, "__9".to_string())));
         correct_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
@@ -1466,10 +1374,10 @@ TEST: srli a7, a7, 1
         {
             let mut test_list = sample_list.clone();
             test_list.insert(2, 
-                Operation::Macro(MacroInstr::Divn(Reg::G7, Reg::G20, Reg::G13)));
+                Operation::Macro(MacroInstr::Div(Reg::G7, Reg::G20, Reg::G13)));
             let label: Cow<'_, str> = Cow::from("TEST");
             
-            translate_macros(&MacroInstr::Divn(Reg::G7, Reg::G20, Reg::G13), 
+            translate_macros(&MacroInstr::Div(Reg::G7, Reg::G20, Reg::G13), 
             &mut test_list, 
             &mut accumulator, 
             &mut pointer, 
@@ -1858,7 +1766,7 @@ END:                    ; TEST
                                                 Operation::LablInstr(Cow::from("START"), Instruction::Addi(Reg::G4, Reg::G0, 16)),
                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                 Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
-                                                Operation::from(Instruction::Muln(Reg::G6, Reg::G4, Reg::G3)),
+                                                Operation::from(Instruction::Mul(Reg::G6, Reg::G4, Reg::G3)),
                                                 Operation::from(Instruction::Lui(Reg::G4, 0x16)),
                                                 Operation::from(MacroInstr::Jal(Reg::G0, "MUL".to_string())),
                                                 Operation::Labl(Cow::from("END"))

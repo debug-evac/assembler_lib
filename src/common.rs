@@ -142,8 +142,7 @@ pub enum MacroInstr {
 
     Addi(Reg, Reg, String, Part),
 
-    Divn(Reg, Reg, Reg),
-    //Muln(Reg, Reg, Reg),
+    Div(Reg, Reg, Reg),
     Remu(Reg, Reg, Reg),
 
     Srr(Reg, Reg, Imm),
@@ -177,8 +176,8 @@ pub enum MacroInstr {
 // code length and multiplication.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Instruction {
-    Addn(Reg, Reg, Reg),
-    Subn(Reg, Reg, Reg),
+    Add(Reg, Reg, Reg),
+    Sub(Reg, Reg, Reg),
     
     Xor(Reg, Reg, Reg),
     Or(Reg, Reg, Reg),
@@ -237,8 +236,10 @@ pub enum Instruction {
 
     // ------------------
     // Some commands from RV32M
-    Muln(Reg, Reg, Reg),
-    Mulh(Reg, Reg, Reg)
+    Mul(Reg, Reg, Reg),
+    Mulh(Reg, Reg, Reg),
+    Mulhu(Reg, Reg, Reg),
+    Mulhsu(Reg, Reg, Reg)
 }
 
 #[derive(Debug, Clone, PartialEq)]

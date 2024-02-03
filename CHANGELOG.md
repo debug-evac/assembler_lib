@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Removed
+
+- Multiplication subroutine and handling
+  - Multiplication was hardware supported before and code has been commented out
+  - No changes in behavior
+
 ## [1.1.1] - 2024-02-02
 
 ### Added

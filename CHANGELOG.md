@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- New hardware supported instructions
+  - `Mulu R1, R2, R3` - Unsigned high multiplication
+  - `Mulsu R1, R2, R3` - Unsigned and signed high multiplication
+
 ### Changed
 
 - Internal representation of some instructions (renamed)

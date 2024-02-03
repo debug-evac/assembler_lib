@@ -121,6 +121,8 @@ impl Instruction {
 
          Instruction::Mul(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + (1_u32 << 25),
          Instruction::Mulh(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(1) + (1_u32 << 25),
+         Instruction::Mulsu(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(2) + (1_u32 << 25),
+         Instruction::Mulu(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(3) + (1_u32 << 25),
       }
    }
 }

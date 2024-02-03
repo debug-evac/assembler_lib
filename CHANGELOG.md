@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `mulhsu R1, R2, R3` - Unsigned and signed high multiplication
 - More examples
   - `fakultaet_64bit.asm` which uses 64 bits to store the solution
+  - `assembler_crasher_2000.asm` which is a very long assembly file **(Do NOT use debug log level)**
 
 ### Changed
 

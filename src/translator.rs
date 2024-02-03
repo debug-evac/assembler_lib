@@ -9,6 +9,9 @@
 //
 // Translate a AST to the equivalent machine code after it
 // has been parsed, linked and potentially optimized.
+use log::{debug, log_enabled};
+
+use crate::logging::emit_debug_translate_instruction;
 use crate::common::{Instruction, Reg, Imm};
 
 fn btype_instr(rs1: Reg, rs2: Reg, imm: Imm) -> u32 {
@@ -129,7 +132,11 @@ pub fn translate(input: Vec<Instruction>) -> Vec<u8> {
    let mut output: Vec<u8> = vec![];
 
    for instr in input.iter(){
-      output.extend(Instruction::translate_instruction(instr.clone()).to_le_bytes());
+      let translated_instr = Instruction::translate_instruction(instr.clone());
+      if log_enabled!(log::Level::Debug) {
+         debug!("{}", emit_debug_translate_instruction(instr, translated_instr));
+      }
+      output.extend(translated_instr.to_le_bytes());
    }
 
    output

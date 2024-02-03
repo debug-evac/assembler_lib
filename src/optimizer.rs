@@ -22,6 +22,7 @@
 
 use std::collections::VecDeque;
 use std::borrow::Cow;
+use log::debug;
 
 use crate::{
     common::{Instruction, Operation, MacroInstr, Reg, Part}, 
@@ -640,6 +641,7 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction>
             Operation::Namespace(space) => namespace = *space,
             Operation::Macro(instr) | Operation::LablMacro(_, instr) => {
                 instr.translate(&mut code.0, &namespace, &mut instructions);
+                debug!("{:?} substituted label ref to {:?}", operation, instructions.last().unwrap());
             },
             Operation::Instr(instr) | Operation::LablInstr(_, instr) => {
                 instructions.push(instr.to_owned());
@@ -648,12 +650,16 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction>
         };
     }
 
+    debug!("Finished optimization step");
+
     instructions
 }
 
 pub fn optimize(mut code: (Namespaces, Vec<Operation>), no_nop_insert: bool) -> Vec<Instruction> {
     if !no_nop_insert {
         nop_insertion(&mut code);
+    } else {
+        debug!("Nop insertion has been omitted due to flag 'no-nop-insertion'!");
     }
     substitute_labels(code)
 }

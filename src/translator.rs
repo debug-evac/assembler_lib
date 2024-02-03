@@ -139,6 +139,8 @@ pub fn translate(input: Vec<Instruction>) -> Vec<u8> {
       output.extend(translated_instr.to_le_bytes());
    }
 
+   debug!("Finished translation step");
+
    output
 }
 

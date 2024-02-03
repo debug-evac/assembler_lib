@@ -40,6 +40,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Running tests with all-features flag
 - Bug that resulted in wrong jump and load addresses when using read after write nop insertion compilation flag
 
+## [1.1.2] - 2024-02-03
+
+### Fixed
+
+- Macro instructions with immediates that get expanded to multiple instructions
+  - In certain situations these got optimized to one instruction instead of two, which resulted in wrong immediates
+- Parsing instructions that also have shorter instructions as substring
+  - There were instructions that could not get parsed because the shorter instructions have been matched incorrectly
+
 ## [1.1.1] - 2024-02-02
 
 ### Added
@@ -152,7 +161,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Forwarding unit, Multiplication hardware instruction
 
 <!-- next-url -->
-[Unreleased]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.1.1...HEAD
+[Unreleased]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.1.2...HEAD
+[1.1.2]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.1.1...1.1.2
 [1.1.1]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.1.0...1.1.1
 [1.1.0]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.0.1...1.1.0
 [1.0.1]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.0.0...1.0.1

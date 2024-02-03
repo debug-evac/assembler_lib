@@ -88,7 +88,6 @@ ret
     Ok(())
 }
 
-#[cfg(not(feature = "raw_nop"))]
 #[test]
 fn test_translate_multiple_files() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
@@ -127,7 +126,7 @@ ret
         0b00_00000_00000_00000_00000_00000_10011, // 3x NOP
         0b00_00000_00000_00000_00000_00000_10011,
         0b00_00000_00000_00000_00000_00000_10011,
-        0b00_00000_10000_00001_00000_00111_00111, // Call - jalr - 15
+        0b00_00001_00000_00001_00000_00111_00111, // Call - jalr - 15
         0b00_00000_00000_00010_01011_00100_00011, // Pop - Lw
         0b00_00000_00100_00010_00000_01000_10011, // Pop - addi +4
         0b00_00000_00000_00001_00000_00011_00111, // ret
@@ -167,7 +166,7 @@ ret
     let get_vec = std::fs::read(temp.child("a.bin").path())?;
 
     for (counter, var) in get_vec.chunks(4).enumerate() {
-        let read_val = u32::from_be_bytes(var.try_into().unwrap());
+        let read_val = u32::from_le_bytes(var.try_into().unwrap());
         let cor_val = *instr_vec.get(counter).unwrap();
         if cor_val != read_val {
             println!("Line: {}\nExpected: {:#034b}\nGot: {:#034b}", counter, cor_val, read_val);
@@ -267,7 +266,6 @@ ret
     Ok(())
 }
 
-#[cfg(not(feature = "raw_nop"))]
 #[test]
 fn test_faraway_calls() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
@@ -283,6 +281,16 @@ farAway: j farAway
 
     let mut cor_instr_vec: Vec<u8> = vec![];
 
+    #[cfg(feature = "raw_nop")]
+    let mut instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_00100_10111, // auipc call farAway
+        0b00_00000_00000_00000_00000_00000_10011,
+        0b00_00000_00000_00000_00000_00000_10011,
+        0b00_00000_00000_00000_00000_00000_10011,
+        0b00_00000_11000_00001_00000_00111_00111, // jalr
+    ]);
+
+    #[cfg(not(feature = "raw_nop"))]
     let mut instr_vec: Vec<u32> = Vec::from([
         0b00_00000_00000_00000_00100_00100_10111, // auipc call farAway
         0b00_00000_01100_00001_00000_00111_00111, // jalr
@@ -308,6 +316,104 @@ farAway: j farAway
         .success();
 
     temp.child("a.bin")
+        .assert(predicate::path::is_file())
+        .assert(predicate::path::eq_file(cor_output.path()));
+
+    temp.close()?;
+
+    Ok(())
+}
+
+#[test]
+fn test_mif_format_32() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = assert_fs::TempDir::new()?;
+
+    let input = temp.child("test_mif_format.asm");
+    input.write_str(r#"
+rep 3, nop
+"#)?;
+
+    let cor_output = temp.child("correct_output.mif");
+
+    let mut cor_instr_vec: Vec<u8> = vec![];
+
+    let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00000_00000_10011, // nop
+        0b00_00000_00000_00000_00000_00000_10011, // nop
+        0b00_00000_00000_00000_00000_00000_10011  // nop
+    ]);
+
+    for instr in instr_vec.iter() {
+        cor_instr_vec.extend(instr.to_le_bytes());
+    }
+
+    let mut output_str = "DEPTH = 1024;\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
+
+    for (counter, values) in cor_instr_vec.chunks_exact(4).enumerate() {
+        output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\n", values[0], values[1], values[2], values[3]));
+    }
+
+    output_str.push_str("END;\n");
+
+    cor_output.write_str(&output_str)?;
+
+    let mut cmd = Command::cargo_bin("assembler")?;
+
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a.mif"))
+                 .arg("--width").arg("32");
+    cmd.assert()
+        .success();
+
+    temp.child("a.mif")
+        .assert(predicate::path::is_file())
+        .assert(predicate::path::eq_file(cor_output.path()));
+
+    temp.close()?;
+
+    Ok(())
+}
+
+#[test]
+fn test_mif_format_8() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = assert_fs::TempDir::new()?;
+
+    let input = temp.child("test_mif_format.asm");
+    input.write_str(r#"
+rep 3, nop
+"#)?;
+
+    let cor_output = temp.child("correct_output.mif");
+
+    let mut cor_instr_vec: Vec<u8> = vec![];
+
+    let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00000_00000_10011, // nop
+        0b00_00000_00000_00000_00000_00000_10011, // nop
+        0b00_00000_00000_00000_00000_00000_10011  // nop
+    ]);
+
+    for instr in instr_vec.iter() {
+        cor_instr_vec.extend(instr.to_le_bytes());
+    }
+
+    let mut output_str = "DEPTH = 1024;\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
+
+    for (counter, value) in cor_instr_vec.iter().enumerate() {
+        output_str.push_str(&format!("{counter}\t: {:08b};\n", value));
+    }
+
+    output_str.push_str("END;\n");
+
+    cor_output.write_str(&output_str)?;
+
+    let mut cmd = Command::cargo_bin("assembler")?;
+
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a.mif"))
+                 .arg("--width").arg("8");
+    cmd.assert()
+        .success();
+
+    temp.child("a.mif")
         .assert(predicate::path::is_file())
         .assert(predicate::path::eq_file(cor_output.path()));
 

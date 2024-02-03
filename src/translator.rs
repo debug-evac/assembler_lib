@@ -102,8 +102,8 @@ impl Instruction {
          Instruction::Sw(reg1, reg2, imm) => stype_instr(reg1, reg2, imm) + funct3(6),
 
          // R-Type instruction; 3 regs
-         Instruction::Addn(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2),
-         Instruction::Subn(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + (0b100000_u32 << 25),
+         Instruction::Add(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2),
+         Instruction::Sub(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + (0b100000_u32 << 25),
          
          Instruction::Xor(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(4),
          Instruction::Or(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(6),
@@ -119,7 +119,7 @@ impl Instruction {
          Instruction::Xnor(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(7) + (0b100000_u32 << 25),
          Instruction::Equal(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(3) + (0b100000_u32 << 25),
 
-         Instruction::Muln(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + (1_u32 << 25),
+         Instruction::Mul(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + (1_u32 << 25),
          Instruction::Mulh(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(1) + (1_u32 << 25),
       }
    }
@@ -141,7 +141,7 @@ mod tests {
 
    #[test]
    fn test_translate_rtype_instr() {
-      let mut instr = Instruction::Addn(Reg::G27, Reg::G28, Reg::G29);
+      let mut instr = Instruction::Add(Reg::G27, Reg::G28, Reg::G29);
       assert_eq!(0b00_00000_11101_11100_00011_01101_10011, Instruction::translate_instruction(instr));
       instr = Instruction::And(Reg::G30, Reg::G31, Reg::G0);
       assert_eq!(0b00_00000_00000_11111_11111_11001_10011, Instruction::translate_instruction(instr));

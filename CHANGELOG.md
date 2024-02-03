@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Internal representation of some instructions (renamed)
+  - No changes in behavior
+
 ### Removed
 
 - Multiplication subroutine and handling

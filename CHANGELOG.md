@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Macro instructions with immediates that get expanded to multiple instructions
+  - In certain situations these got optimized to one instruction instead of two, which resulted in wrong immediates
+
 ## [1.1.1] - 2024-02-02
 
 ### Added

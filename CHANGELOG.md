@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More examples
   - `fakultaet_64bit.asm` which uses 64 bits to store the solution
   - `assembler_crasher_2000.asm` which is a very long assembly file **(Do NOT use debug log level)**
+  - `hardware_test.asm` which is a program to test the hardware (end of execution, register x6 == 0xDEADBEEF)
 
 ### Changed
 
@@ -42,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Running tests with all-features flag
 - Bug that resulted in wrong jump and load addresses when using read after write nop insertion compilation flag
+- Parsing bug that disallowed certain longer instructions because they were overshadowed (ex. lh before lhu)
 
 ## [1.1.1] - 2024-02-02
 

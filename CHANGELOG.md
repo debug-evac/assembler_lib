@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Progress information and status messages are available via the `info` log level (default)
   - Logs are always written to stderr
   - Log level "debug" gives you more insight in the proceedings of the assembler, especially what instruction generates which machine code
+- More test coverage
+
+### Fixed
+
+- Running tests with all-features flag
+- Bug that resulted in wrong jump and load addresses when using read after write nop insertion compilation flag
 
 ## [1.1.1] - 2024-02-02
 

@@ -540,6 +540,7 @@ fn handle_multiline_immediate<'a>(
                 }
                 mask <<= 1;
             }
+            return false
         }
     }
     

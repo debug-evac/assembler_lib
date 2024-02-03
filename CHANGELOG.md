@@ -21,8 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Log level "debug" gives you more insight in the proceedings of the assembler, especially what instruction generates which machine code
 - More test coverage
 - New hardware supported instructions
-  - `Mulhu R1, R2, R3` - Unsigned high multiplication
-  - `Mulhsu R1, R2, R3` - Unsigned and signed high multiplication
+  - `mulhu R1, R2, R3` - Unsigned high multiplication
+  - `mulhsu R1, R2, R3` - Unsigned and signed high multiplication
 
 ### Changed
 

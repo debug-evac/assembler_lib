@@ -12,8 +12,28 @@ use crate::common::Instruction;
 
 // console::Style::new().bold().apply_to("Assembled")
 
+fn pretty_imm_short(translation: u32) -> StyledObject<String> {
+    Style::new().green().apply_to(format!("{:012b}", ((translation >> 20) & (2_u32.pow(12) - 1))))
+}
+
+fn pretty_func7(translation: u32) -> StyledObject<String> {
+    Style::new().magenta().apply_to(format!("{:07b}", ((translation >> 25) & (2_u32.pow(7) - 1))))
+}
+
+fn pretty_func3(translation: u32) -> StyledObject<String> {
+    Style::new().blue().apply_to(format!("{:03b}", ((translation >> 12) & (2_u32.pow(3) - 1))))
+}
+
+fn pretty_imm_frac(translation: u32, pos: u8) -> StyledObject<String> {
+    Style::new().green().apply_to(match pos {
+        1 => format!("{:05b}", ((translation >> 7) & (2_u32.pow(5) - 1))),
+        2 => format!("{:07b}", ((translation >> 25) & (2_u32.pow(7) - 1))),
+        _ => unreachable!(),
+    })
+}
+
 fn pretty_imm_long(translation: u32) -> StyledObject<String> {
-    Style::new().green().apply_to(format!("{:020b}", ((translation >> 11) & (2_u32.pow(20) - 1))))
+    Style::new().green().apply_to(format!("{:020b}", ((translation >> 12) & (2_u32.pow(20) - 1))))
 }
 
 fn pretty_register(translation: u32, pos: u8) -> StyledObject<String> {
@@ -32,50 +52,47 @@ fn pretty_opcode(translation: u32) -> StyledObject<String> {
 pub fn emit_debug_translate_instruction(instr: &Instruction, translation: u32) -> String {
     let opcode = pretty_opcode(translation);
     match instr {
+        // U-Type instruction
+        Instruction::Lui(_, _) |
+        Instruction::Auipc(_, _) |
         // J-Type
         Instruction::Jal(_, _) => format!("Emitted {}{}{opcode} from {:?}", pretty_imm_long(translation), pretty_register(translation, 1), instr),
-        Instruction::Jalr(_, _, _) => "".to_string(),
-
-        // B-Type instruction ; imm is the address!
-        Instruction::Beq(_, _, _) => "".to_string(),
-        Instruction::Bne(_, _, _) => "".to_string(),
-        Instruction::Blt(_, _, _) => "".to_string(),
-        Instruction::Bltu(_, _, _) => "".to_string(),
-        Instruction::Bge(_, _, _) => "".to_string(),
-        Instruction::Bgeu(_, _, _)=> "".to_string(),
-
-        // 1 reg & 1 imm
-        // Need VLd and VSt as well for variables
-        // U-Type instruction
-        Instruction::Lui(_, _) => "".to_string(),
-        Instruction::Auipc(_, _) => "".to_string(),
-
-        // I-Type instruction; reg1 == rd
-        Instruction::Addi(_, _, _) => "".to_string(),
-        
-        Instruction::Xori(_, _, _) => "".to_string(),
-        Instruction::Ori(_, _, _) => "".to_string(),
-        Instruction::Andi(_, _, _) => "".to_string(),
-
-        Instruction::Lb(_, _, _) => "".to_string(),
-        Instruction::Lh(_, _, _) => "".to_string(),
-        Instruction::Lw(_, _, _) => "".to_string(),
-        
-        Instruction::Lbu(_, _, _) => "".to_string(),
-        Instruction::Lhu(_, _, _) => "".to_string(),
-
-        // Shift left|right logical|arithmetic|rotate
-        Instruction::Slli(_, _, _) => "".to_string(),
-        Instruction::Srli(_, _, _) => "".to_string(),
-        Instruction::Srai(_, _, _) => "".to_string(),
-
-        Instruction::Slti(_, _, _) => "".to_string(),
-        Instruction::Sltiu(_, _, _) => "".to_string(), 
 
         // S-Type instruction
         Instruction::Sb(_, _, _) |
         Instruction::Sh(_, _, _) |
-        Instruction::Sw(_, _, _) => "".to_string(),
+        Instruction::Sw(_, _, _) |
+        // B-Type instruction ; imm is the address!
+        Instruction::Beq(_, _, _) |
+        Instruction::Bne(_, _, _) |
+        Instruction::Blt(_, _, _) |
+        Instruction::Bltu(_, _, _) |
+        Instruction::Bge(_, _, _) |
+        Instruction::Bgeu(_, _, _)=> format!("Emitted {}{}{}{}{}{opcode} from {:?}", pretty_imm_frac(translation, 2), pretty_register(translation, 3), pretty_register(translation, 2), pretty_func3(translation), pretty_imm_frac(translation, 1), instr),
+
+        // I-Type instruction; reg1 == rd
+        Instruction::Jalr(_, _, _) |
+
+        Instruction::Addi(_, _, _) |
+
+        Instruction::Xori(_, _, _) |
+        Instruction::Ori(_, _, _) |
+        Instruction::Andi(_, _, _) |
+
+        Instruction::Lb(_, _, _) |
+        Instruction::Lh(_, _, _) |
+        Instruction::Lw(_, _, _) |
+
+        Instruction::Lbu(_, _, _) |
+        Instruction::Lhu(_, _, _) |
+
+        // Shift left|right logical|arithmetic|rotate
+        Instruction::Slli(_, _, _) |
+        Instruction::Srli(_, _, _) |
+        Instruction::Srai(_, _, _) |
+
+        Instruction::Slti(_, _, _) |
+        Instruction::Sltiu(_, _, _) => format!("Emitted {}{}{}{}{opcode} from {:?}", pretty_imm_short(translation), pretty_register(translation, 2), pretty_func3(translation), pretty_register(translation, 1), instr),
 
         // R-Type instruction; 3 regs
         Instruction::Addn(_, _, _) |
@@ -96,6 +113,6 @@ pub fn emit_debug_translate_instruction(instr: &Instruction, translation: u32) -
         Instruction::Equal(_, _, _) |
 
         Instruction::Muln(_, _, _) |
-        Instruction::Mulh(_, _, _) => "".to_string(),
+        Instruction::Mulh(_, _, _) => format!("Emitted {}{}{}{}{}{opcode} from {:?}", pretty_func7(translation), pretty_register(translation, 3), pretty_register(translation, 2), pretty_func3(translation), pretty_register(translation, 1), instr),
      }
 }

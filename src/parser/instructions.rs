@@ -400,10 +400,10 @@ fn parse_inst_1imm2reg_lw(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
         value(InstrType::Reg2Imm(IntermediateOp::Beq), tag("beq")),
         value(InstrType::Reg2Imm(IntermediateOp::Bne), tag("bne")),
-        value(InstrType::Reg2Imm(IntermediateOp::Blt), tag("blt")),
         value(InstrType::Reg2Imm(IntermediateOp::Bltu), tag("bltu")),
-        value(InstrType::Reg2Imm(IntermediateOp::Bge), tag("bge")),
         value(InstrType::Reg2Imm(IntermediateOp::Bgeu), tag("bgeu")),
+        value(InstrType::Reg2Imm(IntermediateOp::Blt), tag("blt")),
+        value(InstrType::Reg2Imm(IntermediateOp::Bge), tag("bge")),
 
         value(InstrType::Reg2Imm(IntermediateOp::Slli), tag("slli")),
         value(InstrType::Reg2Imm(IntermediateOp::Srli), tag("srli")),
@@ -458,10 +458,10 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
         value(InstrType::Reg3(IntermediateOp::Sra), tag("sra")),
 
         value(InstrType::Reg3(IntermediateOp::Div), tag("div")),
-        value(InstrType::Reg3(IntermediateOp::Mul), tag("mul")),
         value(InstrType::Reg3(IntermediateOp::Mulhsu), tag("mulhsu")),
         value(InstrType::Reg3(IntermediateOp::Mulhu), tag("mulhu")),
         value(InstrType::Reg3(IntermediateOp::Mulh), tag("mulh")),
+        value(InstrType::Reg3(IntermediateOp::Mul), tag("mul")),
         value(InstrType::Reg3(IntermediateOp::Remu), tag("remu")),
 
         value(InstrType::Reg3(IntermediateOp::Xnor), tag("xnor")),

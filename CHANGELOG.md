@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New hardware supported instructions
   - `mulhu R1, R2, R3` - Unsigned high multiplication
   - `mulhsu R1, R2, R3` - Unsigned and signed high multiplication
+- More examples
+  - `fakultaet_64bit.asm` which uses 64 bits to store the solution
 
 ### Changed
 

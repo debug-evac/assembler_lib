@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Simple progress bar for tracking... well, progress!
+  - Progress bars are always written to stderr
+- Simple Logging
+  - There are multiple log levels: [error, warn, info, debug, trace, off] with error being the highest priority (always on unless log_level == off) and trace being the lowest priority (always off unless log_level == trace)
+  - You can choose the log level by using the env "RUST_LOG", ex. `RUST_LOG=warn assembler ...`
+  - Progress information and status messages are available via the `info` log level (default)
+  - Logs are always written to stderr
 
 ## [1.1.1] - 2024-02-02
 

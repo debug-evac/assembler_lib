@@ -22,6 +22,7 @@ use clap::{
     crate_authors, crate_version, crate_description, ValueHint
 };
 use indicatif_log_bridge::LogWrapper;
+use log::log_enabled;
 use parser::Subroutines;
 use std::{
     io::Write,
@@ -187,18 +188,24 @@ fn main() {
     let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
     let mut string_vector: Vec<String> = vec![];
 
-    let progbar = multi.add(ProgressBar::new(6));
-    progbar.set_style(
-        ProgressStyle::with_template(
-            if Term::stdout().size().1 > 80 {
-                "{prefix:>12.cyan.bold} [{bar:57}] {pos}/{len} {wide_msg}"
-            } else {
-                "{prefix:>12.cyan.bold} [{bar:57}] {pos}/{len}"
-            },
-        )
-        .unwrap()
-        .progress_chars("=> "),
-    );
+    let progbar;
+
+    if !log_enabled!(log::Level::Info) {
+        progbar = ProgressBar::hidden();
+    } else {
+        progbar = multi.add(ProgressBar::new(6));
+        progbar.set_style(
+            ProgressStyle::with_template(
+                if Term::stdout().size().1 > 80 {
+                    "{prefix:>12.cyan.bold} [{bar:57}] {pos}/{len} {wide_msg}"
+                } else {
+                    "{prefix:>12.cyan.bold} [{bar:57}] {pos}/{len}"
+                },
+            )
+            .unwrap()
+            .progress_chars("=> "),
+        );
+    }
     progbar.set_prefix("Assembling");
     progbar.set_message("Reading assembly files...");
 
@@ -262,7 +269,15 @@ fn main() {
         present_error(msg);
     }
 
+    let line = format!(
+        "{:>12} {} ({})",
+        console::Style::new().bold().apply_to("Assembled"),
+        outpath.as_path().file_name().unwrap().to_str().unwrap(),
+        std::fs::canonicalize(outpath.as_path()).unwrap().parent().unwrap().to_str().unwrap()
+    );
+
+    progbar.println(line);
     progbar.set_prefix("Finished");
-    progbar.finish_with_message(format!("Wrote to {:?}", outpath.file_name().unwrap()));
+    progbar.finish_with_message("Success");
 }
  

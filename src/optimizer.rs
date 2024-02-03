@@ -22,6 +22,7 @@
 
 use std::collections::VecDeque;
 use std::borrow::Cow;
+use log::debug;
 
 use crate::{
     common::{Instruction, Operation, MacroInstr, Reg, Part}, 
@@ -248,6 +249,7 @@ fn handle_part(lines: &mut i32, part: &Part) {
             } else {
                 *lines += 20;
             }
+            return
         },
         #[cfg(not(feature = "raw_nop"))]
         Part::Upper => {
@@ -453,6 +455,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                         let nop_insert = working_set.compare_and_insert(reg_dep);
                         if nop_insert > -1 {
                             let instr_num = 4 - nop_insert;
+                            debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
                                 code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                             }
@@ -477,6 +480,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                         let nop_insert = working_set.compare_and_insert(reg_dep);
                         if nop_insert > -1 {
                             let instr_num = 4 - nop_insert;
+                            debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
                                 code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                             }
@@ -504,6 +508,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                         let nop_insert = working_set.compare_and_insert(reg_dep);
                         if nop_insert > -1 {
                             let instr_num = 4 - nop_insert;
+                            debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
                                 code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                             }
@@ -527,6 +532,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                         let nop_insert = working_set.compare_and_insert(reg_dep);
                         if nop_insert > -1 {
                             let instr_num = 4 - nop_insert;
+                            debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
                                 code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                             }
@@ -642,6 +648,7 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction>
             Operation::Namespace(space) => namespace = *space,
             Operation::Macro(instr) | Operation::LablMacro(_, instr) => {
                 instr.translate(&mut code.0, &namespace, &mut instructions);
+                debug!("{:?} substituted label ref to {:?}", operation, instructions.last().unwrap());
             },
             Operation::Instr(instr) | Operation::LablInstr(_, instr) => {
                 instructions.push(instr.to_owned());
@@ -650,12 +657,16 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction>
         };
     }
 
+    debug!("Finished optimization step");
+
     instructions
 }
 
 pub fn optimize(mut code: (Namespaces, Vec<Operation>), no_nop_insert: bool) -> Vec<Instruction> {
     if !no_nop_insert {
         nop_insertion(&mut code);
+    } else {
+        debug!("Nop insertion has been omitted due to flag 'no-nop-insertion'!");
     }
     substitute_labels(code)
 }
@@ -1186,5 +1197,71 @@ mod tests {
         ]);
 
         assert_eq!(optimize((namespace_ver.clone(), operation_vec), false), instruction_ver);
+    }
+
+    #[test]
+    fn test_macro_translate() {
+        // translate(&self, namespace: &mut Namespaces, current_space: &usize, instructions: &mut Vec<Instruction>)
+        let cs: usize = 0;
+        let mut namespace = Namespaces::new();
+
+        let mut lr = LabelRecog::new();
+        lr.crt_def_ref(&"GLOBAL".to_string(), true, 0);
+        lr.crt_def_ref(&"LOCAL".to_string(), false, 1);
+
+        let mut instructions = Vec::from([
+            Instruction::Addi(Reg::G0, Reg::G0, 0),
+            Instruction::Addi(Reg::G0, Reg::G0, 0)
+        ]);
+
+        let _ = namespace.insert_recog(lr);
+
+        {
+            let test_addi_macros = [
+                (MacroInstr::Addi(Reg::G0, Reg::G0, "LOCAL".to_string(), Part::Lower), Instruction::Addi(Reg::G0, Reg::G0, -4)),
+                (MacroInstr::Addi(Reg::G0, Reg::G0, "GLOBAL".to_string(), Part::Lower), Instruction::Addi(Reg::G0, Reg::G0, -8))
+            ];
+
+            instructions.push(Instruction::Auipc(Reg::G0, 0));
+
+            #[cfg(feature = "raw_nop")] {
+                instructions.push(Instruction::Addi(Reg::G0, Reg::G0, 0));
+                instructions.push(Instruction::Addi(Reg::G0, Reg::G0, 0));
+                instructions.push(Instruction::Addi(Reg::G0, Reg::G0, 0));
+            }
+
+            for (test, corr) in test_addi_macros {
+                test.translate(&mut namespace, &cs, &mut instructions);
+                #[cfg(feature = "raw_nop")] {
+                    assert_eq!(instructions[6], corr);
+                    instructions.remove(6);
+                }
+                #[cfg(not(feature = "raw_nop"))] {
+                    assert_eq!(instructions[3], corr);
+                    instructions.remove(3);
+                }
+            }
+
+            #[cfg(feature = "raw_nop")] {
+                instructions.remove(5);
+                instructions.remove(4);
+                instructions.remove(3);
+            }
+
+            instructions.remove(2);
+        }
+
+        let mut test_macros: Vec<(MacroInstr, Instruction)> = vec![];
+
+        test_macros.push((MacroInstr::Lui(Reg::G21, "GLOBAL".to_string()), Instruction::Lui(Reg::G21, -8)));
+        test_macros.push((MacroInstr::Slli(Reg::G30, Reg::G19, "LOCAL".to_string()), Instruction::Slli(Reg::G30, Reg::G19, -4)));
+        test_macros.push((MacroInstr::Srli(Reg::G5, Reg::G20, "GLOBAL".to_string()), Instruction::Srli(Reg::G5, Reg::G20, -8)));
+        test_macros.push((MacroInstr::Srai(Reg::G7, Reg::G15, "LOCAL".to_string()), Instruction::Srai(Reg::G7, Reg::G15, -4)));
+
+        for (test, corr) in test_macros {
+            test.translate(&mut namespace, &cs, &mut instructions);
+            assert_eq!(instructions[2], corr);
+            instructions.remove(2);
+        }
     }
 }

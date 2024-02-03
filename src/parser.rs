@@ -30,6 +30,7 @@ use nom::{
 use std::cmp::Ordering;
 use std::collections::{HashSet, BTreeMap};
 use std::borrow::Cow;
+use log::debug;
 
 use self::{
     literals::{
@@ -541,6 +542,8 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
 
+            debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer, mid_list);
+
             incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
         MacroInstr::Remu(reg1, reg2, reg3) => {
@@ -557,6 +560,8 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
 
+            debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer, mid_list);
+
             incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
         MacroInstr::Srr(reg1, reg2, imm) => {
@@ -571,6 +576,8 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
 
+            debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer, mid_list);
+
             incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
         MacroInstr::Slr(reg1, reg2, imm) => {
@@ -584,6 +591,8 @@ fn translate_macros<'a>(
             if *reg1 != Reg::G10 {
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
+
+            debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer, mid_list);
 
             incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
@@ -604,6 +613,9 @@ fn translate_macros<'a>(
             *pointer += 1;
             instr_list.insert(*pointer,
             Instruction::Addi(reg.to_owned(), reg.to_owned(), imm_used).into());
+
+            debug!("Expanded '{:?}' at {} into '[{:?}, {:?}]'", macro_in, *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
             *pointer += 1;
             *accumulator += 1;
         },
@@ -624,6 +636,9 @@ fn translate_macros<'a>(
             *pointer += 1;
             instr_list.insert(*pointer,
             Instruction::Addi(reg.to_owned(), reg.to_owned(), imm_used).into());
+
+            debug!("Expanded '{:?}' at {} into '[{:?}, {:?}]'", macro_in, *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
             *pointer += 1;
             *accumulator += 1;
         },
@@ -637,6 +652,9 @@ fn translate_macros<'a>(
             *pointer += 1;
             instr_list.insert(*pointer,
             MacroInstr::Addi(reg.to_owned(), reg.to_owned(), targ_labl.to_string(), Part::Lower).into());
+
+            debug!("Expanded '{:?}' at {} into '[{:?}, {:?}]'", macro_in, *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
             *pointer += 1;
             *accumulator += 1;
         },
@@ -645,7 +663,10 @@ fn translate_macros<'a>(
             let mut imm_used = *imm;
 
             match handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Jalr(Reg::G1, Reg::G0, *imm)) {
-                true => return,
+                true => {
+                    debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer - 1, instr_list.last());
+                    return
+                },
                 false => (),
             }
 
@@ -657,6 +678,9 @@ fn translate_macros<'a>(
             *pointer += 1;
             instr_list.insert(*pointer,
             Instruction::Jalr(Reg::G1, Reg::G1, imm_used).into());
+
+            debug!("Expanded '{:?}' at {} into '[{:?}, {:?}]'", macro_in, *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
             *pointer += 1;
             *accumulator += 1;
         },
@@ -665,7 +689,10 @@ fn translate_macros<'a>(
             let mut imm_used = *imm;
 
             match handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Jalr(Reg::G0, Reg::G0, *imm)) {
-                true => return,
+                true => {
+                    debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer - 1, instr_list.last());
+                    return
+                },
                 false => (),
             }
 
@@ -677,6 +704,9 @@ fn translate_macros<'a>(
             *pointer += 1;
             instr_list.insert(*pointer,
             Instruction::Jalr(Reg::G0, Reg::G6, imm_used).into());
+
+            debug!("Expanded '{:?}' at {} into '[{:?}, {:?}]'", macro_in, *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
             *pointer += 1;
             *accumulator += 1;
         },
@@ -690,6 +720,9 @@ fn translate_macros<'a>(
             *pointer += 1;
             instr_list.insert(*pointer,
             MacroInstr::Jalr(Reg::G1, Reg::G1, targ_labl.to_string(), Part::Lower).into());
+
+            debug!("Expanded '{:?}' at {} into '[{:?}, {:?}]'", macro_in, *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
             *pointer += 1;
             *accumulator += 1;
         },
@@ -703,6 +736,9 @@ fn translate_macros<'a>(
             *pointer += 1;
             instr_list.insert(*pointer,
             MacroInstr::Jalr(Reg::G0, Reg::G6, targ_labl.to_string(), Part::Lower).into());
+
+            debug!("Expanded '{:?}' at {} into '[{:?}, {:?}]'", macro_in, *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
             *pointer += 1;
             *accumulator += 1;
         },
@@ -720,6 +756,8 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Sw(reg.to_owned(), Reg::G2, acc).into());
                 acc -= 4;
             }
+
+            debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer, mid_list);
 
             *accumulator += (mid_list.len() - 1) as i128;
             *pointer += mid_list.len();
@@ -747,6 +785,8 @@ fn translate_macros<'a>(
 
             mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, regs.len() as i32 * 4).into());
 
+            debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer, mid_list);
+
             *accumulator += (mid_list.len() - 1) as i128;
             *pointer += mid_list.len();
             instr_list.append(&mut mid_list);
@@ -767,6 +807,8 @@ fn translate_macros<'a>(
             for _ in 0..(*num - 1) {
                 mid_list.push(instrni.clone().into());
             }
+
+            debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer, mid_list);
 
             *accumulator += (*num - 1) as i128;
             *pointer += *num as usize;
@@ -798,6 +840,8 @@ fn translate_macros<'a>(
                     instr_list[saved_pointer] = Operation::LablInstr(labl, instrinin.clone());
                 }
             }
+
+            debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer, mid_list);
 
             *accumulator += (space_needed - 1) as i128;
             *pointer += space_needed;
@@ -869,6 +913,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
 
         match &mut parsed {
             (Some(label), Some(instr)) => {
+                debug!("({instr_counter}) - Parsed label '{label}' and instruction '{:?}'", instr);
                 handle_label_defs(label, &mut symbol_map, instr_counter);
 
                 match instr {
@@ -949,6 +994,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                 instr_list.push(instr.to_owned());
             },
             (None, Some(instr)) => {
+                debug!("({instr_counter}) - Parsed instruction '{:?}'", instr);
                 match instr {
                     Operation::Macro(macro_in) => handle_label_refs(macro_in, subroutines, &mut symbol_map),
                     Operation::Instr(instr_in) => {
@@ -1022,6 +1068,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                 instr_list.push(instr.to_owned());
             },
             (Some(label), None) => {
+                debug!("({instr_counter}) - Parsed label '{label}'");
                 handle_label_defs(label, &mut symbol_map, instr_counter);
                 if let Some(list) = abs_to_label_queue.remove(&(instr_counter + 1)) {
                     symbol_map.set_refd_label(&label.to_string());
@@ -1030,7 +1077,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                 instr_counter += 1;
                 instr_list.push(Operation::Labl(std::borrow::Cow::Borrowed(label)));
             },
-            (None, None) => (),
+            (None, None) => debug!("{instr_counter} - Parsed nothing!"),
         }
 
         if rest.trim().is_empty() {
@@ -1057,6 +1104,8 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
     }
 
     expand_instrs(&mut symbol_map, &mut instr_list);
+
+    debug!("Finished parser step");
 
     Ok(("", (symbol_map, instr_list)))
 }

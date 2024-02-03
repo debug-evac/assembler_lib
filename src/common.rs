@@ -455,8 +455,3 @@ impl LabelRecog {
         }
     }
 }
-
-pub fn present_error(msg: String) {
-    eprintln!("[Error] {msg}");
-    std::process::exit(1)
-}

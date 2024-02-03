@@ -14,6 +14,8 @@
 // Linked files need to be specified and ordered from flags or a
 // particular file (probably flags only, but we'll see).
 use std::collections::HashMap;
+use log::debug;
+
 use crate::common::{LabelRecog, Operation, LabelElem};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,7 +46,7 @@ impl Namespaces {
                 Some(val) => {
                     if let Some(gl_label) = self.global_namespace.get_mut(*val) {
                         match gl_label.combine(labelelem) {
-                            Ok(_) => (),
+                            Ok(_) => debug!("Successfully merged global label {:?} with {:?}", gl_label, labelelem),
                             Err(_msg) => return Err(LinkError {}),
                         }
                     }
@@ -55,6 +57,8 @@ impl Namespaces {
                 },
             }
         };
+
+        debug!("Successfully inserted '{:?}' into Namespace '{:?}'", recog, self.namespaces);
 
         // Possibly remove global labels from LabelRecog
         self.namespaces.push(recog);
@@ -110,12 +114,10 @@ pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Name
     // Break out into multiple functions? Probably not..
     for code in parsed_instr.iter_mut() {
         if let Some(val) = offset.get(file_counter) {
+            debug!("Added offset {val} to file {file_counter}");
             code.0.add_offset(*val as i128);
         };
-        match new_code.0.insert_recog(code.0.clone()) {
-            Ok(_) => (),
-            Err(e) => return Err(e),
-        }
+        new_code.0.insert_recog(code.0.clone())?;
         new_code.1.push(Operation::Namespace(file_counter));
         new_code.1.extend(code.1.clone());
         file_counter += 1;
@@ -128,6 +130,8 @@ pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Name
             return Err(LinkError {  });
         }
     }
+
+    debug!("Finished linking step");
 
     Ok(new_code)
 }

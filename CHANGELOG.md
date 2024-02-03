@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Simple progress bar for tracking... well, progress!
+  - Progress bars are always written to stderr
+- Simple Logging
+  - There are multiple log levels: [error, warn, info, debug, trace, off] with error being the highest priority (always on unless log_level == off) and trace being the lowest priority (always off unless log_level == trace)
+  - You can choose the log level by using the env "RUST_LOG", ex. `RUST_LOG=warn assembler ...`
+  - Progress information and status messages are available via the `info` log level (default)
+  - Logs are always written to stderr
+  - Log level "debug" gives you more insight in the proceedings of the assembler, especially what instruction generates which machine code
+- More test coverage
 - New hardware supported instructions
   - `Mulu R1, R2, R3` - Unsigned high multiplication
   - `Mulsu R1, R2, R3` - Unsigned and signed high multiplication
@@ -25,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multiplication subroutine and handling
   - Multiplication was hardware supported before and code has been commented out
   - No changes in behavior
+
+### Fixed
+
+- Running tests with all-features flag
+- Bug that resulted in wrong jump and load addresses when using read after write nop insertion compilation flag
 
 ## [1.1.1] - 2024-02-02
 

@@ -238,8 +238,8 @@ pub enum Instruction {
     // Some commands from RV32M
     Mul(Reg, Reg, Reg),
     Mulh(Reg, Reg, Reg),
-    Mulu(Reg, Reg, Reg),
-    Mulsu(Reg, Reg, Reg)
+    Mulhu(Reg, Reg, Reg),
+    Mulhsu(Reg, Reg, Reg)
 }
 
 #[derive(Debug, Clone, PartialEq)]

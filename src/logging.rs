@@ -114,7 +114,7 @@ pub fn emit_debug_translate_instruction(instr: &Instruction, translation: u32) -
 
         Instruction::Mul(_, _, _) |
         Instruction::Mulh(_, _, _) |
-        Instruction::Mulsu(_, _, _) |
-        Instruction::Mulu(_, _, _) => format!("Emitted {}{}{}{}{}{opcode} from {:?}", pretty_func7(translation), pretty_register(translation, 3), pretty_register(translation, 2), pretty_func3(translation), pretty_register(translation, 1), instr),
+        Instruction::Mulhsu(_, _, _) |
+        Instruction::Mulhu(_, _, _) => format!("Emitted {}{}{}{}{}{opcode} from {:?}", pretty_func7(translation), pretty_register(translation, 3), pretty_register(translation, 2), pretty_func3(translation), pretty_register(translation, 1), instr),
      }
 }

@@ -46,79 +46,6 @@ pub struct Subroutines {
 }
 
 impl Subroutines {
-    const DIV_SUB: &'static str = r#"
-_DIV:
-    addi a7, zero, 1
-    mv a2, a0
-    mv a3, a1
-    mv a0, zero
-    mv a1, zero
-    bne a2, a3, 16
-    slli a3, a3, 1
-    sub a2, a2, a3
-    add a0, a0, a7
-    blt a2, a3, 40
-    slli a3, a3, 1
-    slli a7, a7, 1
-    blt a3, a2, -8
-    srli a3, a3, 1
-    srli a7, a7, 1
-    sub a2, a2, a3
-    add a0, a0, a7
-    bne a2, zero, -32
-    beq zero, zero, 44
-    srli a3, a3, 1
-    srli a7, a7, 1
-    blt a2, a3, -8
-    slli a3, a3, 1
-    slli a7, a7, 1
-    beq a2, a3, 8
-    srli a3, a3, 1
-    srli a7, a7, 1
-    sub a2, a2, a3
-    add a0, a0, a7
-    bne a2, zero, -80
-    ret
-"#;
-
-//just one direction
-    const REMU_SUB: &'static str = r#"
-_REMU:
-    addi a7, zero, 1
-    mv a2, a0
-    mv a3, a1
-    mv a0, zero
-    mv a1, zero
-    bne a2, a3, 16
-    slli a3, a3, 1
-    sub a2, a2, a3
-    add a0, a0, a7
-    blt a2, a3, 40
-    slli a3, a3, 1
-    slli a7, a7, 1
-    blt a3, a2, -8
-    srli a3, a3, 1
-    srli a7, a7, 1
-    sub a2, a2, a3
-    add a0, a0, a7
-    bne a2, zero, -32
-    beq zero, zero, 48
-    srli a3, a3, 1
-    srli a7, a7, 1
-    blt a2, a3, -8
-    slli a3, a3, 1
-    slli a7, a7, 1
-    beq a2, a3, 8
-    srli a3, a3, 1
-    srli a7, a7, 1
-    sub a2, a2, a3
-    add a0, a0, a7
-    blt a2, a3, 8
-    bne a2, zero, -84
-    mv a0, a2
-    ret
-"#;
-
     const SRR_SUB: &'static str = r#"
 _SRR:
     sub a4, zero, a1
@@ -140,14 +67,6 @@ _SLR:
         let code_str_vec = HashSet::new();
 
         Subroutines{ code_str_vec }
-    }
-
-    pub fn div_defined(&mut self) {
-        self.code_str_vec.insert(Self::DIV_SUB.to_string());
-    }
-
-    pub fn remu_defined(&mut self) {
-        self.code_str_vec.insert(Self::REMU_SUB.to_string());
     }
 
     pub fn srr_defined(&mut self) {
@@ -317,20 +236,6 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
         MacroInstr::TailLabl(labl) |
         MacroInstr::LaLabl(_, labl) => {
             symbol_map.crt_or_ref_label(labl);
-        },
-        MacroInstr::Div(_, _, _) => {
-            if let Some(subs) = subroutines {
-                subs.div_defined();
-            };
-            static LABEL: &str = "_DIV";
-            symbol_map.crt_or_ref_label(&LABEL.to_string());
-        },
-        MacroInstr::Remu(_, _, _) => {
-            if let Some(subs) = subroutines {
-                subs.remu_defined();
-            };
-            static LABEL: &str = "_REMU";
-            symbol_map.crt_or_ref_label(&LABEL.to_string());
         },
         MacroInstr::Srr(_, _, _) => {
             if let Some(subs) = subroutines {
@@ -529,42 +434,6 @@ fn translate_macros<'a>(
     label: Option<Cow<'a, str>>
 ) {
     match &macro_in {
-        MacroInstr::Div(reg1, reg2, reg3) => {
-            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
-
-            if *reg2 != Reg::G10 {
-                mid_list.push(Operation::Instr(Instruction::Addi(Reg::G10, reg2.to_owned(), 0)));
-            }
-            if *reg3 != Reg::G11 {
-                mid_list.push(Instruction::Addi(Reg::G11, reg3.to_owned(), 0).into());
-            }
-            mid_list.push(MacroInstr::Jal(Reg::G1, "_DIV".to_string()).into());
-            if *reg1 != Reg::G10 {
-                mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
-            }
-
-            debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer, mid_list);
-
-            incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
-        },
-        MacroInstr::Remu(reg1, reg2, reg3) => {
-            let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
-
-            if *reg2 != Reg::G10 {
-                mid_list.push(Operation::Instr(Instruction::Addi(Reg::G10, reg2.to_owned(), 0)));
-            }
-            if *reg3 != Reg::G11 {
-                mid_list.push(Instruction::Addi(Reg::G11, reg3.to_owned(), 0).into());
-            }
-            mid_list.push(MacroInstr::Jal(Reg::G1, "_REMU".to_string()).into());
-            if *reg1 != Reg::G10 {
-                mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
-            }
-
-            debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer, mid_list);
-
-            incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
-        },
         MacroInstr::Srr(reg1, reg2, imm) => {
             let (mut right_list, mut mid_list) = split_list(instr_list, pointer);
 
@@ -1126,7 +995,7 @@ mod tests {
         assert_eq!(parse_line("mv x15, x12\naddi x12, x10, 0x05"),
                    Ok(("\naddi x12, x10, 0x05", (None, Some(Instruction::Addi(Reg::G15, Reg::G12, 0).into())))));
         assert_eq!(parse_line("label:\ndiv x14, x13, x10"),
-                   Ok(("", (Some("label"), Some(MacroInstr::Div(Reg::G14, Reg::G13, Reg::G10).into())))));
+                   Ok(("", (Some("label"), Some(Instruction::Div(Reg::G14, Reg::G13, Reg::G10).into())))));
     }
 
     #[test]
@@ -1140,7 +1009,7 @@ mod tests {
         assert_eq!(parse_line_priv("mv x15, x12\naddi x12, x10, 0x05"),
                     Ok(("\naddi x12, x10, 0x05", (None, Some(Instruction::Addi(Reg::G15, Reg::G12, 0).into())))));
         assert_eq!(parse_line_priv("_label:\ndiv x14, x13, x10"),
-                    Ok(("", (Some("_label"), Some(MacroInstr::Div(Reg::G14, Reg::G13, Reg::G10).into())))));
+                    Ok(("", (Some("_label"), Some(Instruction::Div(Reg::G14, Reg::G13, Reg::G10).into())))));
     }
 
     #[test]
@@ -1371,38 +1240,6 @@ TEST: srli a7, a7, 1
 
         let mut accumulator: i128 = 0;
         let mut pointer: usize = 2;
-
-        {
-            let mut test_list = sample_list.clone();
-            test_list.insert(2, 
-                Operation::Macro(MacroInstr::Div(Reg::G7, Reg::G20, Reg::G13)));
-            let label: Cow<'_, str> = Cow::from("TEST");
-            
-            translate_macros(&MacroInstr::Div(Reg::G7, Reg::G20, Reg::G13), 
-            &mut test_list, 
-            &mut accumulator, 
-            &mut pointer, 
-            Some(label.clone()));
-
-            assert_eq!(accumulator, 3);
-            assert_eq!(pointer, 6);
-
-            let cor_vec: Vec<Operation> = Vec::from([
-                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
-                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                Operation::LablInstr(label, Instruction::Addi(Reg::G10, Reg::G20, 0)),
-                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G13, 0)),
-                Operation::Macro(MacroInstr::Jal(Reg::G1, "_DIV".to_string())),
-                Operation::Instr(Instruction::Addi(Reg::G7, Reg::G10, 0)),
-                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
-                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
-                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
-            ]);
-
-            assert_eq!(test_list, cor_vec);
-        }
-
-        reset_acc_pointer(&mut accumulator, &mut pointer);
 
         {
             let mut test_list = sample_list.clone();

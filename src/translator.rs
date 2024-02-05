@@ -126,6 +126,11 @@ impl Instruction {
          Instruction::Mulh(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(1) + (1_u32 << 25),
          Instruction::Mulhsu(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(2) + (1_u32 << 25),
          Instruction::Mulhu(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(3) + (1_u32 << 25),
+
+         Instruction::Div(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(4) + (1_u32 << 25),
+         Instruction::Divu(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(5) + (1_u32 << 25),
+         Instruction::Rem(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(6) + (1_u32 << 25),
+         Instruction::Remu(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(7) + (1_u32 << 25),
       }
    }
 }

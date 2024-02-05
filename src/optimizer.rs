@@ -146,6 +146,10 @@ impl From<&Operation<'_>> for RegActType {
                     Instruction::Mulh(reg1, reg2, reg3) |
                     Instruction::Mulhsu(reg1, reg2, reg3) |
                     Instruction::Mulhu(reg1, reg2, reg3) |
+                    Instruction::Div(reg1, reg2, reg3) |
+                    Instruction::Divu(reg1, reg2, reg3) |
+                    Instruction::Rem(reg1, reg2, reg3) |
+                    Instruction::Remu(reg1, reg2, reg3) |
                     Instruction::Xnor(reg1, reg2, reg3) |
                     Instruction::Equal(reg1, reg2, reg3) |
                     Instruction::Add(reg1, reg2, reg3) |

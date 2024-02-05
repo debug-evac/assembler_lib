@@ -142,9 +142,6 @@ pub enum MacroInstr {
 
     Addi(Reg, Reg, String, Part),
 
-    Div(Reg, Reg, Reg),
-    Remu(Reg, Reg, Reg),
-
     Srr(Reg, Reg, Imm),
     Slr(Reg, Reg, Imm),
 
@@ -235,11 +232,16 @@ pub enum Instruction {
     Equal(Reg, Reg, Reg),
 
     // ------------------
-    // Some commands from RV32M
+    // All commands from RV32M
     Mul(Reg, Reg, Reg),
     Mulh(Reg, Reg, Reg),
     Mulhu(Reg, Reg, Reg),
-    Mulhsu(Reg, Reg, Reg)
+    Mulhsu(Reg, Reg, Reg),
+
+    Div(Reg, Reg, Reg),
+    Divu(Reg, Reg, Reg),
+    Rem(Reg, Reg, Reg),
+    Remu(Reg, Reg, Reg)
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -217,12 +217,14 @@ impl InstrType {
                     IntermediateOp::Srl => Instruction::Srl(args.0, args.1, args.2).into(),
                     IntermediateOp::Sra => Instruction::Sra(args.0, args.1, args.2).into(),
             
-                    IntermediateOp::Div => MacroInstr::Div(args.0, args.1, args.2).into(),
                     IntermediateOp::Mul => Instruction::Mul(args.0, args.1, args.2).into(),
                     IntermediateOp::Mulh => Instruction::Mulh(args.0, args.1, args.2).into(),
                     IntermediateOp::Mulhsu => Instruction::Mulhsu(args.0, args.1, args.2).into(),
                     IntermediateOp::Mulhu => Instruction::Mulhu(args.0, args.1, args.2).into(),
-                    IntermediateOp::Remu => MacroInstr::Remu(args.0, args.1, args.2).into(),
+                    IntermediateOp::Div => Instruction::Div(args.0, args.1, args.2).into(),
+                    IntermediateOp::Divu => Instruction::Divu(args.0, args.1, args.2).into(),
+                    IntermediateOp::Rem => Instruction::Rem(args.0, args.1, args.2).into(),
+                    IntermediateOp::Remu => Instruction::Remu(args.0, args.1, args.2).into(),
             
                     IntermediateOp::Equal => Instruction::Equal(args.0, args.1, args.2).into(),
                     IntermediateOp::Xnor => Instruction::Xnor(args.0, args.1, args.2).into(),
@@ -273,9 +275,8 @@ enum IntermediateOp {
     Sll,
     Srl,
     Sra,
-    Div,
     Mul, Mulh, Mulhsu, Mulhu,
-    Remu,
+    Div, Divu, Rem, Remu,
     Xnor,
     Nor,
     Equal,
@@ -457,12 +458,14 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
         value(InstrType::Reg3(IntermediateOp::Srl), tag("srl")),
         value(InstrType::Reg3(IntermediateOp::Sra), tag("sra")),
 
-        value(InstrType::Reg3(IntermediateOp::Div), tag("div")),
         value(InstrType::Reg3(IntermediateOp::Mulhsu), tag("mulhsu")),
         value(InstrType::Reg3(IntermediateOp::Mulhu), tag("mulhu")),
         value(InstrType::Reg3(IntermediateOp::Mulh), tag("mulh")),
         value(InstrType::Reg3(IntermediateOp::Mul), tag("mul")),
+        value(InstrType::Reg3(IntermediateOp::Divu), tag("divu")),
+        value(InstrType::Reg3(IntermediateOp::Div), tag("div")),
         value(InstrType::Reg3(IntermediateOp::Remu), tag("remu")),
+        value(InstrType::Reg3(IntermediateOp::Rem), tag("rem")),
 
         value(InstrType::Reg3(IntermediateOp::Xnor), tag("xnor")),
         value(InstrType::Reg3(IntermediateOp::Equal), tag("eq")),
@@ -656,7 +659,7 @@ mod tests {
         assert_ne!(parse_inst_3reg("addi x1, x6, 0xAA"), Ok(("", Instruction::Addi(Reg::G1, Reg::G6, 0xAA).into())));
         assert_ne!(parse_inst_3reg("add x1, x2"), Ok(("", Instruction::Add(Reg::G1, Reg::G2, Reg::G0).into())));
         assert_eq!(parse_inst_3reg("mul x1, x4, x6"), Ok(("", Instruction::Mul(Reg::G1, Reg::G4, Reg::G6).into())));
-        assert_ne!(parse_inst_3reg("div x10x14,x7"), Ok(("", MacroInstr::Div(Reg::G10, Reg::G14, Reg::G7).into())));
+        assert_ne!(parse_inst_3reg("div x10x14,x7"), Ok(("", Instruction::Div(Reg::G10, Reg::G14, Reg::G7).into())));
         assert_eq!(parse_inst_3reg("xor x10,x11, x10"), Ok(("", Instruction::Xor(Reg::G10, Reg::G11, Reg::G10).into())));
         assert_ne!(parse_inst_3reg("xnor x6,  x8,x5"), Ok(("", Instruction::Xnor(Reg::G6, Reg::G8, Reg::G5).into())));
         assert_eq!(parse_inst_3reg("and x6, x8, x14"), Ok(("", Instruction::And(Reg::G6, Reg::G8, Reg::G14).into())));

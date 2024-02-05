@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New hardware supported instructions
   - `mulhu R1, R2, R3` - Unsigned high multiplication
   - `mulhsu R1, R2, R3` - Unsigned and signed high multiplication
+  - `div R1, R2, R3` - Signed division
+  - `divu R1, R2, R3` - Unsigned division (previously subroutine only)
+  - `rem R1, R2, R3` - Signed remainder
+  - `remu R1, R2, R3` - Unsigned remainder (previously subroutine only)
 - More examples
   - `fakultaet_64bit.asm` which uses 64 bits to store the solution
   - `assembler_crasher_2000.asm` which is a very long assembly file **(Do NOT use debug log level)**
@@ -37,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Multiplication subroutine and handling
   - Multiplication was hardware supported before and code has been commented out
+  - No changes in behavior
+- Division and Remainder subroutine and handling
+  - These are now handled in hardware
   - No changes in behavior
 
 ### Fixed

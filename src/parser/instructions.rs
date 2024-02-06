@@ -22,7 +22,8 @@ use nom::{
         separated_pair,
         pair,
         preceded
-    }, multi::separated_list1,
+    },
+    multi::separated_list1,
 };
 
 use crate::parser::literals::{parse_imm, parse_reg, parse_label_name};
@@ -55,7 +56,7 @@ impl InstrType {
                     IntermediateOp::J => MacroInstr::Jal(Reg::G0, labl.to_string()).into(),
                     IntermediateOp::Jal => MacroInstr::Jal(Reg::G1, labl.to_string()).into(),
 
-                    op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
             },
             InstrType::Imm(interop) => {
@@ -67,7 +68,7 @@ impl InstrType {
                     IntermediateOp::J => Instruction::Jal(Reg::G0, imm).into(),
                     IntermediateOp::Jal => Instruction::Jal(Reg::G1, imm).into(),
 
-                    op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
             },
             InstrType::Reg(interop) => {
@@ -77,7 +78,7 @@ impl InstrType {
                     IntermediateOp::Jr => Instruction::Jalr(Reg::G0, reg, 0).into(),
                     IntermediateOp::Jalr => Instruction::Jalr(Reg::G1, reg, 0).into(),
 
-                    op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
             },
             InstrType::RegLabl(interop) => {
@@ -89,7 +90,7 @@ impl InstrType {
                     IntermediateOp::Jal => MacroInstr::Jal(args.0, args.1.to_string()).into(),
                     IntermediateOp::La => MacroInstr::LaLabl(args.0, args.1.to_string()).into(),
 
-                    op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
             },
             InstrType::RegImm(interop) => {
@@ -103,7 +104,7 @@ impl InstrType {
                     IntermediateOp::Li => MacroInstr::Li(args.0, args.1).into(),
                     IntermediateOp::La => MacroInstr::LaImm(args.0, args.1).into(),
             
-                    op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
             },
             InstrType::Reg2(interop) => {
@@ -111,7 +112,7 @@ impl InstrType {
 
                 Ok((rest, match interop {
                     IntermediateOp::Mv => Instruction::Addi(args.0, args.1, 0).into(),
-                    op  => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                    op  => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
             },
             InstrType::Reg2Labl(interop) => {
@@ -147,7 +148,7 @@ impl InstrType {
             
                     IntermediateOp::Addi => MacroInstr::Addi(args.0, args.1, args.2.to_string(), Part::None).into(),
             
-                    op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
             },
             InstrType::Reg2Imm(interop) => {
@@ -192,7 +193,7 @@ impl InstrType {
                     IntermediateOp::Srr => MacroInstr::Srr(args.0, args.1, args.2).into(),
                     IntermediateOp::Slr => MacroInstr::Slr(args.0, args.1, args.2).into(),
 
-                    op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
             },
             InstrType::Reg3(interop) => {
@@ -230,7 +231,7 @@ impl InstrType {
                     IntermediateOp::Xnor => Instruction::Xnor(args.0, args.1, args.2).into(),
                     IntermediateOp::Nor => todo!("Not implemented yet!"),
             
-                    op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
             },
             InstrType::RegVar(interop) => {
@@ -240,7 +241,7 @@ impl InstrType {
                     IntermediateOp::Push => MacroInstr::Push(args).into(),
                     IntermediateOp::Pop => MacroInstr::Pop(args).into(),
 
-                    op => panic!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
             },
         }

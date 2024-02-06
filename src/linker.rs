@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use log::debug;
 
 use crate::common::{LabelRecog, Operation, LabelElem};
+use crate::errors::LinkError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Namespaces {
@@ -45,10 +46,8 @@ impl Namespaces {
             match self.global_definitions.get(elem_name) {
                 Some(val) => {
                     if let Some(gl_label) = self.global_namespace.get_mut(*val) {
-                        match gl_label.combine(labelelem) {
-                            Ok(_) => debug!("Successfully merged global label {:?} with {:?}", gl_label, labelelem),
-                            Err(_msg) => return Err(LinkError {}),
-                        }
+                        gl_label.combine(labelelem)?;
+                        debug!("Successfully merged global label {:?} with {:?}", gl_label, labelelem);
                     }
                 },
                 None => {
@@ -100,11 +99,6 @@ impl Namespaces {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct LinkError {
-
-}
-
 pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Namespaces, Vec<Operation>), LinkError> {
     let mut new_code: (Namespaces, Vec<Operation>) = (Namespaces::new(), vec![]);
     let mut offset: Vec<usize> = vec![0; parsed_instr.len() + 1];
@@ -127,7 +121,7 @@ pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Name
     // Check if all globals are defined!
     for gl_label in new_code.0.get_global_labels().iter() {
         if *gl_label.get_def() == -1 {
-            return Err(LinkError {  });
+            return Err(LinkError::UndefinedGlobal(gl_label.clone()));
         }
     }
 
@@ -141,6 +135,7 @@ mod tests {
     use super::*;
     use std::borrow::Cow;
     use crate::common::{Instruction, Reg, MacroInstr};
+    use crate::errors::CommonError;
 
     #[test]
     fn test_correct_link() {
@@ -264,7 +259,7 @@ mod tests {
         label = LabelElem::new_refd("SEHR_SCHOEN".to_string());
         label.set_scope(true);
         label.set_def(0);
-        let _ = label_recog_two.insert_label(label);
+        let _ = label_recog_two.insert_label(label.clone());
 
         /*
             Assembly file two:
@@ -287,7 +282,9 @@ mod tests {
             jmp SEHR_SCHOEN
         */
 
-        assert_eq!(Err(LinkError {}), link(parsed_vector));
+        let _result = link(parsed_vector);
+
+        assert!(matches!(Err::<LinkError, LinkError>(LinkError::InsertRecog(CommonError::MultipleGlobalDefined(label))), _result));
     }
 
     #[test]

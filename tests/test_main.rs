@@ -18,7 +18,7 @@ fn test_input_not_existing() -> Result<(), Box<dyn std::error::Error>> {
     cmd.arg("-i").arg("non_existent_random_file_that_does_not_exist");
     cmd.assert()
         .failure()
-        .stderr(predicate::str::contains("[Error] Could not read a file"));
+        .stderr(predicate::str::contains("[ERROR assembler] Could not read \'non_existent_random_file_that_does_not_exist\':"));
 
     Ok(())
 }

@@ -14,6 +14,8 @@
 use std::collections::HashMap;
 use std::borrow::Cow;
 
+use crate::errors::CommonError;
+
 pub type Imm = i32; // always less than 32
 
 #[repr(u8)]
@@ -295,13 +297,13 @@ impl LabelElem {
     }
 
     // TODO: Custom error struct
-    pub fn combine(&mut self, other: &LabelElem) -> Result<&str, &str> {
+    pub fn combine(&mut self, other: &LabelElem) -> Result<&str, CommonError> {
         if self.name.ne(&other.name) || self.scope != other.scope {
-            return Err("Labels are not the same!");
+            return Err(CommonError::LabelsNameNotEqual(self.clone(), other.clone()));
         }
 
         if self.definition != -1 && other.definition != -1 {
-            return Err("Global label defined in two files!");
+            return Err(CommonError::MultipleGlobalDefined(self.clone()));
         } else if self.definition == -1 && other.definition != -1 {
             self.definition = other.definition;
         }

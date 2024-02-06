@@ -26,7 +26,8 @@ use log::debug;
 
 use crate::{
     common::{Instruction, Operation, MacroInstr, Reg, Part}, 
-    linker::Namespaces
+    linker::Namespaces,
+    errors::OptimizerError,
 };
 
 #[derive(Clone)]
@@ -294,149 +295,151 @@ fn handle_part(lines: &mut i32, part: &Part) {
 }
 
 impl MacroInstr {
-    fn translate(&self, namespace: &mut Namespaces, current_space: &usize, instructions: &mut Vec<Instruction>) {
+    fn translate(&self, namespace: &mut Namespaces, current_space: &usize, instructions: &mut Vec<Instruction>) -> Result<(), OptimizerError> {
         // Do not forget to change the lines function in the parser when changing the amount of lines here! 
         // (TODO: Better method for this)
         match self {
             MacroInstr::Addi(reg1, reg2, labl, part) => {
-                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Addi(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
             MacroInstr::Beq(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Beq(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Bne(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Bne(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Blt(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Blt(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Bltu(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Bltu(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Bge(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Bge(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Bgeu(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Bgeu(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
             MacroInstr::Jal(reg, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Jal(reg.to_owned(), lines));
             },
             MacroInstr::Jalr(reg1, reg2, labl, part) => {
-                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Jalr(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
             MacroInstr::Lui(reg, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Lui(reg.to_owned(), lines));
             },
             MacroInstr::Auipc(reg, labl, part) => {
-                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Auipc(reg.to_owned(), lines));
             },
 
             MacroInstr::Slli(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Slli(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Srli(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Srli(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Srai(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Srai(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
-            // TODO: Evaluate if this is right? Spec paper seems to add upper half of symbol to PC (needed for our case?)
             MacroInstr::Lb(reg1, reg2, labl, part) => {
-                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Lb(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Lh(reg1, reg2, labl, part) => {
-                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Lh(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Lw(reg1, reg2, labl, part) => {
-                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Lw(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Lbu(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Lbu(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Lhu(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 instructions.push(Instruction::Lhu(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
             MacroInstr::Sb(reg1, reg2, labl, part) => {
-                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Sb(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Sh(reg1, reg2, labl, part) => {
-                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Sh(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Sw(reg1, reg2, labl, part) => {
-                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space);
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Sw(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
-            _ => unreachable!(),
+            op => return Err(OptimizerError::LabelSubNotRequiredFor(op.clone())),
         };
+        Ok(())
     }
 }
 
-fn translate_label(current_line: i128, label: String, namespaces: &mut Namespaces, current_space: usize) -> i32 {
-    match namespaces.get_label(label, Some(current_space)) {
+fn translate_label(current_line: i128, label: String, namespaces: &mut Namespaces, current_space: usize) -> Result<i32, OptimizerError> {
+    match namespaces.get_label(label.clone(), Some(current_space)) {
         Some(label_elem) => {
-            <i128 as TryInto<i32>>::try_into((*label_elem.get_def() * 4) - (current_line * 4)).unwrap()
+            // should always work
+            Ok(<i128 as TryInto<i32>>::try_into((*label_elem.get_def() * 4) - (current_line * 4)).unwrap())
         },
-        None => panic!("[Error] Label does not exist! Could not get position of label!"),
+        None => Err(OptimizerError::LabelNonExistent(label)),
     }
 }
 
-fn cond_add_acc_label(namespaces: &mut Namespaces, accumulator: i128, label: Cow<str>, space: usize) {
+fn cond_add_acc_label(namespaces: &mut Namespaces, accumulator: i128, label: Cow<str>, space: usize) -> Result<(), OptimizerError> {
     if accumulator != 0 {
         match label.strip_prefix('.') {
             Some(labell) => {
                 match namespaces.get_label(labell.to_string(), Some(space)) {
                     Some(lablel) => lablel.add_def(accumulator),
-                    None => panic!("[Error] Label not found: {}", label),
+                    None => return Err(OptimizerError::LabelNonExistent(label.to_string())),
                 }
             },
             None => {
                 match namespaces.get_label(label.to_string(), Some(space)) {
                     Some(lablel) => lablel.add_def(accumulator),
-                    None => panic!("[Error] Label not found: {}", label),
+                    None => return Err(OptimizerError::LabelNonExistent(label.to_string())),
                 }
             }
         }
     }
+    Ok(())
 }
 
-fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
+fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), OptimizerError> {
     
     let mut working_set: LimitedQueue = LimitedQueue::new_sized(3);
     
@@ -466,7 +469,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                             pointer += (instr_num - 1) as usize;
                             accumulator += (instr_num - 1) as i128;
                         }
-                        cond_add_acc_label(&mut code.0, accumulator, std::borrow::Cow::Borrowed(label), space);
+                        cond_add_acc_label(&mut code.0, accumulator, std::borrow::Cow::Borrowed(label), space)?;
                         match instr {
                             Instruction::Beq(_, _, _) |
                             Instruction::Bne(_, _, _) |
@@ -491,7 +494,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                             pointer += (instr_num - 1) as usize;
                             accumulator += (instr_num - 1) as i128;
                         }
-                        cond_add_acc_label(&mut code.0, accumulator, std::borrow::Cow::Borrowed(label), space);
+                        cond_add_acc_label(&mut code.0, accumulator, std::borrow::Cow::Borrowed(label), space)?;
                         match instr {
                             MacroInstr::Beq(_, _, _) |
                             MacroInstr::Bne(_, _, _) |
@@ -505,7 +508,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
                         }
                     },
                     Operation::Labl(label) => {
-                        cond_add_acc_label(&mut code.0, accumulator, std::borrow::Cow::Borrowed(label), space);
+                        cond_add_acc_label(&mut code.0, accumulator, std::borrow::Cow::Borrowed(label), space)?;
                     },
                     Operation::Instr(instr) => {
                         let reg_dep = RegActType::from(&opera);
@@ -564,86 +567,10 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) {
             None => break,
         }
     }
+    Ok(())
 }
 
-// This assumes that branching does not clear the pipeline such that data races can happen.
-// However the CPU does flush its pipeline, so that this is not needed. In this case we can
-// just iterate over the instructions and clear the working set when branches are detected.
-// We don't even need to follow unconditional branches. Cool!
-// Do not remove!
-/*
-fn find_and_set_label_ns(namespace: &mut Namespaces, space: &usize, difference: &i128, label: String, direction: bool) {
-    let testing_spaces = namespace.get_namespaces().filter(|b| b > space);
-    for pot_space in testing_spaces {
-        match namespace.get_label(label.clone(), Some(pot_space)) {
-            Some(lablel) => {
-                lablel.add_def(*difference);
-                return;
-            },
-            None => (),
-        }
-    }
-    find_and_set_label_ns(namespace, space, difference, label, !direction)
-}
-
-fn nop_insertion(mut code: (Namespaces, Vec<Operation>)) -> (Namespaces, Vec<Operation>) {
-    let mut code_inserts: BTreeMap<String, usize> = BTreeMap::new();
-
-    let mut working_set: LimitedQueue = LimitedQueue::new_sized(3);
-    let mut branch_ptr_queue: VecDeque<(usize, LimitedQueue)> = VecDeque::new();
-
-    let mut space = 0;
-
-    let mut real_pointer: usize = 0;
-    let mut nop_pointer: usize = 0;
-    // Try to circumvent too many allocations thus reducing performance;
-    // TODO: Better approach
-    let mut nop_inserted_code: Vec<Operation> = Vec::with_capacity(code.1.len() * 2);
-
-    loop {
-        let operation = code.1.get(real_pointer);
-        match operation {
-            Some(opera) => {
-                let reg_dep = RegActType::from(opera);
-                let nop_insert = working_set.compare_and_insert(reg_dep);
-                if nop_insert != -1 {
-                    let instr_num = 3 - nop_insert;
-                    for _ in 1..instr_num {
-                        nop_inserted_code.insert(nop_pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
-                    }
-                    nop_pointer += instr_num as usize;
-                }
-                match opera {
-                    Operation::LablInstr(label, instr) => {
-                        if real_pointer != nop_pointer {
-                            match code.0.get_label(label.to_string(), Some(space)) {
-                                Some(lablel) => lablel.add_def((nop_pointer as i128) - (real_pointer as i128)),
-                                None => {
-                                    // Could happen, when Namespace is jumped over; In such a case
-                                    // apply some heuristics to quickly find correct namespace
-                                    let part = (code.1.len() / 2) - real_pointer;
-                                    find_and_set_label_ns(&mut code.0, &space, (), label.to_string(), part > 0);
-                                },
-                            }
-                        }
-                    },
-                    Operation::LablMacro(label, instr) => (),
-                    Operation::Labl(_) => (),
-                    Operation::Instr(instr) => (),
-                    Operation::Macro(instr) => (),
-                    Operation::Namespace(ns) => space = *ns,
-                }
-                real_pointer += 1;
-            },
-            None => break,
-        }
-    }
-    //let mut reg_dep_graph: [Vec<RegAct>; 31] = Default::default();
-
-    (code.0, nop_inserted_code)
-}*/
-
-fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction> {
+fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Result<Vec<Instruction>, OptimizerError> {
     let mut instructions: Vec<Instruction> = vec![];
     let mut namespace: usize = 0;
 
@@ -651,7 +578,7 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction>
         match operation {
             Operation::Namespace(space) => namespace = *space,
             Operation::Macro(instr) | Operation::LablMacro(_, instr) => {
-                instr.translate(&mut code.0, &namespace, &mut instructions);
+                instr.translate(&mut code.0, &namespace, &mut instructions)?;
                 debug!("{:?} substituted label ref to {:?}", operation, instructions.last().unwrap());
             },
             Operation::Instr(instr) | Operation::LablInstr(_, instr) => {
@@ -663,12 +590,12 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Vec<Instruction>
 
     debug!("Finished optimization step");
 
-    instructions
+    Ok(instructions)
 }
 
-pub fn optimize(mut code: (Namespaces, Vec<Operation>), no_nop_insert: bool) -> Vec<Instruction> {
+pub fn optimize(mut code: (Namespaces, Vec<Operation>), no_nop_insert: bool) -> Result<Vec<Instruction>, OptimizerError> {
     if !no_nop_insert {
-        nop_insertion(&mut code);
+        nop_insertion(&mut code)?;
     } else {
         debug!("Nop insertion has been omitted due to flag 'no-nop-insertion'!");
     }
@@ -790,7 +717,7 @@ mod tests {
 
         let mut code = (namespace, operation_vec);
 
-        nop_insertion(&mut code);
+        let _ = nop_insertion(&mut code);
 
         // ##################################################################################
 
@@ -871,7 +798,7 @@ mod tests {
 
         let mut code = (namespace, operation_vec);
 
-        nop_insertion(&mut code);
+        let _ = nop_insertion(&mut code);
 
         // ##################################################################################
 
@@ -1034,7 +961,7 @@ mod tests {
             Instruction::Jalr(Reg::G0, Reg::G1, 0)
         ]);
 
-        assert_eq!(substitute_labels((namespace_ver, operation_vec)), instruction_ver);
+        assert_eq!(substitute_labels((namespace_ver, operation_vec)).unwrap(), instruction_ver);
     }
 
     #[test]
@@ -1200,12 +1127,11 @@ mod tests {
             Instruction::Jalr(Reg::G0, Reg::G1, 0)
         ]);
 
-        assert_eq!(optimize((namespace_ver.clone(), operation_vec), false), instruction_ver);
+        assert_eq!(optimize((namespace_ver.clone(), operation_vec), false).unwrap(), instruction_ver);
     }
 
     #[test]
     fn test_macro_translate() {
-        // translate(&self, namespace: &mut Namespaces, current_space: &usize, instructions: &mut Vec<Instruction>)
         let cs: usize = 0;
         let mut namespace = Namespaces::new();
 
@@ -1235,7 +1161,7 @@ mod tests {
             }
 
             for (test, corr) in test_addi_macros {
-                test.translate(&mut namespace, &cs, &mut instructions);
+                let _ = test.translate(&mut namespace, &cs, &mut instructions);
                 #[cfg(feature = "raw_nop")] {
                     assert_eq!(instructions[6], corr);
                     instructions.remove(6);
@@ -1263,7 +1189,7 @@ mod tests {
         test_macros.push((MacroInstr::Srai(Reg::G7, Reg::G15, "LOCAL".to_string()), Instruction::Srai(Reg::G7, Reg::G15, -4)));
 
         for (test, corr) in test_macros {
-            test.translate(&mut namespace, &cs, &mut instructions);
+            let _ = test.translate(&mut namespace, &cs, &mut instructions);
             assert_eq!(instructions[2], corr);
             instructions.remove(2);
         }

@@ -778,7 +778,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
                 rest = line.0;
                 line.1
             },
-            Err(e) => todo!("Custom parser error! {}", e),
+            Err(e) => return Err(e),
         };
 
         match &mut parsed {

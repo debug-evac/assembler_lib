@@ -470,9 +470,9 @@ fn translate_macros<'a>(
             instr_list.remove(*pointer);
             let mut imm_used = *imm;
 
-            match handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Addi(reg.to_owned(), Reg::G0, *imm)) {
-                true => return,
-                false => (),
+            if handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Addi(reg.to_owned(), Reg::G0, *imm)) {
+                debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer - 1, instr_list.last());
+                return
             }
 
             match label {
@@ -493,9 +493,9 @@ fn translate_macros<'a>(
             instr_list.remove(*pointer);
             let mut imm_used = *imm;
 
-            match handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Addi(reg.to_owned(), Reg::G0, *imm)) {
-                true => return,
-                false => (),
+            if handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Addi(reg.to_owned(), Reg::G0, *imm)) {
+                debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer - 1, instr_list.last());
+                return
             }
 
             match label {
@@ -532,12 +532,9 @@ fn translate_macros<'a>(
             instr_list.remove(*pointer);
             let mut imm_used = *imm;
 
-            match handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Jalr(Reg::G1, Reg::G0, *imm)) {
-                true => {
-                    debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer - 1, instr_list.last());
-                    return
-                },
-                false => (),
+            if handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Jalr(Reg::G1, Reg::G0, *imm)) {
+                debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer - 1, instr_list.last());
+                return
             }
 
             match label {
@@ -558,12 +555,9 @@ fn translate_macros<'a>(
             instr_list.remove(*pointer);
             let mut imm_used = *imm;
 
-            match handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Jalr(Reg::G0, Reg::G0, *imm)) {
-                true => {
-                    debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer - 1, instr_list.last());
-                    return
-                },
-                false => (),
+            if handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Jalr(Reg::G0, Reg::G0, *imm)) {
+                debug!("Expanded '{:?}' at {} into '{:?}'", macro_in, *pointer - 1, instr_list.last());
+                return
             }
 
             match label {

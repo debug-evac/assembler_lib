@@ -415,16 +415,13 @@ impl LabelRecog {
     }
 
     pub fn crt_def_ref(&mut self, label_str: &String, scope: bool, definition: i128) {
-        match self.get_label(label_str) {
-            Some(_) => (),
-            None => {
-                let mut label = LabelElem::new();
-                label.set_name(label_str.clone());
-                label.set_def(definition);
-                label.set_refd();
-                label.set_scope(scope);
-                let _ = self.insert_label(label);
-            },
+        if let None = self.get_label(label_str) {
+            let mut label = LabelElem::new();
+            label.set_name(label_str.clone());
+            label.set_def(definition);
+            label.set_refd();
+            label.set_scope(scope);
+            let _ = self.insert_label(label);
         }
     }
 

@@ -120,18 +120,18 @@ impl LimitedQueue {
         self.queue.push_front(reg);
     }
 
-    fn compare_and_insert(&mut self, reg: RegActType) -> i8 {
+    fn compare_and_insert(&mut self, reg: RegActType) -> Option<i8> {
         for (counter, reg_dep) in self.queue.iter().enumerate() {
             if reg.is_hazard_before(reg_dep) {
                 for _ in counter..3 {
                     self.limited_insert(RegActType::NA);
                 }
                 self.limited_insert(reg);
-                return counter as i8
+                return Some(counter as i8)
             }
         };
         self.limited_insert(reg);
-        -1
+        None
     }
 
     fn flush(&mut self) {
@@ -451,7 +451,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), Optimize
     // At maximum every instruction requires 3 nop operations
     // to run without hazards. To lower the number of allocations
     // thus increasing performance, trying to allocate these elements
-    code.1.reserve(code.1.len() * 3);
+    //code.1.reserve(code.1.len() * 3);
 
     loop {
         let operation = code.1.get(pointer).cloned();
@@ -461,8 +461,8 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), Optimize
                     Operation::LablInstr(label, instr) => {
                         let reg_dep = RegActType::from(&opera);
                         let nop_insert = working_set.compare_and_insert(reg_dep);
-                        if nop_insert > -1 {
-                            let instr_num = 4 - nop_insert;
+                        if let Some(inserts) = nop_insert {
+                            let instr_num = 4 - inserts;
                             debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
                                 code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
@@ -486,8 +486,8 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), Optimize
                     Operation::LablMacro(label, instr) => {
                         let reg_dep = RegActType::from(&opera);
                         let nop_insert = working_set.compare_and_insert(reg_dep);
-                        if nop_insert > -1 {
-                            let instr_num = 4 - nop_insert;
+                        if let Some(inserts) = nop_insert {
+                            let instr_num = 4 - inserts;
                             debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
                                 code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
@@ -514,8 +514,8 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), Optimize
                     Operation::Instr(instr) => {
                         let reg_dep = RegActType::from(&opera);
                         let nop_insert = working_set.compare_and_insert(reg_dep);
-                        if nop_insert > -1 {
-                            let instr_num = 4 - nop_insert;
+                        if let Some(inserts) = nop_insert {
+                            let instr_num = 4 - inserts;
                             debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
                                 code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
@@ -538,8 +538,8 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), Optimize
                     Operation::Macro(instr) => {
                         let reg_dep = RegActType::from(&opera);
                         let nop_insert = working_set.compare_and_insert(reg_dep);
-                        if nop_insert > -1 {
-                            let instr_num = 4 - nop_insert;
+                        if let Some(inserts) = nop_insert {
+                            let instr_num = 4 - inserts;
                             debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
                                 code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
@@ -672,11 +672,11 @@ mod tests {
             for (counter, reg) in reg_act_vec.iter().enumerate() {
                 let nop_inserts = queue.compare_and_insert(reg.clone());
                 match counter {
-                    0 => assert_eq!(nop_inserts, -1),
-                    1 => assert_eq!(nop_inserts, 0),
-                    2 => assert_eq!(nop_inserts, -1),
-                    3 => assert_eq!(nop_inserts, 1),
-                    4 => assert_eq!(nop_inserts, -1),
+                    0 => assert_eq!(nop_inserts, None),
+                    1 => assert_eq!(nop_inserts, Some(0)),
+                    2 => assert_eq!(nop_inserts, None),
+                    3 => assert_eq!(nop_inserts, Some(1)),
+                    4 => assert_eq!(nop_inserts, None),
                     _ => (),
                 }
             }
@@ -692,9 +692,9 @@ mod tests {
         for (counter, reg) in reg_act_vec2.iter().enumerate() {
             let nop_inserts = queue.compare_and_insert(reg.clone());
             match counter {
-                0 => assert_eq!(nop_inserts, -1),
-                1 => assert_eq!(nop_inserts, -1),
-                2 => assert_eq!(nop_inserts, -1),
+                0 => assert_eq!(nop_inserts, None),
+                1 => assert_eq!(nop_inserts, None),
+                2 => assert_eq!(nop_inserts, None),
                 _ => (),
             }
         }

@@ -102,21 +102,18 @@ impl Namespaces {
 
 pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Namespaces, Vec<Operation>), LinkError> {
     let mut new_code: (Namespaces, Vec<Operation>) = (Namespaces::new(), vec![]);
-    let mut offset: Vec<usize> = vec![0; parsed_instr.len() + 1];
-
-    let mut file_counter: usize = 0;
+    let mut offset: usize = 0;
 
     // Break out into multiple functions? Probably not..
-    for code in parsed_instr.iter_mut() {
-        if let Some(val) = offset.get(file_counter) {
-            debug!("Added offset {val} to file {file_counter}");
-            code.0.add_offset(*val as i128);
+    for (file_counter, code) in parsed_instr.iter_mut().enumerate() {
+        if offset > 0  {
+            debug!("Added offset {offset} to file {file_counter}");
+            code.0.add_offset(offset as i128);
         };
         new_code.0.insert_recog(code.0.clone())?;
         new_code.1.push(Operation::Namespace(file_counter));
         new_code.1.extend(code.1.clone());
-        file_counter += 1;
-        offset.insert(file_counter, code.1.len());
+        offset += code.1.len();
     }
 
     // Check if all globals are defined!

@@ -11,8 +11,12 @@
 // other modules. This module was created since the parser module is 
 // quite big.
 
+pub mod errors;
+
 use std::collections::HashMap;
 use std::borrow::Cow;
+
+use self::errors::CommonError;
 
 pub type Imm = i32; // always less than 32
 
@@ -295,13 +299,13 @@ impl LabelElem {
     }
 
     // TODO: Custom error struct
-    pub fn combine(&mut self, other: &LabelElem) -> Result<&str, &str> {
+    pub fn combine(&mut self, other: &LabelElem) -> Result<&str, CommonError> {
         if self.name.ne(&other.name) || self.scope != other.scope {
-            return Err("Labels are not the same!");
+            return Err(CommonError::LabelsNameNotEqual(self.clone(), other.clone()));
         }
 
         if self.definition != -1 && other.definition != -1 {
-            return Err("Global label defined in two files!");
+            return Err(CommonError::MultipleGlobalDefined(self.clone()));
         } else if self.definition == -1 && other.definition != -1 {
             self.definition = other.definition;
         }
@@ -411,16 +415,13 @@ impl LabelRecog {
     }
 
     pub fn crt_def_ref(&mut self, label_str: &String, scope: bool, definition: i128) {
-        match self.get_label(label_str) {
-            Some(_) => (),
-            None => {
-                let mut label = LabelElem::new();
-                label.set_name(label_str.clone());
-                label.set_def(definition);
-                label.set_refd();
-                label.set_scope(scope);
-                let _ = self.insert_label(label);
-            },
+        if self.get_label(label_str).is_none() {
+            let mut label = LabelElem::new();
+            label.set_name(label_str.clone());
+            label.set_def(definition);
+            label.set_refd();
+            label.set_scope(scope);
+            let _ = self.insert_label(label);
         }
     }
 

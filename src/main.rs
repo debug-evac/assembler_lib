@@ -11,7 +11,6 @@ mod linker;
 mod optimizer;
 mod translator;
 mod common;
-mod logging;
 
 use clap::{
     builder::ArgPredicate,
@@ -213,7 +212,10 @@ fn main() {
     for file in vals {
         match fs::read_to_string(file.as_path()) {
             Ok(val) => string_vector.push(val),
-            Err(msg) => panic!("[Error] Could not read a file: {}", msg),
+            Err(msg) => {
+                error!("Could not read '{}': {}", file.as_path().to_string_lossy(), msg);
+                std::process::exit(1)
+            },
         };
     }
 
@@ -225,7 +227,10 @@ fn main() {
     for val in string_vector.as_slice() {
         match parser::parse(val, &mut Some(&mut subroutines)) {
             Ok(val) => parsed_vector.push(val.1),
-            Err(msg) => panic!("[Error] Parser error: {}", msg),
+            Err(e) => {
+                error!("{e}");
+                std::process::exit(1)
+            },
         }
     }
 
@@ -242,7 +247,10 @@ fn main() {
 
     let linked_vector = match linker::link(parsed_vector) {
         Ok(linked) => linked,
-        Err(mes) => panic!("[Error] could not link assembly files: {:?}", mes),
+        Err(e) => {
+            error!("{e}");
+            std::process::exit(1)
+        },
     };
 
     progbar.inc(1);
@@ -250,7 +258,13 @@ fn main() {
 
     let no_nop_insert = matches.get_flag("nop_insert");
 
-    let optimized_code = optimizer::optimize(linked_vector, no_nop_insert);
+    let optimized_code = match optimizer::optimize(linked_vector, no_nop_insert) {
+        Ok(instr_list) => instr_list,
+        Err(e) => {
+            error!("{e}");
+            std::process::exit(1)
+        }
+    };
 
     progbar.inc(1);
     progbar.set_message("Translating...");

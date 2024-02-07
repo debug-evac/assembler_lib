@@ -10,8 +10,6 @@ use console::{StyledObject, Style};
 
 use crate::common::Instruction;
 
-// console::Style::new().bold().apply_to("Assembled")
-
 fn pretty_imm_short(translation: u32) -> StyledObject<String> {
     Style::new().green().apply_to(format!("{:012b}", ((translation >> 20) & (2_u32.pow(12) - 1))))
 }

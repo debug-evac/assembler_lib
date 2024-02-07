@@ -9,9 +9,12 @@
 //
 // Translate a AST to the equivalent machine code after it
 // has been parsed, linked and potentially optimized.
+
+mod pretty_print;
+
 use log::{debug, log_enabled};
 
-use crate::logging::emit_debug_translate_instruction;
+use self::pretty_print::emit_debug_translate_instruction;
 use crate::common::{Instruction, Reg, Imm};
 
 fn btype_instr(rs1: Reg, rs2: Reg, imm: Imm) -> u32 {

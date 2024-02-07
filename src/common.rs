@@ -11,10 +11,12 @@
 // other modules. This module was created since the parser module is 
 // quite big.
 
+pub mod errors;
+
 use std::collections::HashMap;
 use std::borrow::Cow;
 
-use crate::errors::CommonError;
+use self::errors::CommonError;
 
 pub type Imm = i32; // always less than 32
 

@@ -16,8 +16,9 @@
 use std::collections::HashMap;
 use log::debug;
 
-use crate::common::{LabelRecog, Operation, LabelElem};
-use crate::errors::LinkError;
+use crate::common::{LabelRecog, Operation, LabelElem,
+    errors::LinkError
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Namespaces {
@@ -134,8 +135,9 @@ pub fn link(mut parsed_instr: Vec<(LabelRecog, Vec<Operation>)>) -> Result<(Name
 mod tests {
     use super::*;
     use std::borrow::Cow;
-    use crate::common::{Instruction, Reg, MacroInstr};
-    use crate::errors::CommonError;
+    use crate::common::{Instruction, Reg, MacroInstr,
+        errors::{LinkError, CommonError},
+    };
 
     #[test]
     fn test_correct_link() {

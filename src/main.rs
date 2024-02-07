@@ -11,8 +11,6 @@ mod linker;
 mod optimizer;
 mod translator;
 mod common;
-mod logging;
-mod errors;
 
 use clap::{
     builder::ArgPredicate,

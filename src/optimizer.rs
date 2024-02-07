@@ -25,9 +25,10 @@ use std::borrow::Cow;
 use log::debug;
 
 use crate::{
-    common::{Instruction, Operation, MacroInstr, Reg, Part}, 
+    common::{Instruction, Operation, MacroInstr, Reg, Part,
+        errors::OptimizerError,
+    },
     linker::Namespaces,
-    errors::OptimizerError,
 };
 
 #[derive(Clone)]
@@ -823,8 +824,8 @@ mod tests {
         let _ = namespace_ver.insert_recog(label_recog_ver2);
 
         #[cfg(feature = "raw_nop")] {
-            cond_add_acc_label(&mut namespace_ver, 3, Cow::from("START"), 0);
-            cond_add_acc_label(&mut namespace_ver, 6, Cow::from("END"), 0);
+            let _ = cond_add_acc_label(&mut namespace_ver, 3, Cow::from("START"), 0);
+            let _ = cond_add_acc_label(&mut namespace_ver, 6, Cow::from("END"), 0);
         }
 
         #[cfg(feature = "raw_nop")]

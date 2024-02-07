@@ -415,7 +415,7 @@ impl LabelRecog {
     }
 
     pub fn crt_def_ref(&mut self, label_str: &String, scope: bool, definition: i128) {
-        if let None = self.get_label(label_str) {
+        if self.get_label(label_str).is_none() {
             let mut label = LabelElem::new();
             label.set_name(label_str.clone());
             label.set_def(definition);

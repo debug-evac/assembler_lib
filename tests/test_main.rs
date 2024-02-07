@@ -384,22 +384,20 @@ rep 3, nop
 
     let cor_output = temp.child("correct_output.mif");
 
-    let mut cor_instr_vec: Vec<u8> = vec![];
-
     let instr_vec: Vec<u32> = Vec::from([
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011  // nop
     ]);
 
-    for instr in instr_vec.iter() {
-        cor_instr_vec.extend(instr.to_le_bytes());
-    }
-
     let mut output_str = "DEPTH = 1024;\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
 
-    for (counter, value) in cor_instr_vec.iter().enumerate() {
-        output_str.push_str(&format!("{counter}\t: {:08b};\n", value));
+    let mut counter: usize = 0;
+
+    for instr in instr_vec.iter() {
+        let mach_instr = instr.to_le_bytes();
+        output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]));
+        counter += 4;
     }
 
     output_str.push_str("END;\n");

@@ -25,9 +25,7 @@ use indicatif_log_bridge::LogWrapper;
 use log::{log_enabled, error};
 use parser::Subroutines;
 use std::{
-    io::Write,
     fs,
-    fs::File,
     path::PathBuf,
 };
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -114,58 +112,6 @@ Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
     .get_matches()
 }
 
-fn write_to_file(output: &PathBuf, translated_code: &Vec<u8>, format: &str, size: (u16, u8)) -> Result<(), String> {
-    let mut output_file: File;
-
-    match format {
-        "mif" => {
-            let depth = size.0;
-            let width = size.1;
-
-            if width == 32 {
-                if (depth as usize) < translated_code.len() {
-                    return Err(format!("MIF depth is smaller than the instruction count! {} < {}", depth, translated_code.len()));
-                }
-                output_file = match File::create(output) {
-                    Ok(file) => file,
-                    Err(msg) => return Err(format!("Could not create file!\n{msg}")),
-                };
-                writeln!(output_file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN").unwrap();
-                for (counter, values) in translated_code.chunks_exact(4).enumerate() {
-                    writeln!(output_file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", values[0], values[1], values[2], values[3]).unwrap();
-                }
-            } else if width == 8 {
-                if ((depth as usize) / 4) < translated_code.len() {
-                    return Err(format!("MIF depth is smaller than the instruction count! {} < {}", (depth / 4), translated_code.len()));
-                }
-                output_file = match File::create(output) {
-                    Ok(file) => file,
-                    Err(msg) => return Err(format!("Could not create file!\n{msg}")),
-                };
-                writeln!(output_file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN").unwrap();
-                for (counter, value) in translated_code.iter().enumerate() {
-                    writeln!(output_file, "{counter}\t: {:08b};", value).unwrap();
-                }
-            } else {
-                return Err(format!("Expected width of either 8 or 32 bits, got '{width}'!"));
-            }
-            
-            writeln!(output_file, "END;").unwrap();
-        },
-        "raw" => {
-            output_file = match File::create(output) {
-                Ok(file) => file,
-                Err(msg) => return Err(format!("Could not create file!\n{msg}")),
-            };
-            if let Err(msg) = output_file.write_all(translated_code) {
-                return Err(format!("Could not write to output file!\n{msg}"));
-            }
-        },
-        _ => unreachable!(),
-    }
-    Ok(())
-}
-
 fn main() {
     let logger =
         env_logger::Builder::from_env(
@@ -193,7 +139,7 @@ fn main() {
     if !log_enabled!(log::Level::Info) {
         progbar = ProgressBar::hidden();
     } else {
-        progbar = multi.add(ProgressBar::new(6));
+        progbar = multi.add(ProgressBar::new(5));
         progbar.set_style(
             ProgressStyle::with_template(
                 if Term::stdout().size().1 > 80 {
@@ -267,12 +213,7 @@ fn main() {
     };
 
     progbar.inc(1);
-    progbar.set_message("Translating...");
-
-    let translated_code = translator::translate(optimized_code);
-
-    progbar.inc(1);
-    progbar.set_message("Writing...");
+    progbar.set_message("Translating & Writing...");
 
     // always returns Some(_)
     let outfmt = matches.get_one::<String>("format").unwrap();
@@ -280,10 +221,10 @@ fn main() {
     let depth = matches.get_one("format-depth").unwrap();
     let width = str::parse::<u8>(matches.get_one::<String>("format-width").unwrap()).unwrap();
 
-    if let Err(msg) = write_to_file(outpath, &translated_code, outfmt, (*depth, width)) {
-        error!("{msg}");
+    if let Err(e) = translator::translate_to_file(outpath, optimized_code, outfmt, (*depth, width)) {
+        error!("{e}");
         std::process::exit(1)
-    }
+    };
 
     let line = format!(
         "{:>12} {} ({})",

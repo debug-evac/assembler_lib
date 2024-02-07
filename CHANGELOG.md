@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `assembler_crasher_2000.asm` which is a very long assembly file **(Do NOT use debug log level)**
   - `hardware_test.asm` which is a program to test the hardware (end of execution, register x6 == 0xDEADBEEF)
 - Better error reporting, altough still basic
+- Taskfile.yaml for release automation (dev-ops)
 
 ### Changed
 

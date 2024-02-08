@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `hardware_test.asm` which is a program to test the hardware (end of execution, register x6 == 0xDEADBEEF)
 - Better error reporting, altough still basic
 - Taskfile.yaml for release automation (dev-ops)
+- Debug output format
+  - That format only prints to the console and will not write to any file
+- Comment flag for mif format
+  - Causes instructions to be included in human readable form as comments
+  - Only works for mif format
 
 ### Changed
 
@@ -43,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - No changes in behavior
 - Panic behavior of functions
   - They now return errors and present them better to users!
+- Mif format with 8 bit word width is now more compact
 
 ### Removed
 

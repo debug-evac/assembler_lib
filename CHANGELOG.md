@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - No changes in behavior
 - Panic behavior of functions
   - They now return errors and present them better to users!
+- Mif format with 8 bit word width is now more compact
 
 ### Removed
 

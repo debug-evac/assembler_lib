@@ -50,7 +50,7 @@ Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
 ")
     .arg(Arg::new("format")
                 .value_hint(ValueHint::Other)
-                .value_parser(["mif", "raw"])
+                .value_parser(["mif", "raw", "debug"])
                 .action(ArgAction::Set)
                 .short('f')
                 .num_args(1)
@@ -221,17 +221,26 @@ fn main() {
     let depth = matches.get_one("format-depth").unwrap();
     let width = str::parse::<u8>(matches.get_one::<String>("format-width").unwrap()).unwrap();
 
-    if let Err(e) = translator::translate_to_file(outpath, optimized_code, outfmt, (*depth, width)) {
+    if let Err(e) = translator::translate_and_present(outpath, optimized_code, outfmt, (*depth, width)) {
         error!("{e}");
         std::process::exit(1)
     };
 
-    let line = format!(
-        "{:>12} {} ({})",
-        console::Style::new().bold().apply_to("Assembled"),
-        outpath.as_path().file_name().unwrap().to_str().unwrap(),
-        std::fs::canonicalize(outpath.as_path()).unwrap().parent().unwrap().to_str().unwrap()
-    );
+    let line;
+    if outfmt != "debug" {
+        line = format!(
+            "{:>12} {} ({})",
+            console::Style::new().bold().apply_to("Assembled"),
+            outpath.as_path().file_name().unwrap().to_str().unwrap(),
+            std::fs::canonicalize(outpath.as_path()).unwrap().parent().unwrap().to_str().unwrap()
+        );
+    } else {
+        line = format!(
+            "{:>12} {}",
+            console::Style::new().bold().apply_to("Assembled"),
+            "Printed to console"
+        )
+    }
 
     progbar.println(line);
     progbar.set_prefix("Finished");

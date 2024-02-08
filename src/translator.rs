@@ -17,7 +17,7 @@ use std::{
    fs::File,
    path::PathBuf,
 };
-use log::{debug, log_enabled};
+use log::{debug, info, log_enabled, warn};
 
 use self::pretty_print::emit_debug_translate_instruction;
 use crate::common::{Instruction, Reg, Imm};
@@ -147,23 +147,7 @@ impl Instruction {
    }
 }
 
-/*pub fn translate(input: Vec<Instruction>) -> Vec<u8> {
-   let mut output: Vec<u8> = vec![];
-
-   for instr in input.iter(){
-      let translated_instr = Instruction::translate_instruction(instr);
-      if log_enabled!(log::Level::Debug) {
-         debug!("{}", emit_debug_translate_instruction(instr, translated_instr));
-      }
-      output.extend(translated_instr.to_le_bytes());
-   }
-
-   debug!("Finished translation step");
-
-   output
-}*/
-
-pub fn translate_to_file(output: &PathBuf, input: Vec<Instruction>, format: &str, size: (u16, u8)) -> Result<(), String> {
+pub fn translate_and_present(output: &PathBuf, input: Vec<Instruction>, format: &str, size: (u16, u8)) -> Result<(), String> {
    let mut output_file: File;
 
    match format {
@@ -218,6 +202,15 @@ pub fn translate_to_file(output: &PathBuf, input: Vec<Instruction>, format: &str
             return Err(format!("Could not write to output file!\n{msg}"));
          }
       },
+      "debug" => {
+         if output.to_string_lossy() != "a.bin" {
+            warn!("Debug format chosen! Nothing will be written to {:?}!", output);
+         }
+         for instr in input.iter() {
+            let mach_instr = instr.translate_instruction();
+            info!("{}", emit_debug_translate_instruction(instr, mach_instr));
+         }
+      }
       _ => unreachable!(),
    }
    Ok(())

@@ -109,6 +109,13 @@ Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
                 .required(false)
                 .help("Disallow nop insertion")
     )
+    .arg(Arg::new("comment_mif")
+                .long("comment")
+                .short('c')
+                .action(ArgAction::SetTrue)
+                .required(false)
+                .help("Comment mif with used instructions. Does not do anything, if format != mif.")
+    )
     .get_matches()
 }
 
@@ -218,29 +225,29 @@ fn main() {
     // always returns Some(_)
     let outfmt = matches.get_one::<String>("format").unwrap();
     let outpath = matches.get_one::<PathBuf>("output").unwrap();
+    let comment = matches.get_flag("comment_mif");
     let depth = matches.get_one("format-depth").unwrap();
     let width = str::parse::<u8>(matches.get_one::<String>("format-width").unwrap()).unwrap();
 
-    if let Err(e) = translator::translate_and_present(outpath, optimized_code, outfmt, (*depth, width)) {
+    if let Err(e) = translator::translate_and_present(outpath, optimized_code, comment, outfmt, (*depth, width)) {
         error!("{e}");
         std::process::exit(1)
     };
 
-    let line;
-    if outfmt != "debug" {
-        line = format!(
+    let line = if outfmt != "debug" {
+        format!(
             "{:>12} {} ({})",
             console::Style::new().bold().apply_to("Assembled"),
             outpath.as_path().file_name().unwrap().to_str().unwrap(),
             std::fs::canonicalize(outpath.as_path()).unwrap().parent().unwrap().to_str().unwrap()
-        );
+        )
     } else {
-        line = format!(
+        format!(
             "{:>12} {}",
             console::Style::new().bold().apply_to("Assembled"),
             "Printed to console"
         )
-    }
+    };
 
     progbar.println(line);
     progbar.set_prefix("Finished");

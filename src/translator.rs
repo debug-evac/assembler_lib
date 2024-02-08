@@ -147,7 +147,7 @@ impl Instruction {
    }
 }
 
-pub fn translate_and_present(output: &PathBuf, input: Vec<Instruction>, format: &str, size: (u16, u8)) -> Result<(), String> {
+pub fn translate_and_present(output: &PathBuf, input: Vec<Instruction>, comment: bool, format: &str, size: (u16, u8)) -> Result<(), String> {
    let mut output_file: File;
 
    match format {
@@ -159,29 +159,50 @@ pub fn translate_and_present(output: &PathBuf, input: Vec<Instruction>, format: 
             if (depth as usize) < input.len() {
                return Err(format!("MIF depth is smaller than the instruction count! {} < {}", depth, input.len()));
             }
+
             output_file = match File::create(output) {
                Ok(file) => file,
                Err(msg) => return Err(format!("Could not create file!\n{msg}")),
             };
+
             writeln!(output_file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN").unwrap();
-            for (counter, instr) in input.iter().enumerate() {
-               let mach_instr = instr.translate_instruction().to_le_bytes();
-               writeln!(output_file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
+
+            if comment {
+               for (counter, instr) in input.iter().enumerate() {
+                  let mach_instr = instr.translate_instruction().to_le_bytes();
+                  writeln!(output_file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {:?}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], instr).unwrap();
+               }
+            } else {
+               for (counter, instr) in input.iter().enumerate() {
+                  let mach_instr = instr.translate_instruction().to_le_bytes();
+                  writeln!(output_file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
+               }
             }
          } else if width == 8 {
             if ((depth as usize) / 4) < input.len() {
                return Err(format!("MIF depth is smaller than the instruction count! {} < {}", (depth / 4), input.len()));
             }
+
             output_file = match File::create(output) {
                Ok(file) => file,
                Err(msg) => return Err(format!("Could not create file!\n{msg}")),
             };
+
             writeln!(output_file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN").unwrap();
+            
             let mut counter: usize = 0;
-            for instr in input.iter() {
-               let mach_instr = instr.translate_instruction().to_le_bytes();
-               writeln!(output_file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
-               counter += 4;
+            if comment {
+               for instr in input.iter() {
+                  let mach_instr = instr.translate_instruction().to_le_bytes();
+                  writeln!(output_file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {:?}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], instr).unwrap();
+                  counter += 4;
+               }
+            } else {
+               for instr in input.iter() {
+                  let mach_instr = instr.translate_instruction().to_le_bytes();
+                  writeln!(output_file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
+                  counter += 4;
+               }
             }
          } else {
             return Err(format!("Expected width of either 8 or 32 bits, got '{width}'!"));
@@ -190,6 +211,9 @@ pub fn translate_and_present(output: &PathBuf, input: Vec<Instruction>, format: 
          writeln!(output_file, "END;").unwrap();
       },
       "raw" => {
+         if comment {
+            warn!("Comment flag has no effect on raw format!");
+         }
          output_file = match File::create(output) {
             Ok(file) => file,
             Err(msg) => return Err(format!("Could not create file!\n{msg}")),
@@ -203,6 +227,9 @@ pub fn translate_and_present(output: &PathBuf, input: Vec<Instruction>, format: 
          }
       },
       "debug" => {
+         if comment {
+            warn!("Comment flag has no effect on debug format!");
+         }
          if output.to_string_lossy() != "a.bin" {
             warn!("Debug format chosen! Nothing will be written to {:?}!", output);
          }

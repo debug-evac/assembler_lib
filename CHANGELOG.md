@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Taskfile.yaml for release automation (dev-ops)
 - Debug output format
   - That format only prints to the console and will not write to any file
+- Comment flag for mif format
+  - Causes instructions to be included in human readable form as comments
+  - Only works for mif format
 
 ### Changed
 

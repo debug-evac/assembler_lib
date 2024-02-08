@@ -258,6 +258,86 @@ pub enum Operation <'a> {
     Labl(Cow<'a, str>)
 }
 
+#[derive(Clone)]
+pub enum ByteData {
+    Byte(i16),
+    String(String)
+}
+
+impl From<i32> for ByteData {
+    fn from(value: i32) -> Self {
+        ByteData::Byte((value & (2_i32.pow(17) - 1)).try_into().expect("Could not cast number to byte!"))
+    }
+}
+
+impl From<String> for ByteData {
+    fn from(value: String) -> Self {
+        ByteData::String(value)
+    }
+}
+
+#[derive(Clone)]
+pub enum HalfData {
+    Half(i32),
+    String(String)
+}
+
+impl From<i32> for HalfData {
+    fn from(value: i32) -> Self {
+        HalfData::Half(value)
+    }
+}
+
+impl From<String> for HalfData {
+    fn from(value: String) -> Self {
+        HalfData::String(value)
+    }
+}
+
+#[derive(Clone)]
+pub enum WordData {
+    Word(i64),
+    String(String)
+}
+
+impl From<i128> for WordData {
+    fn from(value: i128) -> Self {
+        WordData::Word((value & 2_i128.pow(65) - 1).try_into().expect("Could not cast number to word!"))
+    }
+}
+
+impl From<String> for WordData {
+    fn from(value: String) -> Self {
+        WordData::String(value)
+    }
+}
+
+#[derive(Clone)]
+pub enum DWordData {
+    DWord(i128),
+    String(String)
+}
+
+impl From<i128> for DWordData {
+    fn from(value: i128) -> Self {
+        DWordData::DWord(value)
+    }
+}
+
+impl From<String> for DWordData {
+    fn from(value: String) -> Self {
+        DWordData::String(value)
+    }
+}
+
+#[derive(Clone)]
+pub enum MemData {
+    Bytes(Vec<ByteData>),
+    Halfs(Vec<HalfData>),
+    Words(Vec<WordData>),
+    DWords(Vec<DWordData>),
+}
+
 #[derive(Debug, Clone, PartialEq)]
 // Scope for locality: true for global; false for local
 pub struct LabelElem {

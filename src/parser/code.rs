@@ -24,12 +24,10 @@ use std::borrow::Cow;
 use log::debug;
 
 use crate::parser::{
-    literals::{
+    handle_label_defs, instructions::parse_instruction, literals::{
         parse_label_definition,
         parse_label_definition_priv
-    },
-    instructions::parse_instruction,
-    Subroutines
+    }, Subroutines
 };
 use crate::common::*;
 
@@ -148,22 +146,6 @@ fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation
             )
         ),
     ))(rest)
-}
-
-fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, instr_counter: usize) {
-    match label.strip_prefix('.') {
-        Some(label) => {
-            // Local label; Track definitions and references!
-            let label_string = &label.to_string();
-            // TODO: Evaluate if .unwrap is appropriate!
-            symbol_map.crt_or_def_label(label_string, false, instr_counter.try_into().unwrap());
-        },
-        None => {
-            // Global label; Do not track definitions and references!
-            // TODO: Evaluate if .unwrap is appropriate!
-            symbol_map.crt_or_def_label(&label.to_string(), true, instr_counter.try_into().unwrap())
-        },
-    };
 }
 
 fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog) {

@@ -211,7 +211,7 @@ fn main() {
 
     let no_nop_insert = matches.get_flag("nop_insert");
 
-    let optimized_code = match optimizer::optimize(linked_vector, no_nop_insert) {
+    let translatable_code = match optimizer::optimize(linked_vector, no_nop_insert) {
         Ok(instr_list) => instr_list,
         Err(e) => {
             error!("{e}");
@@ -229,7 +229,7 @@ fn main() {
     let depth = matches.get_one("format-depth").unwrap();
     let width = str::parse::<u8>(matches.get_one::<String>("format-width").unwrap()).unwrap();
 
-    if let Err(e) = translator::translate_and_present(outpath, optimized_code, comment, outfmt, (*depth, width)) {
+    if let Err(e) = translator::translate_and_present(outpath, translatable_code, comment, outfmt, (*depth, width)) {
         error!("{e}");
         std::process::exit(1)
     };

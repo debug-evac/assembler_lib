@@ -20,7 +20,7 @@ use std::{
 use log::{debug, info, log_enabled, warn};
 
 use self::pretty_print::emit_debug_translate_instruction;
-use crate::common::{Instruction, Reg, Imm};
+use crate::common::{Imm, Instruction, Reg, TranslatableCode};
 
 fn btype_instr(rs1: &Reg, rs2: &Reg, imm: &Imm) -> u32 {
    let u12 =  (imm & 0b100_00000_00000i32) >> 1;
@@ -147,8 +147,10 @@ impl Instruction {
    }
 }
 
-pub fn translate_and_present(output: &PathBuf, input: Vec<Instruction>, comment: bool, format: &str, size: (u16, u8)) -> Result<(), String> {
+pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode, comment: bool, format: &str, size: (u16, u8)) -> Result<(), String> {
    let mut output_file: File;
+
+   let input = translate_code.get_text_ref();
 
    match format {
       "mif" => {

@@ -582,3 +582,33 @@ impl <'a> AssemblyCode<'a, LabelRecog> {
         self.data = other
     }
 }
+
+#[derive(Debug, PartialEq)]
+pub struct TranslatableCode {
+    data: Vec<MemData>,
+    text: Vec<Instruction>
+}
+
+impl TranslatableCode {
+    pub fn new() -> Self {
+        TranslatableCode { data: vec![], text: vec![] }
+    }
+
+    #[allow(dead_code)]
+    pub fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
+        &mut self.data
+    }
+
+    pub fn get_text_refmut(&mut self) -> &mut Vec<Instruction> {
+        &mut self.text
+    }
+
+    #[allow(dead_code)]
+    pub fn get_data_ref(&self) -> &Vec<MemData> {
+        &self.data
+    }
+
+    pub fn get_text_ref(&self) -> &Vec<Instruction> {
+        &self.text
+    }
+}

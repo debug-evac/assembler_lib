@@ -25,8 +25,7 @@ use std::borrow::Cow;
 use log::debug;
 
 use crate::{
-    common::{Instruction, Operation, MacroInstr, Reg, Part,
-        errors::OptimizerError,
+    common::{errors::OptimizerError, Instruction, MacroInstr, Operation, Part, Reg, TranslatableCode
     },
     linker::Namespaces,
     AssemblyCode
@@ -572,38 +571,43 @@ fn nop_insertion(code: &mut AssemblyCode<Namespaces>) -> Result<(), OptimizerErr
     Ok(())
 }
 
-fn substitute_labels(mut code: AssemblyCode<Namespaces>) -> Result<Vec<Instruction>, OptimizerError> {
-    let mut instructions: Vec<Instruction> = vec![];
-    let mut namespace: usize = 0;
+impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
+    type Error = OptimizerError;
 
-    let (labels, operations) = code.get_text_and_labels();
+    fn try_from(mut code: AssemblyCode<Namespaces>) -> Result<Self, Self::Error> {
+        let mut translate_code = TranslatableCode::new();
+        let mut namespace: usize = 0;
 
-    for operation in operations.iter() {
-        match operation {
-            Operation::Namespace(space) => namespace = *space,
-            Operation::Macro(instr) | Operation::LablMacro(_, instr) => {
-                instr.translate(labels, &namespace, &mut instructions)?;
-                debug!("{:?} substituted label ref to {:?}", operation, instructions.last().unwrap());
-            },
-            Operation::Instr(instr) | Operation::LablInstr(_, instr) => {
-                instructions.push(instr.to_owned());
-            }
-            Operation::Labl(_) => (),
-        };
+        let (labels, operations) = code.get_text_and_labels();
+
+        for operation in operations.iter() {
+            match operation {
+                Operation::Namespace(space) => namespace = *space,
+                Operation::Macro(instr) | Operation::LablMacro(_, instr) => {
+                    let instructions = translate_code.get_text_refmut();
+                    instr.translate(labels, &namespace, instructions)?;
+                    debug!("{:?} substituted label ref to {:?}", operation, instructions.last().unwrap());
+                },
+                Operation::Instr(instr) | Operation::LablInstr(_, instr) => {
+                    translate_code.get_text_refmut().push(instr.to_owned());
+                }
+                Operation::Labl(_) => (),
+            };
+        }
+
+        debug!("Finished optimization step");
+
+        Ok(translate_code)
     }
-
-    debug!("Finished optimization step");
-
-    Ok(instructions)
 }
 
-pub fn optimize(mut code: AssemblyCode<Namespaces>, no_nop_insert: bool) -> Result<Vec<Instruction>, OptimizerError> {
+pub fn optimize(mut code: AssemblyCode<Namespaces>, no_nop_insert: bool) -> Result<TranslatableCode, OptimizerError> {
     if !no_nop_insert {
         nop_insertion(&mut code)?;
     } else {
         debug!("Nop insertion has been omitted due to flag 'no-nop-insertion'!");
     }
-    substitute_labels(code)
+    code.try_into()
 }
 
 // TODO: Tests here & more test cases
@@ -941,6 +945,8 @@ mod tests {
         operation_vec.push(Operation::Macro(MacroInstr::Bge(Reg::G12, Reg::G16, "_LTLOOP".to_string())));
         operation_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
+        let mut translatable_code_ver = TranslatableCode::new();
+
         let instruction_ver: Vec<Instruction> = Vec::from([
             Instruction::Addi(Reg::G17, Reg::G0, 0),
             Instruction::Addi(Reg::G16, Reg::G0, 1),
@@ -971,7 +977,9 @@ mod tests {
             Instruction::Jalr(Reg::G0, Reg::G1, 0)
         ]);
 
-        assert_eq!(substitute_labels(assembly_code).unwrap(), instruction_ver);
+        translatable_code_ver.get_text_refmut().extend(instruction_ver);
+
+        assert_eq!(<AssemblyCode<'_, Namespaces> as TryInto<TranslatableCode>>::try_into(assembly_code).unwrap(), translatable_code_ver);
     }
 
     #[test]
@@ -1040,6 +1048,8 @@ mod tests {
         operation_vec.push(Operation::Instr(Instruction::Add(Reg::G10, Reg::G10, Reg::G17)));
         operation_vec.push(Operation::LablMacro(Cow::from("_Vergleich"), MacroInstr::Bne(Reg::G12, Reg::G0, "_JUMP".to_string()))); // 30
         operation_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
+
+        let mut translatable_code = TranslatableCode::new();
 
         #[cfg(feature = "raw_nop")]
         let instruction_ver: Vec<Instruction> = Vec::from([
@@ -1139,7 +1149,9 @@ mod tests {
             Instruction::Jalr(Reg::G0, Reg::G1, 0)
         ]);
 
-        assert_eq!(optimize(assembly_code, false).unwrap(), instruction_ver);
+        translatable_code.get_text_refmut().extend(instruction_ver);
+
+        assert_eq!(optimize(assembly_code, false).unwrap(), translatable_code);
     }
 
     #[test]

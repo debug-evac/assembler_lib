@@ -138,7 +138,6 @@ fn main() {
     .expect("At least one assembly input file is required")
     .collect();
 
-    //let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
     let mut parsed_vector: Vec<AssemblyCode<LabelRecog>> = vec![];
     let mut string_vector: Vec<String> = vec![];
 

@@ -22,7 +22,7 @@ use super::{
         parse_imm, 
         parse_label_definition, 
         parse_label_name, parse_text_segment_id
-    }, parse_multiline_comments, ByteData, DWordData, HalfData, LabelRecog, MemData, WordData
+    }, parse_multiline_comments, ByteData, DWordData, HalfData, LabelRecog, LabelType, MemData, WordData
 };
 
 fn parse_byte(input: &str) -> IResult<&str, MemData> {
@@ -227,10 +227,10 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
                 dir_list.push(direct);
             },
             (Some(label), None) => {
-                handle_label_defs(label, symbol_map, next_free_ptr);
+                handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr);
             },
             (Some(label), Some(direct)) => {
-                handle_label_defs(label, symbol_map, next_free_ptr);
+                handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr);
                 next_free_ptr += handle_label_refs_count(&direct, symbol_map);
                 dir_list.push(direct);
             },

@@ -339,10 +339,18 @@ pub enum MemData {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum LabelType {
+    Data,
+    Address,
+    Uninit
+}
+
+#[derive(Debug, Clone, PartialEq)]
 // Scope for locality: true for global; false for local
 pub struct LabelElem {
     name: String,
     definition: i128,
+    ltype: LabelType,
     scope: bool,
     referenced: bool
 }
@@ -350,14 +358,15 @@ pub struct LabelElem {
 impl LabelElem {
     pub fn new() -> LabelElem {
         let name = String::new();
-        let definition: i128 = -1;
+        let definition: i128 = 0;
+        let ltype = LabelType::Uninit;
         let scope = false;
-        //let references: Box<HashSet<usize>> = Box::from(HashSet::new());
         let referenced = false;
 
         LabelElem {
             name,
             definition,
+            ltype,
             scope, 
             referenced 
         }
@@ -378,16 +387,16 @@ impl LabelElem {
         elem
     }
 
-    // TODO: Custom error struct
     pub fn combine(&mut self, other: &LabelElem) -> Result<&str, CommonError> {
         if self.name.ne(&other.name) || self.scope != other.scope {
             return Err(CommonError::LabelsNameNotEqual(self.clone(), other.clone()));
         }
 
-        if self.definition != -1 && other.definition != -1 {
+        if self.ltype != LabelType::Uninit && other.ltype != LabelType::Uninit {
             return Err(CommonError::MultipleGlobalDefined(self.clone()));
-        } else if self.definition == -1 && other.definition != -1 {
+        } else if self.ltype == LabelType::Uninit && other.ltype != LabelType::Uninit {
             self.definition = other.definition;
+            self.ltype = other.ltype.clone();
         }
 
         if self.referenced || other.referenced {
@@ -428,6 +437,15 @@ impl LabelElem {
     pub fn set_refd(&mut self) {
         self.referenced = true;
     }
+
+    pub fn set_type(&mut self, ltype: LabelType) {
+        self.ltype = ltype;
+    }
+
+    #[allow(dead_code)]
+    pub fn get_type(&mut self) -> &LabelType {
+        &self.ltype
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -465,16 +483,18 @@ impl LabelRecog {
         }
     }
 
-    pub fn crt_or_def_label(&mut self, label_str: &String, scope: bool, definition: i128) {
+    pub fn crt_or_def_label(&mut self, label_str: &String, scope: bool, ltype: LabelType, definition: i128) {
         match self.get_label(label_str) {
             Some(label) => {
                 label.set_def(definition);
+                label.set_type(ltype);
                 label.set_scope(scope);
             },
             None => {
                 let mut label = LabelElem::new();
                 label.set_name(label_str.clone());
                 label.set_def(definition);
+                label.set_type(ltype);
                 label.set_scope(scope);
                 let _ = self.insert_label(label);
             },
@@ -494,11 +514,12 @@ impl LabelRecog {
         }
     }
 
-    pub fn crt_def_ref(&mut self, label_str: &String, scope: bool, definition: i128) {
+    pub fn crt_def_ref(&mut self, label_str: &String, scope: bool, ltype: LabelType, definition: i128) {
         if self.get_label(label_str).is_none() {
             let mut label = LabelElem::new();
             label.set_name(label_str.clone());
             label.set_def(definition);
+            label.set_type(ltype);
             label.set_refd();
             label.set_scope(scope);
             let _ = self.insert_label(label);
@@ -532,8 +553,11 @@ impl LabelRecog {
         global_labels
     }
 
-    pub fn add_offset(&mut self, offset: i128) {
-        for lblelm in self.label_list.iter_mut().filter(|e| *e.get_def() != -1) {
+    pub fn add_offset(&mut self, offset: i128, ltype: LabelType) {
+        if ltype == LabelType::Uninit {
+            return;
+        }
+        for lblelm in self.label_list.iter_mut().filter(|e| e.ltype == ltype) {
             lblelm.add_def(offset);
         }
     }
@@ -568,8 +592,8 @@ impl <'a, T: RestrictLabelData> AssemblyCode<'a, T> {
         &mut self.text
     }
 
-    pub fn get_text_and_labels(&mut self) -> (&mut T, &mut Vec<Operation<'a>>) {
-        (&mut self.labels, &mut self.text)
+    pub fn get_all_refmut(&mut self) -> (&mut T, &mut Vec<Operation<'a>>, &mut Vec<MemData>) {
+        (&mut self.labels, &mut self.text, &mut self.data)
     }
 }
 

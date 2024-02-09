@@ -41,7 +41,7 @@ impl Subroutines {
     }
 }
 
-fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, instr_counter: usize) {
+fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType, instr_counter: usize) {
     let (label_string, scope) = match label.strip_prefix('.') {
         Some(label) => {
             // Local label; Track definitions and references!
@@ -52,7 +52,7 @@ fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, instr_counter: us
             (label.to_string(), true)
         },
     };
-    symbol_map.crt_or_def_label(&label_string, scope, instr_counter.try_into().unwrap());
+    symbol_map.crt_or_def_label(&label_string, scope, ltype, instr_counter.try_into().unwrap());
 }
 
 fn parse_multiline_comments(input: &str) -> IResult<&str, bool> {

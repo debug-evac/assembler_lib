@@ -16,6 +16,7 @@
 use std::collections::HashMap;
 use log::debug;
 
+use crate::common::LabelType;
 use crate::AssemblyCode;
 use crate::common::{RestrictLabelData, LabelRecog, Operation, LabelElem,
     errors::LinkError
@@ -85,16 +86,21 @@ impl Namespaces {
     pub fn get_label(&mut self, label: String, space: Option<usize>) -> Option<&mut LabelElem> {
         match self.global_definitions.get(&label) {
             Some(pos) => {
-                self.global_namespace.get_mut(*pos)
+                let labelel = self.global_namespace.get_mut(*pos)?;
+                if *labelel.get_type() == LabelType::Uninit {
+                    None
+                } else {
+                    Some(labelel)
+                }
             },
             None => {
-                if let Some(pos) = space {
-                    match self.namespaces.get_mut(pos) {
-                        Some(recog) => recog.get_label(&label),
-                        None => None,
-                    }
-                } else {
+                let pos = space?;
+                let recog = self.namespaces.get_mut(pos)?;
+                let labelel = recog.get_label(&label)?;
+                if *labelel.get_type() == LabelType::Uninit {
                     None
+                } else {
+                    Some(labelel)
                 }
             },
         }
@@ -104,7 +110,6 @@ impl Namespaces {
 impl RestrictLabelData for Namespaces {}
 
 pub fn link(mut parsed_instr: Vec<AssemblyCode<LabelRecog>>) -> Result<AssemblyCode<Namespaces>, LinkError> {
-    //let mut new_code: (Namespaces, Vec<Operation>) = (Namespaces::new(), vec![]);
     let mut new_assembly = AssemblyCode::new(Namespaces::new());
     let mut offset: usize = 0;
 
@@ -112,7 +117,7 @@ pub fn link(mut parsed_instr: Vec<AssemblyCode<LabelRecog>>) -> Result<AssemblyC
     for (file_counter, code) in parsed_instr.iter_mut().enumerate() {
         if offset > 0  {
             debug!("Added offset {offset} to file {file_counter}");
-            code.get_labels_refmut().add_offset(offset as i128);
+            code.get_labels_refmut().add_offset(offset as i128, LabelType::Address);
         };
         new_assembly.get_labels_refmut().insert_recog(code.get_labels_refmut().clone())?;
         new_assembly.get_text_refmut().push(Operation::Namespace(file_counter));
@@ -213,7 +218,7 @@ mod tests {
 
         let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
 
-        label_recog_ver2.add_offset(2);
+        label_recog_ver2.add_offset(2, LabelType::Address);
 
         let namespace_ver = assembly_code_ver.get_labels_refmut();
 
@@ -355,7 +360,7 @@ mod tests {
         let label_recog_ver1 = LabelRecog::new();
         let mut label_recog_ver2 = LabelRecog::new();
 
-        label_recog_ver2.add_offset(3);
+        label_recog_ver2.add_offset(3, LabelType::Address);
 
         let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
 

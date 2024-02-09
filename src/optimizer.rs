@@ -25,7 +25,7 @@ use std::borrow::Cow;
 use log::debug;
 
 use crate::{
-    common::{errors::OptimizerError, Instruction, MacroInstr, Operation, Part, Reg, TranslatableCode
+    common::{errors::OptimizerError, Instruction, MacroInstr, MemData, Operation, Part, Reg, TranslatableCode
     },
     linker::Namespaces,
     AssemblyCode
@@ -578,7 +578,16 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
         let mut translate_code = TranslatableCode::new();
         let mut namespace: usize = 0;
 
-        let (labels, operations) = code.get_text_and_labels();
+        let (labels, operations, data) = code.get_all_refmut();
+
+        for data_obj in data.iter() {
+            match data_obj {
+                MemData::Bytes(_) => todo!(),
+                MemData::Halfs(_) => todo!(),
+                MemData::Words(_, _) => todo!(),
+                MemData::DWords(_) => todo!(),
+            }
+        }
 
         for operation in operations.iter() {
             match operation {
@@ -614,7 +623,7 @@ pub fn optimize(mut code: AssemblyCode<Namespaces>, no_nop_insert: bool) -> Resu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::{LabelRecog, LabelElem};
+    use crate::common::{LabelElem, LabelRecog, LabelType};
 
     #[test]
     #[cfg(feature = "raw_nop")]
@@ -784,7 +793,7 @@ mod tests {
         label.set_def(3);
         let _ = label_recog_2.insert_label(label);
 
-        label_recog_2.add_offset(6);
+        label_recog_2.add_offset(6, LabelType::Address);
 
         let _ = namespace.insert_recog(label_recog_2);
 
@@ -828,7 +837,7 @@ mod tests {
         label.set_def(3);
         let _ = label_recog_ver2.insert_label(label);
 
-        label_recog_ver2.add_offset(6);
+        label_recog_ver2.add_offset(6, LabelType::Address);
 
         let _ = namespace_ver.insert_recog(label_recog_ver2);
 
@@ -898,18 +907,22 @@ mod tests {
         let mut label_recog_ver = LabelRecog::new();
 
         let mut label = LabelElem::new_refd("_GTLOOP".to_string());
+        label.set_type(LabelType::Address);
         label.set_def(7);
         let _ = label_recog_ver.insert_label(label);
 
         let mut label = LabelElem::new_refd("_GTSHIFT".to_string());
+        label.set_type(LabelType::Address);
         label.set_def(12);
         let _ = label_recog_ver.insert_label(label);
 
         let mut label = LabelElem::new_refd("_LTLOOP".to_string());
+        label.set_type(LabelType::Address);
         label.set_def(15);
         let _ = label_recog_ver.insert_label(label);
 
         let mut label = LabelElem::new_refd("_LTSHIFT".to_string());
+        label.set_type(LabelType::Address);
         label.set_def(20);
         let _ = label_recog_ver.insert_label(label);
 
@@ -990,22 +1003,27 @@ mod tests {
         let mut label_recog_ver = LabelRecog::new();
 
         let mut label = LabelElem::new_refd("_JUMP2".to_string());
+        label.set_type(LabelType::Address);
         label.set_def(7);
         let _ = label_recog_ver.insert_label(label);
 
         let mut label = LabelElem::new_refd("_JUMP".to_string());
+        label.set_type(LabelType::Address);
         label.set_def(9);
         let _ = label_recog_ver.insert_label(label);
 
         let mut label = LabelElem::new_refd("_GTDIVLOOP".to_string());
+        label.set_type(LabelType::Address);
         label.set_def(10);
         let _ = label_recog_ver.insert_label(label);
 
         let mut label = LabelElem::new_refd("_LTDIVLOOP".to_string());
+        label.set_type(LabelType::Address);
         label.set_def(20);
         let _ = label_recog_ver.insert_label(label);
 
         let mut label = LabelElem::new_refd("_Vergleich".to_string());
+        label.set_type(LabelType::Address);
         label.set_def(30);
         let _ = label_recog_ver.insert_label(label);
 
@@ -1160,8 +1178,8 @@ mod tests {
         let mut namespace = Namespaces::new();
 
         let mut lr = LabelRecog::new();
-        lr.crt_def_ref(&"GLOBAL".to_string(), true, 0);
-        lr.crt_def_ref(&"LOCAL".to_string(), false, 1);
+        lr.crt_def_ref(&"GLOBAL".to_string(), true, LabelType::Address, 0);
+        lr.crt_def_ref(&"LOCAL".to_string(), false, LabelType::Address, 1);
 
         let mut instructions = Vec::from([
             Instruction::Addi(Reg::G0, Reg::G0, 0),

@@ -234,12 +234,12 @@ fn handle_abs_addr_label_conv<'b>(
             match &instr_list[jump_line] {
                 Operation::Instr(instr) => {
                     jump_label = Cow::from("__".to_string() + &jump_line.to_string());
-                    symbol_map.crt_def_ref(&jump_label.to_string(), false, jump_line as i128);
+                    symbol_map.crt_def_ref(&jump_label.to_string(), false, LabelType::Address, jump_line as i128);
                     instr_list[jump_line] = Operation::LablInstr(jump_label.clone(), instr.to_owned());
                 },
                 Operation::Macro(macro_in) => {
                     jump_label = Cow::from("__".to_string() + &jump_line.to_string());
-                    symbol_map.crt_def_ref(&jump_label.to_string(), false, jump_line as i128);
+                    symbol_map.crt_def_ref(&jump_label.to_string(), false, LabelType::Address, jump_line as i128);
                     instr_list[jump_line] = Operation::LablMacro(jump_label.clone(), macro_in.to_owned());
                 },
                 Operation::LablInstr(labl, _) |
@@ -725,7 +725,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
         match &mut parsed {
             (Some(label), Some(instr)) => {
                 debug!("({instr_counter}) - Parsed label '{label}' and instruction '{:?}'", instr);
-                handle_label_defs(label, symbol_map, instr_counter);
+                handle_label_defs(label, symbol_map, LabelType::Address, instr_counter);
 
                 match instr {
                     Operation::Macro(macro_in) => {
@@ -866,7 +866,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
                 
                 if let Some(list) = abs_to_label_queue.remove(&(instr_counter + 1)) {
                     let jump_label = Cow::from("__".to_string() + &instr_counter.to_string());
-                    symbol_map.crt_def_ref(&jump_label.to_string(), false, instr_counter as i128);
+                    symbol_map.crt_def_ref(&jump_label.to_string(), false, LabelType::Address, instr_counter as i128);
                     handle_instr_substitution(&mut instr_list, &list, &jump_label);
                     match &instr {
                         Operation::Instr(instr_in) => *instr = Operation::LablInstr(jump_label, instr_in.to_owned()),
@@ -880,7 +880,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
             },
             (Some(label), None) => {
                 debug!("({instr_counter}) - Parsed label '{label}'");
-                handle_label_defs(label, symbol_map, instr_counter);
+                handle_label_defs(label, symbol_map, LabelType::Address, instr_counter);
                 if let Some(list) = abs_to_label_queue.remove(&(instr_counter + 1)) {
                     symbol_map.set_refd_label(&label.to_string());
                     handle_instr_substitution(&mut instr_list, &list, label)
@@ -904,7 +904,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
             },
             _ => {
                 let res = Cow::from("__".to_string() + &instr_counter.to_string());
-                symbol_map.crt_def_ref(&res.to_string(), false, instr_counter as i128);
+                symbol_map.crt_def_ref(&res.to_string(), false, LabelType::Address, instr_counter as i128);
                 res
             }
         };
@@ -972,16 +972,18 @@ END:
         let mut symbols = LabelRecog::new();
         let mut label = LabelElem::new();
         label.set_name("START".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(true);
-        label.set_def(0);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("MUL".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(2);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("END".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(6);
         //label.set_def(9);
@@ -1027,17 +1029,20 @@ r#" li  x4, 16
         let _ = symbols.insert_label(label);*/
 
         let mut label = LabelElem::new_refd("__3".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(3);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("__6".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(6);
         //label.set_def(9);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("__7".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(7);
         //label.set_def(10);
@@ -1104,27 +1109,32 @@ TEST: srli a7, a7, 1
         let mut symbols = LabelRecog::new();
 
         let mut label = LabelElem::new_refd("__9".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(9);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("__10".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(10);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("__19".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(19);
         let _ = symbols.insert_label(label);
 
 
         label = LabelElem::new_refd("TEST".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(26);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("__29".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(29);
         let _ = symbols.insert_label(label);
@@ -1534,16 +1544,19 @@ END:                    ; TEST
         let mut symbols = LabelRecog::new();
         let mut label = LabelElem::new();
         label.set_name("START".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(0);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("MUL".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(2);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new_refd("END".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(6);
         //label.set_def(9);
@@ -1578,6 +1591,7 @@ TESTING: rep 1000, nop
         let mut symbols = LabelRecog::new();
         let mut label = LabelElem::new();
         label.set_name("TESTING".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(0);
         let _ = symbols.insert_label(label);

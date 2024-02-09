@@ -380,10 +380,68 @@ mod tests {
 
     #[test]
     fn test_parse_directive() {
-        // separated_pair(tag(".word"), space1, parse_word),
-        // separated_pair(tag(".space"), space1
-        // separated_pair(tag(".ascii"), space1, map(
-        // separated_pair(tag(".string"), space1, map(
+        assert_eq!(parse_directive(".word 2000, 1510"), Ok(("", MemData::Words(Vec::from([
+            WordData::Word(2000),
+            WordData::Word(1510)
+        ]), false))));
+
+        assert_eq!(parse_directive(".word       lolgetit,12002, 5195"), Ok(("", MemData::Words(Vec::from([
+            WordData::String("lolgetit".to_string()),
+            WordData::Word(12002),
+            WordData::Word(5195)
+        ]), false))));
+
+        assert_ne!(parse_directive(".space 20,1"), Ok(("", MemData::Words(Vec::from([
+            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
+            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
+            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
+            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
+        ]), true))));
+
+        assert_eq!(parse_directive(".space 20"), Ok(("", MemData::Words(Vec::from([
+            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
+            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
+            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
+            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
+        ]), true))));
+
+        assert_eq!(parse_directive(".space      13"), Ok(("", MemData::Words(Vec::from([
+            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
+            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
+            WordData::Word(0), WordData::Word(0), WordData::Word(0)
+        ]), true))));
+
+        let words_vec = Vec::from([
+            WordData::Word(0x20656874),
+            WordData::Word(0x63697571),
+            WordData::Word(0x7262206b),
+            WordData::Word(0x206e776f),
+            WordData::Word(0x20786f66),
+            WordData::Word(0x706d756a),
+            WordData::Word(0x766f2073),
+            WordData::Word(0x74207265),
+            WordData::Word(0x6c206568),
+            WordData::Word(0x20797a61),
+            WordData::Word(0x00676f64)
+        ]);
+
+        assert_eq!(parse_directive(".ascii  \"the quick brown fox jumps over the lazy dog\""),
+            Ok(("", MemData::Words(words_vec.clone(), true)))
+        );
+
+        assert_eq!(parse_directive(".string  \"the quick brown fox jumps over the lazy dog\""),
+            Ok(("", MemData::Words(words_vec.clone(), true)))
+        );
+
+        assert_eq!(parse_directive(".asciz  \"the quick brown fox jumps over the lazy dog\""),
+            Ok(("", MemData::Words(words_vec.clone(), true)))
+        );
+    }
+
+    #[ignore = "not implemented yet"]
+    #[test]
+    fn test_parse_line() {
+
     }
 
     #[ignore = "not implemented yet"]

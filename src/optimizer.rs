@@ -29,6 +29,7 @@ use crate::{
         errors::OptimizerError,
     },
     linker::Namespaces,
+    AssemblyCode
 };
 
 #[derive(Clone)]
@@ -440,7 +441,7 @@ fn cond_add_acc_label(namespaces: &mut Namespaces, accumulator: i128, label: Cow
     Ok(())
 }
 
-fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), OptimizerError> {
+fn nop_insertion(code: &mut AssemblyCode<Namespaces>) -> Result<(), OptimizerError> {
     
     let mut working_set: LimitedQueue = LimitedQueue::new_sized(3);
     
@@ -454,7 +455,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), Optimize
     //code.1.reserve(code.1.len() * 3);
 
     loop {
-        let operation = code.1.get(pointer).cloned();
+        let operation = code.get_text_refmut().get(pointer).cloned();
         match operation {
             Some(opera) => {
                 match &opera {
@@ -465,12 +466,12 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), Optimize
                             let instr_num = 4 - inserts;
                             debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
-                                code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
+                                code.get_text_refmut().insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                             }
                             pointer += (instr_num - 1) as usize;
                             accumulator += (instr_num - 1) as i128;
                         }
-                        cond_add_acc_label(&mut code.0, accumulator, std::borrow::Cow::Borrowed(label), space)?;
+                        cond_add_acc_label(code.get_labels_refmut(), accumulator, std::borrow::Cow::Borrowed(label), space)?;
                         match instr {
                             Instruction::Beq(_, _, _) |
                             Instruction::Bne(_, _, _) |
@@ -490,12 +491,12 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), Optimize
                             let instr_num = 4 - inserts;
                             debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
-                                code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
+                                code.get_text_refmut().insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                             }
                             pointer += (instr_num - 1) as usize;
                             accumulator += (instr_num - 1) as i128;
                         }
-                        cond_add_acc_label(&mut code.0, accumulator, std::borrow::Cow::Borrowed(label), space)?;
+                        cond_add_acc_label(code.get_labels_refmut(), accumulator, std::borrow::Cow::Borrowed(label), space)?;
                         match instr {
                             MacroInstr::Beq(_, _, _) |
                             MacroInstr::Bne(_, _, _) |
@@ -509,7 +510,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), Optimize
                         }
                     },
                     Operation::Labl(label) => {
-                        cond_add_acc_label(&mut code.0, accumulator, std::borrow::Cow::Borrowed(label), space)?;
+                        cond_add_acc_label(code.get_labels_refmut(), accumulator, std::borrow::Cow::Borrowed(label), space)?;
                     },
                     Operation::Instr(instr) => {
                         let reg_dep = RegActType::from(&opera);
@@ -518,7 +519,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), Optimize
                             let instr_num = 4 - inserts;
                             debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
-                                code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
+                                code.get_text_refmut().insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                             }
                             pointer += (instr_num - 1) as usize;
                             accumulator += (instr_num - 1) as i128;
@@ -542,7 +543,7 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), Optimize
                             let instr_num = 4 - inserts;
                             debug!("Inserted {} nop's at {pointer}", instr_num - 1);
                             for _ in 1..instr_num {
-                                code.1.insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
+                                code.get_text_refmut().insert(pointer, Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
                             }
                             pointer += (instr_num - 1) as usize;
                             accumulator += (instr_num - 1) as i128;
@@ -571,15 +572,17 @@ fn nop_insertion(code: &mut (Namespaces, Vec<Operation>)) -> Result<(), Optimize
     Ok(())
 }
 
-fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Result<Vec<Instruction>, OptimizerError> {
+fn substitute_labels(mut code: AssemblyCode<Namespaces>) -> Result<Vec<Instruction>, OptimizerError> {
     let mut instructions: Vec<Instruction> = vec![];
     let mut namespace: usize = 0;
 
-    for operation in code.1.iter() {
+    let (labels, operations) = code.get_text_and_labels();
+
+    for operation in operations.iter() {
         match operation {
             Operation::Namespace(space) => namespace = *space,
             Operation::Macro(instr) | Operation::LablMacro(_, instr) => {
-                instr.translate(&mut code.0, &namespace, &mut instructions)?;
+                instr.translate(labels, &namespace, &mut instructions)?;
                 debug!("{:?} substituted label ref to {:?}", operation, instructions.last().unwrap());
             },
             Operation::Instr(instr) | Operation::LablInstr(_, instr) => {
@@ -594,7 +597,7 @@ fn substitute_labels(mut code: (Namespaces, Vec<Operation>)) -> Result<Vec<Instr
     Ok(instructions)
 }
 
-pub fn optimize(mut code: (Namespaces, Vec<Operation>), no_nop_insert: bool) -> Result<Vec<Instruction>, OptimizerError> {
+pub fn optimize(mut code: AssemblyCode<Namespaces>, no_nop_insert: bool) -> Result<Vec<Instruction>, OptimizerError> {
     if !no_nop_insert {
         nop_insertion(&mut code)?;
     } else {
@@ -702,12 +705,12 @@ mod tests {
 
     #[test]
     fn test_simple_nop_insertion() {
-        let label_recog = LabelRecog::new();
+        let mut assembly_code = AssemblyCode::new(Namespaces::new());
 
-        let mut namespace = Namespaces::new();
-        let _ = namespace.insert_recog(label_recog);
+        let namespace = assembly_code.get_labels_refmut();
+        let _ = namespace.insert_recog(LabelRecog::new());
 
-        let mut operation_vec: Vec<Operation> = vec![];
+        let operation_vec = assembly_code.get_text_refmut();
         operation_vec.push(Operation::Namespace(0));
         operation_vec.push(Operation::Instr(Instruction::Add(Reg::G0, Reg::G1, Reg::G12)));
         operation_vec.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
@@ -716,19 +719,17 @@ mod tests {
         operation_vec.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
         operation_vec.push(Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G15)));
 
-        let mut code = (namespace, operation_vec);
-
-        let _ = nop_insertion(&mut code);
+        let _ = nop_insertion(&mut assembly_code);
 
         // ##################################################################################
 
-        let label_recog_ver = LabelRecog::new();
+        let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
 
-        let mut namespace_ver = Namespaces::new();
-        let _ = namespace_ver.insert_recog(label_recog_ver);
+        let namespace_ver = assembly_code_ver.get_labels_refmut();
+        let _ = namespace_ver.insert_recog(LabelRecog::new());
 
         #[cfg(feature = "raw_nop")]
-        let operation_vec_ver: Vec<Operation> = Vec::from([
+        let operation_vec_ver = Vec::from([
             Operation::Namespace(0),
             Operation::Instr(Instruction::Add(Reg::G0, Reg::G1, Reg::G12)),
             Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
@@ -744,7 +745,7 @@ mod tests {
         ]);
 
         #[cfg(not(feature = "raw_nop"))]
-        let operation_vec_ver: Vec<Operation> = Vec::from([
+        let operation_vec_ver = Vec::from([
             Operation::Namespace(0),
             Operation::Instr(Instruction::Add(Reg::G0, Reg::G1, Reg::G12)),
             Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
@@ -754,14 +755,18 @@ mod tests {
             Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G15))
         ]);
 
-        assert_eq!(code, (namespace_ver, operation_vec_ver));
+        assembly_code_ver.get_text_refmut().extend(operation_vec_ver);
+
+        assert_eq!(assembly_code, assembly_code_ver);
     }
 
     #[test]
     fn test_complex_nop_insertion() {
+        let mut assembly_code = AssemblyCode::new(Namespaces::new());
+
         let mut label_recog_1 = LabelRecog::new();
         let mut label_recog_2 = LabelRecog::new();
-        let mut namespace = Namespaces::new();
+        let namespace = assembly_code.get_labels_refmut();
 
         let mut label = LabelElem::new_refd("START".to_string());
         label.set_scope(true);
@@ -779,7 +784,7 @@ mod tests {
 
         let _ = namespace.insert_recog(label_recog_2);
 
-        let mut operation_vec: Vec<Operation> = vec![];
+        let operation_vec = assembly_code.get_text_refmut();
         operation_vec.push(Operation::Namespace(0));
         operation_vec.push(Operation::Instr(Instruction::Add(Reg::G0, Reg::G1, Reg::G12)));
         operation_vec.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
@@ -797,15 +802,15 @@ mod tests {
         operation_vec.push(Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G15)));
         operation_vec.push(Operation::Macro(MacroInstr::Jal(Reg::G0, "START".to_string())));
 
-        let mut code = (namespace, operation_vec);
-
-        let _ = nop_insertion(&mut code);
+        let _ = nop_insertion(&mut assembly_code);
 
         // ##################################################################################
 
+        let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
+
         let mut label_recog_ver1 = LabelRecog::new();
         let mut label_recog_ver2 = LabelRecog::new();
-        let mut namespace_ver = Namespaces::new();
+        let namespace_ver = assembly_code_ver.get_labels_refmut();
 
         let mut label = LabelElem::new_refd("START".to_string());
         label.set_scope(true);
@@ -824,8 +829,8 @@ mod tests {
         let _ = namespace_ver.insert_recog(label_recog_ver2);
 
         #[cfg(feature = "raw_nop")] {
-            let _ = cond_add_acc_label(&mut namespace_ver, 3, Cow::from("START"), 0);
-            let _ = cond_add_acc_label(&mut namespace_ver, 6, Cow::from("END"), 0);
+            let _ = cond_add_acc_label(assembly_code_ver.get_labels_refmut(), 3, Cow::from("START"), 0);
+            let _ = cond_add_acc_label(assembly_code_ver.get_labels_refmut(), 6, Cow::from("END"), 0);
         }
 
         #[cfg(feature = "raw_nop")]
@@ -876,12 +881,16 @@ mod tests {
             Operation::Macro(MacroInstr::Jal(Reg::G0, "START".to_string())),
         ]);
 
-        assert_eq!(code, (namespace_ver, operation_vec_ver));
+        assembly_code_ver.get_text_refmut().extend(operation_vec_ver);
+
+        assert_eq!(assembly_code, assembly_code_ver);
     }
 
     #[test]
     fn test_label_substitution() {
-        let mut namespace_ver = Namespaces::new();
+        let mut assembly_code = AssemblyCode::new(Namespaces::new());
+
+        let namespace_ver = assembly_code.get_labels_refmut();
         let mut label_recog_ver = LabelRecog::new();
 
         let mut label = LabelElem::new_refd("_GTLOOP".to_string());
@@ -902,7 +911,7 @@ mod tests {
 
         let _ = namespace_ver.insert_recog(label_recog_ver);
 
-        let mut operation_vec: Vec<Operation> = vec![];
+        let operation_vec = assembly_code.get_text_refmut();
         operation_vec.push(Operation::Namespace(0));
         operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 0)));
         operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G16, Reg::G0, 1)));
@@ -962,12 +971,14 @@ mod tests {
             Instruction::Jalr(Reg::G0, Reg::G1, 0)
         ]);
 
-        assert_eq!(substitute_labels((namespace_ver, operation_vec)).unwrap(), instruction_ver);
+        assert_eq!(substitute_labels(assembly_code).unwrap(), instruction_ver);
     }
 
     #[test]
     fn test_optimize() {
-        let mut namespace_ver = Namespaces::new();
+        let mut assembly_code = AssemblyCode::new(Namespaces::new());
+
+        let namespace_ver = assembly_code.get_labels_refmut();
         let mut label_recog_ver = LabelRecog::new();
 
         let mut label = LabelElem::new_refd("_JUMP2".to_string());
@@ -992,7 +1003,7 @@ mod tests {
 
         let _ = namespace_ver.insert_recog(label_recog_ver);
 
-        let mut operation_vec: Vec<Operation> = vec![];
+        let operation_vec = assembly_code.get_text_refmut();
         operation_vec.push(Operation::Namespace(0));
         operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)));
         operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)));
@@ -1128,7 +1139,7 @@ mod tests {
             Instruction::Jalr(Reg::G0, Reg::G1, 0)
         ]);
 
-        assert_eq!(optimize((namespace_ver.clone(), operation_vec), false).unwrap(), instruction_ver);
+        assert_eq!(optimize(assembly_code, false).unwrap(), instruction_ver);
     }
 
     #[test]

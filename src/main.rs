@@ -31,7 +31,7 @@ use std::{
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use console::Term;
 
-use crate::common::{LabelRecog, Operation};
+use crate::common::{LabelRecog, AssemblyCode};
 
 fn cli_interface() -> ArgMatches {
     #[allow(non_upper_case_globals)]
@@ -138,7 +138,8 @@ fn main() {
     .expect("At least one assembly input file is required")
     .collect();
 
-    let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
+    //let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
+    let mut parsed_vector: Vec<AssemblyCode<LabelRecog>> = vec![];
     let mut string_vector: Vec<String> = vec![];
 
     let progbar;

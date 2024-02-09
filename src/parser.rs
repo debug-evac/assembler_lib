@@ -69,26 +69,21 @@ fn parse_multiline_comments(input: &str) -> IResult<&str, bool> {
     Ok((rest, false))
 }
 
-pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> IResult<&'a str, (LabelRecog, Vec<Operation<'a>>)> {
-    let mut symbol_map = LabelRecog::new();
+pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> IResult<&'a str, AssemblyCode<'a, LabelRecog>> {
+    let mut assembly = AssemblyCode::new(LabelRecog::new());
 
     let (mut rest, parsed) = tuple((parse_multiline_comments, opt(parse_data_segment_id), parse_multiline_comments))(input)?;
     if parsed.1.is_some() {
-        let parsed = text::parse(rest, &mut symbol_map)?;
+        let parsed = text::parse(rest, assembly.get_labels_refmut())?;
         rest = parsed.0;
-        // TODO: Handle Vec<MemData>
+        assembly.set_data(parsed.1);
     } else {
         let (rested, _) = tuple((parse_multiline_comments, opt(parse_text_segment_id), parse_multiline_comments))(rest)?;
         rest = rested;
     }
 
-    let (rest, vec_ops) = code::parse(rest, subroutines, &mut symbol_map)?;
+    let (rest, vec_ops) = code::parse(rest, subroutines, assembly.get_labels_refmut())?;
+    assembly.set_text(vec_ops);
 
-    Ok((rest, (symbol_map, vec_ops)))
+    Ok((rest, assembly))
 }
-
-// Konstanten:
-// .data
-// [LABEL] .[ASSEMBLER INSTRUCTION] [IMM]
-// .text
-// CODE

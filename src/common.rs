@@ -538,3 +538,47 @@ impl LabelRecog {
         }
     }
 }
+
+pub trait RestrictLabelData {}
+
+impl RestrictLabelData for LabelRecog {}
+
+#[derive(Debug, PartialEq)]
+pub struct AssemblyCode<'a, T: RestrictLabelData> {
+    labels: T,
+    data: Vec<MemData>,
+    text: Vec<Operation<'a>>
+}
+
+impl <'a, T: RestrictLabelData> AssemblyCode<'a, T> {
+    pub fn new(labels: T) -> Self {
+        AssemblyCode { labels, data: vec![], text: vec![] }
+    }
+
+    pub fn get_labels_refmut(&mut self) -> &mut T {
+        &mut self.labels
+    }
+
+    #[allow(dead_code)]
+    pub fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
+        &mut self.data
+    }
+
+    pub fn get_text_refmut(&mut self) -> &mut Vec<Operation<'a>> {
+        &mut self.text
+    }
+
+    pub fn get_text_and_labels(&mut self) -> (&mut T, &mut Vec<Operation<'a>>) {
+        (&mut self.labels, &mut self.text)
+    }
+}
+
+impl <'a> AssemblyCode<'a, LabelRecog> {
+    pub fn set_text(&mut self, other: Vec<Operation<'a>>) {
+        self.text = other
+    }
+
+    pub fn set_data(&mut self, other: Vec<MemData>) {
+        self.data = other
+    }
+}

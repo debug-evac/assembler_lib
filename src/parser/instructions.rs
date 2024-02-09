@@ -293,7 +293,7 @@ enum IntermediateOp {
     Lb, Lbu, Lh, Lhu, Lw
 }
 
-fn parse_seper(input: &str) -> IResult<&str, &str> {
+pub fn parse_seper(input: &str) -> IResult<&str, &str> {
     recognize(
         pair(nom::character::complete::char(','), 
         opt(nom::character::complete::char(' ')))

@@ -697,7 +697,6 @@ fn expand_instrs(symbol_map: &mut LabelRecog, instr_list: &mut Vec<Operation>) {
     }
 }
 
-// let mut symbol_map = LabelRecog::new();
 pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog) -> IResult<&'a str, Vec<Operation<'a>>> {
     let mut instr_list: Vec<Operation> = vec![];
 

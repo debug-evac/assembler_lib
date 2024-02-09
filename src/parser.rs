@@ -77,9 +77,11 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
         let parsed = text::parse(rest, &mut symbol_map)?;
         rest = parsed.0;
         // TODO: Handle Vec<MemData>
+    } else {
+        let (rested, _) = tuple((parse_multiline_comments, opt(parse_text_segment_id), parse_multiline_comments))(rest)?;
+        rest = rested;
     }
 
-    let (rest, _) = tuple((parse_multiline_comments, opt(parse_text_segment_id), parse_multiline_comments))(rest)?;
     let (rest, vec_ops) = code::parse(rest, subroutines, &mut symbol_map)?;
 
     Ok((rest, (symbol_map, vec_ops)))

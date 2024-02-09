@@ -258,7 +258,7 @@ pub enum Operation <'a> {
     Labl(Cow<'a, str>)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ByteData {
     Byte(i16),
     String(String)
@@ -276,7 +276,7 @@ impl From<String> for ByteData {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum HalfData {
     Half(i32),
     String(String)
@@ -294,7 +294,7 @@ impl From<String> for HalfData {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum WordData {
     Word(i64),
     String(String)
@@ -302,7 +302,7 @@ pub enum WordData {
 
 impl From<i128> for WordData {
     fn from(value: i128) -> Self {
-        WordData::Word((value & 2_i128.pow(65) - 1).try_into().expect("Could not cast number to word!"))
+        WordData::Word((value & (2_i128.pow(65) - 1)).try_into().expect("Could not cast number to word!"))
     }
 }
 
@@ -312,7 +312,7 @@ impl From<String> for WordData {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DWordData {
     DWord(i128),
     String(String)
@@ -330,11 +330,11 @@ impl From<String> for DWordData {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MemData {
     Bytes(Vec<ByteData>),
     Halfs(Vec<HalfData>),
-    Words(Vec<WordData>),
+    Words(Vec<WordData>, bool),
     DWords(Vec<DWordData>),
 }
 

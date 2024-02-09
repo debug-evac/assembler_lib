@@ -16,7 +16,7 @@
 use std::collections::HashMap;
 use log::debug;
 
-use crate::common::LabelType;
+use crate::common::{LabelType, MemData};
 use crate::AssemblyCode;
 use crate::common::{RestrictLabelData, LabelRecog, Operation, LabelElem,
     errors::LinkError
@@ -111,18 +111,35 @@ impl RestrictLabelData for Namespaces {}
 
 pub fn link(mut parsed_instr: Vec<AssemblyCode<LabelRecog>>) -> Result<AssemblyCode<Namespaces>, LinkError> {
     let mut new_assembly = AssemblyCode::new(Namespaces::new());
-    let mut offset: usize = 0;
+    let mut text_offset: usize = 0;
+    let mut data_offset: usize = 0;
 
     // Break out into multiple functions? Probably not..
     for (file_counter, code) in parsed_instr.iter_mut().enumerate() {
-        if offset > 0  {
-            debug!("Added offset {offset} to file {file_counter}");
-            code.get_labels_refmut().add_offset(offset as i128, LabelType::Address);
+        if text_offset > 0  {
+            debug!("Added address offset {text_offset} to file {file_counter}");
+            code.get_labels_refmut().add_offset(text_offset as i128, LabelType::Address);
         };
+
+        if data_offset > 0 {
+            debug!("Added data offset {data_offset} to file {file_counter}");
+            code.get_labels_refmut().add_offset(data_offset as i128, LabelType::Data);
+        };
+
         new_assembly.get_labels_refmut().insert_recog(code.get_labels_refmut().clone())?;
+
+        let existent = code.get_data_refmut().len();
+        if existent > 0 {
+            new_assembly.get_data_refmut().push(MemData::Namespace(file_counter));
+            new_assembly.get_data_refmut().extend(code.get_data_refmut().clone());
+
+            data_offset += existent;
+        }
+
         new_assembly.get_text_refmut().push(Operation::Namespace(file_counter));
         new_assembly.get_text_refmut().extend(code.get_text_refmut().clone());
-        offset += code.get_text_refmut().len();
+
+        text_offset += code.get_text_refmut().len();
     }
 
     // Check if all globals are defined!

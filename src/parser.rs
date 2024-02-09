@@ -23,7 +23,7 @@ use std::collections::HashSet;
 
 use crate::common::*;
 
-use self::literals::{parse_data_segment_id, parse_text_segment_id};
+use self::{errors::CommonError, literals::{parse_data_segment_id, parse_text_segment_id}};
 
 pub struct Subroutines {
     code_str_vec: HashSet<String>
@@ -41,7 +41,7 @@ impl Subroutines {
     }
 }
 
-fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType, instr_counter: usize) {
+fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType, instr_counter: usize) -> Result<(), CommonError> {
     let (label_string, scope) = match label.strip_prefix('.') {
         Some(label) => {
             // Local label; Track definitions and references!
@@ -52,7 +52,8 @@ fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType,
             (label.to_string(), true)
         },
     };
-    symbol_map.crt_or_def_label(&label_string, scope, ltype, instr_counter.try_into().unwrap());
+    symbol_map.crt_or_def_label(&label_string, scope, ltype, instr_counter.try_into().unwrap())?;
+    Ok(())
 }
 
 fn parse_multiline_comments(input: &str) -> IResult<&str, bool> {

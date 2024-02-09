@@ -20,7 +20,7 @@ use std::{
 use log::{debug, info, log_enabled, warn};
 
 use self::pretty_print::emit_debug_translate_instruction;
-use crate::common::{Imm, Instruction, Reg, TranslatableCode};
+use crate::common::{ByteData, DWordData, HalfData, Imm, Instruction, MemData, Reg, TranslatableCode, WordData};
 
 fn btype_instr(rs1: &Reg, rs2: &Reg, imm: &Imm) -> u32 {
    let u12 =  (imm & 0b100_00000_00000i32) >> 1;
@@ -147,37 +147,227 @@ impl Instruction {
    }
 }
 
-pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode, comment: bool, format: &str, size: (u16, u8)) -> Result<(), String> {
-   let mut output_file: File;
+fn set_data_path(output: &PathBuf, extension: &str) -> PathBuf {
+   let mut datapath = output.clone();
+   datapath.set_extension(extension);
+   info!("Data specified. It will be saved to {:?}", datapath);
+   datapath
+}
 
-   let input = translate_code.get_text_ref();
+trait Writable {
+   // about to be phased out, only included here to not have to deal with two proceedings
+   fn write_to_mif_8(&self, output: &PathBuf, depth: u16, comment: bool) -> Result<(), std::io::Error>;
+   fn write_to_mif(&self, output: &PathBuf, depth: u16, comment: bool) -> Result<(), std::io::Error>;
+   fn write_raw(&self, output: &PathBuf) -> Result<(), std::io::Error>;
+}
+
+impl Writable for &Vec<Instruction> {
+   fn write_to_mif_8(&self, output: &PathBuf, depth: u16, comment: bool) -> Result<(), std::io::Error> {
+      let mut file = File::create(output)?;
+
+      writeln!(file, "DEPTH = {depth};\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
+
+      let mut counter: usize = 0;
+      if comment {
+         for instr in self.iter() {
+            let mach_instr = instr.translate_instruction().to_le_bytes();
+            writeln!(file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {:?}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], instr).unwrap();
+            counter += 4;
+         }
+      } else {
+         for instr in self.iter() {
+            let mach_instr = instr.translate_instruction().to_le_bytes();
+            writeln!(file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
+            counter += 4;
+         }
+      }
+
+      writeln!(file, "END;")?;
+
+      Ok(())
+   }
+
+   fn write_to_mif(&self, output: &PathBuf, depth: u16, comment: bool) -> Result<(), std::io::Error> {
+      let mut file = File::create(output)?;
+
+      writeln!(file, "DEPTH = {depth};\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
+
+      if comment {
+         for (counter, instr) in self.iter().enumerate() {
+            let mach_instr = instr.translate_instruction().to_le_bytes();
+            writeln!(file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {:?}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], instr)?;
+         }
+      } else {
+         for (counter, instr) in self.iter().enumerate() {
+            let mach_instr = instr.translate_instruction().to_le_bytes();
+            writeln!(file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3])?;
+         }
+      }
+
+      writeln!(file, "END;")?;
+
+      Ok(())
+   }
+
+   fn write_raw(&self, output: &PathBuf) -> Result<(), std::io::Error> {
+      let mut file = File::create(output)?;
+      let mut byte_instrs: Vec<u8> = vec![];
+
+      for instr in self.iter() {
+         byte_instrs.extend(instr.translate_instruction().to_le_bytes());
+      }
+      file.write_all(&byte_instrs)?;
+      Ok(())
+   }
+}
+
+fn translate_data_to_byte_vec(memdata: &Vec<MemData>) -> Vec<u8> {
+   let mut translatable_data: Vec<u8> = vec![];
+
+   for data in memdata.iter() {
+      match data {
+         MemData::Bytes(data_vec) => {
+            for byte in data_vec {
+               if let ByteData::Byte(num) = byte {
+                  let bytes = num.to_le_bytes();
+                  translatable_data.push(bytes[0]);
+               }
+            }
+         },
+         MemData::Halfs(data_vec) => {
+            for half in data_vec {
+               if let HalfData::Half(num) = half {
+                  let bytes = num.to_le_bytes();
+                  translatable_data.push(bytes[0]);
+                  translatable_data.push(bytes[1]);
+               }
+            }
+         },
+         MemData::Words(data_vec, _) => {
+            for word in data_vec {
+               if let WordData::Word(num) = word {
+                  let bytes = num.to_le_bytes();
+                  for i in 0..4 {
+                     translatable_data.push(bytes[i]);
+                  }
+               }
+            }
+         },
+         MemData::DWords(data_vec) => {
+            for dword in data_vec {
+               if let DWordData::DWord(num) = dword {
+                  let bytes = num.to_le_bytes();
+                  for i in 0..8 {
+                     translatable_data.push(bytes[i]);
+                  }
+               }
+            }
+         },
+         MemData::Namespace(_) => (),
+     }
+   }
+   translatable_data
+}
+
+impl Writable for &Vec<MemData> {
+   fn write_to_mif_8(&self, output: &PathBuf, depth: u16, _comment: bool) -> Result<(), std::io::Error> {
+      let mut file = File::create(output)?;
+
+      writeln!(file, "DEPTH = {depth};\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
+
+      let translate_vec = translate_data_to_byte_vec(self);
+      let mut counter: usize = 0;
+
+      let iter = translate_vec.chunks_exact(4);
+
+      for instr in iter.clone() {
+         writeln!(file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};", instr[3], instr[2], instr[1], instr[0])?;
+         counter += 4;
+      }
+
+      let remainder = iter.remainder();
+
+      match remainder.len() {
+         0 => (),
+         1 => writeln!(file, "{counter}\t: {:08b};", remainder[0])?,
+         2 => writeln!(file, "{counter}\t: {:08b} {:08b};", remainder[1], remainder[0])?,
+         3 => writeln!(file, "{counter}\t: {:08b} {:08b} {:08b};", remainder[2], remainder[1], remainder[0])?,
+         _ => unreachable!(),
+      }
+
+      writeln!(file, "END;")?;
+
+      Ok(())
+   }
+
+   fn write_to_mif(&self, output: &PathBuf, depth: u16, _comment: bool) -> Result<(), std::io::Error> {
+      let mut file = File::create(output)?;
+
+      writeln!(file, "DEPTH = {depth};\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
+
+      let translate_vec = translate_data_to_byte_vec(self);
+      let mut counter: usize = 0;
+
+      let iter = translate_vec.chunks_exact(4);
+
+      for instr in iter.clone() {
+         writeln!(file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", instr[3], instr[2], instr[1], instr[0])?;
+         counter += 1;
+      }
+
+      let remainder = iter.remainder();
+
+      match remainder.len() {
+         0 => (),
+         1 => writeln!(file, "{counter}\t: {:032b};", remainder[0])?,
+         2 => writeln!(file, "{counter}\t: {:024b}{:08b};", remainder[1], remainder[0])?,
+         3 => writeln!(file, "{counter}\t: {:016b}{:08b}{:08b};", remainder[2], remainder[1], remainder[0])?,
+         _ => unreachable!(),
+      }
+
+      writeln!(file, "END;")?;
+
+      Ok(())
+   }
+
+   fn write_raw(&self, _output: &PathBuf) -> Result<(), std::io::Error> {
+      //let mut file = File::create(output)?;
+      //let mut byte_instrs: Vec<u8> = vec![];
+
+      /*for instr in self.iter() {
+         byte_instrs.extend(instr.translate_instruction().to_le_bytes());
+      }
+      file.write_all(&byte_instrs)?;*/
+      Ok(())
+   }
+}
+
+pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode, comment: bool, format: &str, size: (u16, u8)) -> Result<(), String> {
+   let (input, data) = translate_code.get_all_ref();
+
+   let outdata;
+
+   let mut translation_vec: Vec<(Box<dyn Writable>, &PathBuf)> = vec![];
+   translation_vec.push((Box::from(input), output));
 
    match format {
       "mif" => {
          let depth = size.0;
          let width = size.1;
 
+         if !data.is_empty() {
+            outdata = set_data_path(output, "mem.mif");
+            translation_vec.push((Box::from(data), &outdata));
+         };
+
          if width == 32 {
             if (depth as usize) < input.len() {
                return Err(format!("MIF depth is smaller than the instruction count! {} < {}", depth, input.len()));
             }
 
-            output_file = match File::create(output) {
-               Ok(file) => file,
-               Err(msg) => return Err(format!("Could not create file!\n{msg}")),
-            };
-
-            writeln!(output_file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN").unwrap();
-
-            if comment {
-               for (counter, instr) in input.iter().enumerate() {
-                  let mach_instr = instr.translate_instruction().to_le_bytes();
-                  writeln!(output_file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {:?}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], instr).unwrap();
-               }
-            } else {
-               for (counter, instr) in input.iter().enumerate() {
-                  let mach_instr = instr.translate_instruction().to_le_bytes();
-                  writeln!(output_file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
+            for write_tuple in translation_vec {
+               if let Err(e) = write_tuple.0.write_to_mif(write_tuple.1, depth, comment) {
+                  return Err(e.to_string());
                }
             }
          } else if width == 8 {
@@ -185,47 +375,29 @@ pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode,
                return Err(format!("MIF depth is smaller than the instruction count! {} < {}", (depth / 4), input.len()));
             }
 
-            output_file = match File::create(output) {
-               Ok(file) => file,
-               Err(msg) => return Err(format!("Could not create file!\n{msg}")),
-            };
-
-            writeln!(output_file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN").unwrap();
-            
-            let mut counter: usize = 0;
-            if comment {
-               for instr in input.iter() {
-                  let mach_instr = instr.translate_instruction().to_le_bytes();
-                  writeln!(output_file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {:?}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], instr).unwrap();
-                  counter += 4;
-               }
-            } else {
-               for instr in input.iter() {
-                  let mach_instr = instr.translate_instruction().to_le_bytes();
-                  writeln!(output_file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
-                  counter += 4;
+            for write_tuple in translation_vec {
+               if let Err(e) = write_tuple.0.write_to_mif_8(write_tuple.1, depth, comment) {
+                  return Err(e.to_string());
                }
             }
          } else {
             return Err(format!("Expected width of either 8 or 32 bits, got '{width}'!"));
          }
-         
-         writeln!(output_file, "END;").unwrap();
       },
       "raw" => {
          if comment {
             warn!("Comment flag has no effect on raw format!");
          }
-         output_file = match File::create(output) {
-            Ok(file) => file,
-            Err(msg) => return Err(format!("Could not create file!\n{msg}")),
+
+         if !data.is_empty() {
+            outdata = set_data_path(output, "mem.bin");
+            translation_vec.push((Box::from(data), &outdata));
          };
-         let mut byte_instrs: Vec<u8> = vec![];
-         for instr in input.iter() {
-            byte_instrs.extend(instr.translate_instruction().to_le_bytes());
-         }
-         if let Err(msg) = output_file.write_all(&byte_instrs) {
-            return Err(format!("Could not write to output file!\n{msg}"));
+
+         for write_tuple in translation_vec {
+            if let Err(e) = write_tuple.0.write_raw(write_tuple.1) {
+               return Err(e.to_string());
+            }
          }
       },
       "debug" => {

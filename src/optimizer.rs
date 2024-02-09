@@ -25,7 +25,7 @@ use std::borrow::Cow;
 use log::debug;
 
 use crate::{
-    common::{errors::OptimizerError, Instruction, MacroInstr, MemData, Operation, Part, Reg, TranslatableCode
+    common::{errors::OptimizerError, ByteData, DWordData, HalfData, Instruction, MacroInstr, MemData, Operation, Part, Reg, TranslatableCode, WordData
     },
     linker::Namespaces,
     AssemblyCode
@@ -575,19 +575,87 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
     type Error = OptimizerError;
 
     fn try_from(mut code: AssemblyCode<Namespaces>) -> Result<Self, Self::Error> {
-        let mut translate_code = TranslatableCode::new();
         let mut namespace: usize = 0;
 
         let (labels, operations, data) = code.get_all_refmut();
 
-        for data_obj in data.iter() {
+        for data_obj in data.iter_mut() {
             match data_obj {
-                MemData::Bytes(_) => todo!(),
-                MemData::Halfs(_) => todo!(),
-                MemData::Words(_, _) => todo!(),
-                MemData::DWords(_) => todo!(),
+                MemData::Bytes(data_vec) => {
+                    // modify vec in place, nice performance
+                    let data_slice = data_vec.as_mut_slice();
+
+                    for index in 0..data_slice.len() {
+                        if let ByteData::String(label) = &data_slice[index] {
+                            match labels.get_label(label.clone(), Some(namespace)) {
+                                Some(labelel) => {
+                                    let label_def = labelel.get_def() & (2_i128.pow(9) - 1);
+                                    debug!("{label} of {:?} substituted label ref to {:?}", data_slice, label_def);
+                                    data_slice[index] = ByteData::Byte(label_def.try_into().unwrap());
+                                },
+                                None => return Err(OptimizerError::LabelNonExistent(label.clone())),
+                            }
+                        }
+                    }
+                },
+                MemData::Halfs(data_vec) => {
+                    let data_slice = data_vec.as_mut_slice();
+
+                    for index in 0..data_slice.len() {
+                        if let HalfData::String(label) = &data_slice[index] {
+                            match labels.get_label(label.clone(), Some(namespace)) {
+                                Some(labelel) => {
+                                    let label_def = labelel.get_def() & (2_i128.pow(17) - 1);
+                                    debug!("{label} of {:?} substituted label ref to {:?}", data_slice, label_def);
+                                    data_slice[index] = HalfData::Half(label_def.try_into().unwrap());
+                                },
+                                None => return Err(OptimizerError::LabelNonExistent(label.clone())),
+                            }
+                        }
+                    }
+                },
+                MemData::Words(data_vec, not_containing_labels) => {
+                    if *not_containing_labels {
+                        continue
+                    }
+
+                    let data_slice = data_vec.as_mut_slice();
+
+                    for index in 0..data_slice.len() {
+                        if let WordData::String(label) = &data_slice[index] {
+                            match labels.get_label(label.clone(), Some(namespace)) {
+                                Some(labelel) => {
+                                    let label_def = labelel.get_def() & (2_i128.pow(33) - 1);
+                                    debug!("{label} of {:?} substituted label ref to {:?}", data_slice, label_def);
+                                    data_slice[index] = WordData::Word(label_def.try_into().unwrap());
+                                },
+                                None => return Err(OptimizerError::LabelNonExistent(label.clone())),
+                            }
+                        }
+                    }
+                },
+                MemData::DWords(data_vec) => {
+                    let data_slice = data_vec.as_mut_slice();
+
+                    for index in 0..data_slice.len() {
+                        if let DWordData::String(label) = &data_slice[index] {
+                            match labels.get_label(label.clone(), Some(namespace)) {
+                                Some(labelel) => {
+                                    let label_def = labelel.get_def() & (2_i128.pow(65) - 1);
+                                    debug!("{label} of {:?} substituted label ref to {:?}", data_slice, label_def);
+                                    data_slice[index] = DWordData::DWord(label_def.try_into().unwrap());
+                                },
+                                None => return Err(OptimizerError::LabelNonExistent(label.clone())),
+                            }
+                        }
+                    }
+                },
+                MemData::Namespace(space) => namespace = *space,
             }
         }
+
+        let mut translate_code = TranslatableCode::new_with_data(data.to_vec());
+        namespace = 0;
 
         for operation in operations.iter() {
             match operation {

@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use log::error;
 use nom::{
     branch::alt, 
     bytes::complete::{is_not, tag}, 
@@ -172,7 +173,7 @@ fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usi
                     ByteData::String(label) => symbol_map.crt_or_ref_label(label),
                 }
             }
-            data.len() / 4
+            (data.len() / 4) + (data.len() % 4)
         },
         MemData::Halfs(data) => {
             for half in data.iter() {
@@ -181,7 +182,7 @@ fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usi
                     HalfData::String(label) => symbol_map.crt_or_ref_label(label),
                 }
             }
-            data.len() / 2
+            (data.len() / 2) + (data.len() % 2)
         },
         MemData::Words(data, contains_no_labels) => {
             if !contains_no_labels {
@@ -203,6 +204,39 @@ fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usi
             }
             data.len() * 2
         },
+        _ => unreachable!(),
+    }
+}
+
+fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut Vec<MemData>) {
+    match direct {
+        MemData::Bytes(_) => (),
+        MemData::Halfs(_) => {
+            if *next_free_ptr % 2 != 0 {
+                if let MemData::Bytes(byte_data) = dir_list.last_mut().unwrap() {
+                    byte_data.push(ByteData::Byte(0));
+                }
+                *next_free_ptr += 1;
+            }
+        },
+        MemData::Words(_, _) | MemData::DWords(_) => {
+            let free_bytes = *next_free_ptr % 4;
+            match dir_list.last_mut().unwrap() {
+                MemData::Bytes(byte_data) => {
+                    for _ in 0..free_bytes {
+                        byte_data.push(ByteData::Byte(0));
+                    }
+                },
+                MemData::Halfs(half_data) => {
+                    half_data.push(HalfData::Half(0));
+                },
+                MemData::Words(_, _) |
+                MemData::DWords(_) |
+                MemData::Namespace(_) => (),
+            }
+            *next_free_ptr += free_bytes;
+        },
+        MemData::Namespace(_) => unreachable!(),
     }
 }
 
@@ -223,14 +257,22 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
 
         match parsed {
             (None, Some(direct)) => {
+                align_data(&direct, &mut next_free_ptr, &mut dir_list);
                 next_free_ptr += handle_label_refs_count(&direct, symbol_map);
                 dir_list.push(direct);
             },
             (Some(label), None) => {
-                handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr);
+                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr) {
+                    error!("{e}");
+                    std::process::exit(1)
+                };
             },
             (Some(label), Some(direct)) => {
-                handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr);
+                align_data(&direct, &mut next_free_ptr, &mut dir_list);
+                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr) {
+                    error!("{e}");
+                    std::process::exit(1)
+                };
                 next_free_ptr += handle_label_refs_count(&direct, symbol_map);
                 dir_list.push(direct);
             },

@@ -336,6 +336,7 @@ pub enum MemData {
     Halfs(Vec<HalfData>),
     Words(Vec<WordData>, bool),
     DWords(Vec<DWordData>),
+    Namespace(usize)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -483,9 +484,12 @@ impl LabelRecog {
         }
     }
 
-    pub fn crt_or_def_label(&mut self, label_str: &String, scope: bool, ltype: LabelType, definition: i128) {
+    pub fn crt_or_def_label(&mut self, label_str: &String, scope: bool, ltype: LabelType, definition: i128) -> Result<(), CommonError> {
         match self.get_label(label_str) {
             Some(label) => {
+                if *label.get_type() != LabelType::Uninit {
+                    return Err(CommonError::LabelAlreadyDefined(label.clone()))
+                }
                 label.set_def(definition);
                 label.set_type(ltype);
                 label.set_scope(scope);
@@ -499,6 +503,7 @@ impl LabelRecog {
                 let _ = self.insert_label(label);
             },
         }
+        Ok(())
     }
 
     // Creates a label, if it does not exist already with the name label_str, scope and the reference.
@@ -614,8 +619,13 @@ pub struct TranslatableCode {
 }
 
 impl TranslatableCode {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         TranslatableCode { data: vec![], text: vec![] }
+    }
+
+    pub fn new_with_data(data: Vec<MemData>) -> Self {
+        TranslatableCode { data, text: vec![] }
     }
 
     #[allow(dead_code)]
@@ -627,12 +637,7 @@ impl TranslatableCode {
         &mut self.text
     }
 
-    #[allow(dead_code)]
-    pub fn get_data_ref(&self) -> &Vec<MemData> {
-        &self.data
-    }
-
-    pub fn get_text_ref(&self) -> &Vec<Instruction> {
-        &self.text
+    pub fn get_all_ref(&self) -> (&Vec<Instruction>, &Vec<MemData>) {
+        (&self.text, &self.data)
     }
 }

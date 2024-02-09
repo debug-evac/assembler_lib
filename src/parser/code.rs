@@ -21,7 +21,7 @@ use nom::{
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::borrow::Cow;
-use log::debug;
+use log::{debug, error};
 
 use crate::parser::{
     handle_label_defs, instructions::parse_instruction, literals::{
@@ -725,7 +725,10 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
         match &mut parsed {
             (Some(label), Some(instr)) => {
                 debug!("({instr_counter}) - Parsed label '{label}' and instruction '{:?}'", instr);
-                handle_label_defs(label, symbol_map, LabelType::Address, instr_counter);
+                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Address, instr_counter) {
+                    error!("{e}");
+                    std::process::exit(1)
+                };
 
                 match instr {
                     Operation::Macro(macro_in) => {
@@ -880,7 +883,10 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
             },
             (Some(label), None) => {
                 debug!("({instr_counter}) - Parsed label '{label}'");
-                handle_label_defs(label, symbol_map, LabelType::Address, instr_counter);
+                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Address, instr_counter) {
+                    error!("{e}");
+                    std::process::exit(1)
+                };
                 if let Some(list) = abs_to_label_queue.remove(&(instr_counter + 1)) {
                     symbol_map.set_refd_label(&label.to_string());
                     handle_instr_substitution(&mut instr_list, &list, label)

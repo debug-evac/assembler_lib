@@ -16,6 +16,7 @@ use crate::common::MacroInstr;
 pub enum CommonError {
     LabelsNameNotEqual(LabelElem, LabelElem),
     MultipleGlobalDefined(LabelElem),
+    LabelAlreadyDefined(LabelElem),
 }
 
 impl std::fmt::Display for CommonError {
@@ -23,6 +24,7 @@ impl std::fmt::Display for CommonError {
         match self {
             CommonError::LabelsNameNotEqual(labelel_a, labelel_b) => write!(f, "Cannot compare different label names '{}' and '{}'", labelel_a.get_name(), labelel_b.get_name()),
             CommonError::MultipleGlobalDefined(labelel) => write!(f, "Global label '{}' defined multiple times!", labelel.get_name()),
+            CommonError::LabelAlreadyDefined(labelel) => write!(f, "Label '{}' already defined!", labelel.get_name()),
         }
     }
 }

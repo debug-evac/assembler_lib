@@ -224,7 +224,7 @@ fn translate_data_to_byte_vec(memdata: &[MemData]) -> Vec<u8> {
 
    for data in memdata.iter() {
       match data {
-         MemData::Bytes(data_vec) => {
+         MemData::Bytes(data_vec, _) => {
             for byte in data_vec {
                if let ByteData::Byte(num) = byte {
                   let bytes = num.to_le_bytes();
@@ -241,7 +241,7 @@ fn translate_data_to_byte_vec(memdata: &[MemData]) -> Vec<u8> {
                }
             }
          },
-         MemData::Words(data_vec, _) => {
+         MemData::Words(data_vec) => {
             for word in data_vec {
                if let WordData::Word(num) = word {
                   let bytes = num.to_le_bytes();

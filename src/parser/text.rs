@@ -35,7 +35,7 @@ fn parse_byte(input: &str) -> IResult<&str, MemData> {
                 map(parse_label_name, |label| ByteData::String(label.to_string()))
             ))
         ),
-        MemData::Bytes
+        |data| MemData::Bytes(data, false)
     )(input)
 }
 
@@ -61,7 +61,7 @@ fn parse_word(input: &str) -> IResult<&str, MemData> {
                 map(parse_label_name, |label| WordData::String(label.to_string()))
             ))
         ),
-        |data| MemData::Words(data, false)
+        MemData::Words
     )(input)
 }
 
@@ -82,17 +82,27 @@ fn string_to_le_words(input: String) -> MemData {
     let mut vec_data = vec![];
     let iter = input.as_bytes().chunks_exact(4);
     for word in iter.clone() {
-        vec_data.push(WordData::Word(((word[3] as i64) << 24) + ((word[2] as i64) << 16) + ((word[1] as i64) << 8) + word[0] as i64));
+        vec_data.push(ByteData::Byte(word[3] as i16));
+        vec_data.push(ByteData::Byte(word[2] as i16));
+        vec_data.push(ByteData::Byte(word[1] as i16));
+        vec_data.push(ByteData::Byte(word[0] as i16));
     };
     let last_values = iter.remainder();
     match last_values.len() {
         0 => (),
-        1 => vec_data.push(WordData::Word(last_values[0] as i64)),
-        2 => vec_data.push(WordData::Word(((last_values[1] as i64) << 8) + last_values[0] as i64)),
-        3 => vec_data.push(WordData::Word(((last_values[2] as i64) << 16) + ((last_values[1] as i64) << 8) + last_values[0] as i64)),
+        1 => vec_data.push(ByteData::Byte(last_values[0] as i16)),
+        2 => {
+            vec_data.push(ByteData::Byte(last_values[1] as i16));
+            vec_data.push(ByteData::Byte(last_values[0] as i16));
+        },
+        3 => {
+            vec_data.push(ByteData::Byte(last_values[2] as i16));
+            vec_data.push(ByteData::Byte(last_values[1] as i16));
+            vec_data.push(ByteData::Byte(last_values[0] as i16));
+        },
         _ => unreachable!(),
     };
-    MemData::Words(vec_data, true)
+    MemData::Bytes(vec_data, true)
 }
 
 fn parse_directive(input: &str) -> IResult<&str, MemData> {
@@ -105,9 +115,9 @@ fn parse_directive(input: &str) -> IResult<&str, MemData> {
             digit1, |num| {
                 let mut vec_data = vec![];
                 for _ in 0..str::parse(num).unwrap() {
-                    vec_data.push(WordData::Word(0));
+                    vec_data.push(ByteData::Byte(0));
                 }
-                MemData::Words(vec_data, true) 
+                MemData::Bytes(vec_data, true) 
             }
         )),
         separated_pair(tag(".ascii"), space1, map(
@@ -166,14 +176,16 @@ fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<MemData>)> {
 
 fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usize {
     match direct {
-        MemData::Bytes(data) => {
-            for byte in data.iter() {
-                match byte {
-                    ByteData::Byte(_) => (),
-                    ByteData::String(label) => symbol_map.crt_or_ref_label(label),
+        MemData::Bytes(data, contains_no_labels) => {
+            if !contains_no_labels {
+                for byte in data.iter() {
+                    match byte {
+                        ByteData::Byte(_) => (),
+                        ByteData::String(label) => symbol_map.crt_or_ref_label(label),
+                    }
                 }
             }
-            (data.len() / 4) + (data.len() % 4)
+            data.len() + 1
         },
         MemData::Halfs(data) => {
             for half in data.iter() {
@@ -182,18 +194,16 @@ fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usi
                     HalfData::String(label) => symbol_map.crt_or_ref_label(label),
                 }
             }
-            (data.len() / 2) + (data.len() % 2)
+            data.len() * 2 + 1
         },
-        MemData::Words(data, contains_no_labels) => {
-            if !contains_no_labels {
-                for word in data.iter() {
-                    match word {
-                        WordData::Word(_) => (),
-                        WordData::String(label) => symbol_map.crt_or_ref_label(label),
-                    }
+        MemData::Words(data) => {
+            for word in data.iter() {
+                match word {
+                    WordData::Word(_) => (),
+                    WordData::String(label) => symbol_map.crt_or_ref_label(label),
                 }
             }
-            data.len()
+            data.len() * 4 + 1
         },
         MemData::DWords(data) => {
             for dword in data.iter() {
@@ -202,7 +212,7 @@ fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usi
                     DWordData::String(label) => symbol_map.crt_or_ref_label(label),
                 }
             }
-            data.len() * 2
+            data.len() * 8 + 1
         },
         _ => unreachable!(),
     }
@@ -210,31 +220,34 @@ fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usi
 
 fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut [MemData]) {
     match direct {
-        MemData::Bytes(_) => (),
+        MemData::Bytes(_, _) => (),
         MemData::Halfs(_) => {
             if *next_free_ptr % 2 != 0 {
-                if let MemData::Bytes(byte_data) = dir_list.last_mut().unwrap() {
+                if let MemData::Bytes(byte_data, _) = dir_list.last_mut().unwrap() {
                     byte_data.push(ByteData::Byte(0));
                 }
                 *next_free_ptr += 1;
             }
         },
-        MemData::Words(_, _) | MemData::DWords(_) => {
+        MemData::Words(_) | MemData::DWords(_) => {
             let free_bytes = *next_free_ptr % 4;
-            match dir_list.last_mut().unwrap() {
-                MemData::Bytes(byte_data) => {
-                    for _ in 0..free_bytes {
-                        byte_data.push(ByteData::Byte(0));
-                    }
-                },
-                MemData::Halfs(half_data) => {
-                    half_data.push(HalfData::Half(0));
-                },
-                MemData::Words(_, _) |
-                MemData::DWords(_) |
-                MemData::Namespace(_) => (),
+            if free_bytes != 0 {
+                match dir_list.last_mut().unwrap() {
+                    MemData::Bytes(byte_data, _) => {
+                        for _ in 0..free_bytes {
+                            byte_data.push(ByteData::Byte(0));
+                        }
+                        *next_free_ptr += free_bytes;
+                    },
+                    MemData::Halfs(half_data) => {
+                        half_data.push(HalfData::Half(0));
+                        *next_free_ptr += 1;
+                    },
+                    MemData::Words(_) |
+                    MemData::DWords(_) |
+                    MemData::Namespace(_) => (),
+                }
             }
-            *next_free_ptr += free_bytes;
         },
         MemData::Namespace(_) => unreachable!(),
     }
@@ -262,14 +275,24 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
                 dir_list.push(direct);
             },
             (Some(label), None) => {
-                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr) {
+                let free_ptr = if next_free_ptr > 0 {
+                    next_free_ptr - 1
+                } else {
+                    0
+                };
+                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, free_ptr) {
                     error!("{e}");
                     std::process::exit(1)
                 };
             },
             (Some(label), Some(direct)) => {
                 align_data(&direct, &mut next_free_ptr, &mut dir_list);
-                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr) {
+                let free_ptr = if next_free_ptr > 0 {
+                    next_free_ptr - 1
+                } else {
+                    0
+                };
+                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, free_ptr) {
                     error!("{e}");
                     std::process::exit(1)
                 };
@@ -277,7 +300,8 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
                 dir_list.push(direct);
             },
             (None, None) => {
-                todo!("Implement error! This can only occur when .text is not specified!");
+                error!("Specified .data section without .text section!");
+                std::process::exit(1);
             },
         }
 
@@ -293,6 +317,8 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
 
 #[cfg(test)]
 mod tests {
+    use crate::common::LabelElem;
+
     use super::*;
 
     // TODO: Better test cases
@@ -304,15 +330,15 @@ mod tests {
             ByteData::Byte(16), 
             ByteData::Byte(10), 
             ByteData::Byte(15)
-        ])))));
+        ]), false))));
         assert_eq!(parse_byte("16, ligma, 201"), Ok(("", MemData::Bytes(Vec::from([
             ByteData::Byte(16), 
             ByteData::String("ligma".to_string()), 
             ByteData::Byte(201)
-        ])))));
+        ]), false))));
         assert_ne!(parse_byte(".awldldaw"), Ok(("", MemData::Bytes(Vec::from([
             ByteData::String(".awldldaw".to_string())
-        ])))));
+        ]), false))));
     }
 
     #[test]
@@ -340,15 +366,15 @@ mod tests {
             WordData::Word(16), 
             WordData::Word(10), 
             WordData::Word(15)
-        ]), false))));
+        ])))));
         assert_eq!(parse_word("16, ligma, 201"), Ok(("", MemData::Words(Vec::from([
             WordData::Word(16), 
             WordData::String("ligma".to_string()), 
             WordData::Word(201)
-        ]), false))));
+        ])))));
         assert_ne!(parse_word(".awldldaw"), Ok(("", MemData::Words(Vec::from([
             WordData::String(".awldldaw".to_string())
-        ]), false))));
+        ])))));
     }
 
     #[test]
@@ -372,51 +398,54 @@ mod tests {
     #[test]
     fn test_string_to_le_words() {
         let mut words_vec = Vec::from([
-            WordData::Word(0x20656874),
-            WordData::Word(0x63697571),
-            WordData::Word(0x7262206b),
-            WordData::Word(0x206e776f),
-            WordData::Word(0x20786f66),
-            WordData::Word(0x706d756a),
-            WordData::Word(0x766f2073),
-            WordData::Word(0x74207265),
-            WordData::Word(0x6c206568),
-            WordData::Word(0x20797a61),
-            WordData::Word(0x00676f64)
+            ByteData::Byte(0x20), ByteData::Byte(0x65), ByteData::Byte(0x68), ByteData::Byte(0x74),
+            ByteData::Byte(0x63), ByteData::Byte(0x69), ByteData::Byte(0x75), ByteData::Byte(0x71),
+            ByteData::Byte(0x72), ByteData::Byte(0x62), ByteData::Byte(0x20), ByteData::Byte(0x6b),
+            ByteData::Byte(0x20), ByteData::Byte(0x6e), ByteData::Byte(0x77), ByteData::Byte(0x6f),
+            ByteData::Byte(0x20), ByteData::Byte(0x78), ByteData::Byte(0x6f), ByteData::Byte(0x66),
+            ByteData::Byte(0x70), ByteData::Byte(0x6d), ByteData::Byte(0x75), ByteData::Byte(0x6a),
+            ByteData::Byte(0x76), ByteData::Byte(0x6f), ByteData::Byte(0x20), ByteData::Byte(0x73),
+            ByteData::Byte(0x74), ByteData::Byte(0x20), ByteData::Byte(0x72), ByteData::Byte(0x65),
+            ByteData::Byte(0x6c), ByteData::Byte(0x20), ByteData::Byte(0x65), ByteData::Byte(0x68),
+            ByteData::Byte(0x20), ByteData::Byte(0x79), ByteData::Byte(0x7a), ByteData::Byte(0x61),
+            ByteData::Byte(0x67), ByteData::Byte(0x6f), ByteData::Byte(0x64),
         ]);
 
         // last has only 3
         assert_eq!(string_to_le_words("the quick brown fox jumps over the lazy dog".to_string()),
-            MemData::Words(words_vec.clone(), true)
+            MemData::Bytes(words_vec.clone(), true)
         );
 
-        words_vec[10] = WordData::Word(0x31676f64);
+        words_vec.insert(40, ByteData::Byte(0x31));
 
         // last has all
         assert_eq!(string_to_le_words("the quick brown fox jumps over the lazy dog1".to_string()),
-            MemData::Words(words_vec.clone(), true)
+            MemData::Bytes(words_vec.clone(), true)
         );
 
-        words_vec[10] = WordData::Word(0x00006f64);
+        words_vec.remove(40);
+        words_vec.remove(40);
 
         // last has only 2
         assert_eq!(string_to_le_words("the quick brown fox jumps over the lazy do".to_string()),
-            MemData::Words(words_vec.clone(), true)
+            MemData::Bytes(words_vec.clone(), true)
         );
 
-        words_vec[10] = WordData::Word(0x00000064);
+        words_vec.remove(40);
 
         // last has only 1
         assert_eq!(string_to_le_words("the quick brown fox jumps over the lazy d".to_string()),
-            MemData::Words(words_vec.clone(), true)
+            MemData::Bytes(words_vec.clone(), true)
         );
 
-        words_vec[10] = WordData::Word(0x31676f64);
-        words_vec.push(WordData::Word(0x0));
+        words_vec.insert(40, ByteData::Byte(0x6f));
+        words_vec.insert(40, ByteData::Byte(0x67));
+        words_vec.insert(40, ByteData::Byte(0x31));
+        words_vec.push(ByteData::Byte(0));
 
         // last has 4 and null byte
         assert_eq!(string_to_le_words("the quick brown fox jumps over the lazy dog1\0".to_string()),
-            MemData::Words(words_vec.clone(), true)
+            MemData::Bytes(words_vec.clone(), true)
         );
     }
 
@@ -425,70 +454,155 @@ mod tests {
         assert_eq!(parse_directive(".word 2000, 1510"), Ok(("", MemData::Words(Vec::from([
             WordData::Word(2000),
             WordData::Word(1510)
-        ]), false))));
+        ])))));
 
         assert_eq!(parse_directive(".word       lolgetit,12002, 5195"), Ok(("", MemData::Words(Vec::from([
             WordData::String("lolgetit".to_string()),
             WordData::Word(12002),
             WordData::Word(5195)
-        ]), false))));
+        ])))));
 
-        assert_ne!(parse_directive(".space 20,1"), Ok(("", MemData::Words(Vec::from([
-            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
-            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
-            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
-            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
+        assert_ne!(parse_directive(".space 20,1"), Ok(("", MemData::Bytes(Vec::from([
+            ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+            ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+            ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+            ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
         ]), true))));
 
-        assert_eq!(parse_directive(".space 20"), Ok(("", MemData::Words(Vec::from([
-            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
-            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
-            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
-            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
+        assert_eq!(parse_directive(".space 20"), Ok(("", MemData::Bytes(Vec::from([
+            ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+            ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+            ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+            ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
         ]), true))));
 
-        assert_eq!(parse_directive(".space      13"), Ok(("", MemData::Words(Vec::from([
-            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
-            WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0), WordData::Word(0),
-            WordData::Word(0), WordData::Word(0), WordData::Word(0)
+        assert_eq!(parse_directive(".space      13"), Ok(("", MemData::Bytes(Vec::from([
+            ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+            ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+            ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0)
         ]), true))));
 
-        let words_vec = Vec::from([
-            WordData::Word(0x20656874),
-            WordData::Word(0x63697571),
-            WordData::Word(0x7262206b),
-            WordData::Word(0x206e776f),
-            WordData::Word(0x20786f66),
-            WordData::Word(0x706d756a),
-            WordData::Word(0x766f2073),
-            WordData::Word(0x74207265),
-            WordData::Word(0x6c206568),
-            WordData::Word(0x20797a61),
-            WordData::Word(0x00676f64)
+        let mut words_vec = Vec::from([
+            ByteData::Byte(0x20), ByteData::Byte(0x65), ByteData::Byte(0x68), ByteData::Byte(0x74),
+            ByteData::Byte(0x63), ByteData::Byte(0x69), ByteData::Byte(0x75), ByteData::Byte(0x71),
+            ByteData::Byte(0x72), ByteData::Byte(0x62), ByteData::Byte(0x20), ByteData::Byte(0x6b),
+            ByteData::Byte(0x20), ByteData::Byte(0x6e), ByteData::Byte(0x77), ByteData::Byte(0x6f),
+            ByteData::Byte(0x20), ByteData::Byte(0x78), ByteData::Byte(0x6f), ByteData::Byte(0x66),
+            ByteData::Byte(0x70), ByteData::Byte(0x6d), ByteData::Byte(0x75), ByteData::Byte(0x6a),
+            ByteData::Byte(0x76), ByteData::Byte(0x6f), ByteData::Byte(0x20), ByteData::Byte(0x73),
+            ByteData::Byte(0x74), ByteData::Byte(0x20), ByteData::Byte(0x72), ByteData::Byte(0x65),
+            ByteData::Byte(0x6c), ByteData::Byte(0x20), ByteData::Byte(0x65), ByteData::Byte(0x68),
+            ByteData::Byte(0x20), ByteData::Byte(0x79), ByteData::Byte(0x7a), ByteData::Byte(0x61),
+            ByteData::Byte(0x67), ByteData::Byte(0x6f), ByteData::Byte(0x64),
         ]);
 
         assert_eq!(parse_directive(".ascii  \"the quick brown fox jumps over the lazy dog\""),
-            Ok(("", MemData::Words(words_vec.clone(), true)))
+            Ok(("", MemData::Bytes(words_vec.clone(), true)))
         );
 
+        words_vec.insert(40, ByteData::Byte(0));
+
         assert_eq!(parse_directive(".string  \"the quick brown fox jumps over the lazy dog\""),
-            Ok(("", MemData::Words(words_vec.clone(), true)))
+            Ok(("", MemData::Bytes(words_vec.clone(), true)))
         );
 
         assert_eq!(parse_directive(".asciz  \"the quick brown fox jumps over the lazy dog\""),
-            Ok(("", MemData::Words(words_vec.clone(), true)))
+            Ok(("", MemData::Bytes(words_vec.clone(), true)))
         );
     }
 
-    #[ignore = "not implemented yet"]
     #[test]
     fn test_parse_line() {
-
+        assert_eq!(parse_line("label:   .word 30,51"),
+                   Ok(("", (Some("label"), Some(MemData::Words(Vec::from([
+                        WordData::Word(30),
+                        WordData::Word(51)
+                    ])))))));
+        assert_eq!(parse_line("\ntest:\n\n.string   \"HANS!\""),
+                   Ok(("", (Some("test"), Some(MemData::Bytes(Vec::from([
+                        ByteData::Byte('S' as i16), ByteData::Byte('N' as i16), ByteData::Byte('A' as i16), ByteData::Byte('H' as i16),
+                        ByteData::Byte(0), ByteData::Byte('!' as i16)
+                   ]), true))))));
+        assert_eq!(parse_line("\n\n\n.space     12\n"),
+                   Ok(("\n", (None, Some(MemData::Bytes(Vec::from([
+                        ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+                        ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+                        ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+                   ]), true))))));
+        assert_eq!(parse_line("\n\ntest:   \n\n.text"),
+                   Ok(("   \n\n.text", (Some("test"), None))));
+        assert_eq!(parse_line("label:\n.half    105, testing, 120"),
+                   Ok(("", (Some("label"), Some(MemData::Halfs(Vec::from([
+                        HalfData::Half(105),
+                        HalfData::String("testing".to_string()),
+                        HalfData::Half(120)
+                   ])))))));
+        assert_eq!(parse_line("label:\n.ascii \"SToP\""),
+                   Ok(("", (Some("label"), Some(MemData::Bytes(Vec::from([
+                        ByteData::Byte('P' as i16), ByteData::Byte('o' as i16), ByteData::Byte('T' as i16), ByteData::Byte('S' as i16)
+                   ]), true))))));
     }
 
-    #[ignore = "not implemented yet"]
     #[test]
     fn test_parse() {
+        let data_code = r#"
+HelloKitty:
+    .asciz      "MIAO!"                 ; Very nice kitten - 6
+    .byte       10, 10, HelloKitty      ; 12
+VeryGood:                               ; 13
+    .word       1250, 1250, 1250        ; 25
+NeedSomeSpaceGotIt:                     ; 26
+    .space      20                      ; Space for super secret data struct!!!
 
+.text
+    "#;
+
+        let mut symbol_map = LabelRecog::new();
+
+        let mut symbols = LabelRecog::new();
+        let mut label = LabelElem::new_refd("HelloKitty".to_string());
+        label.set_type(LabelType::Data);
+        label.set_scope(true);
+        label.set_refd();
+        label.set_def(0);
+        let _ = symbols.insert_label(label);
+
+        label = LabelElem::new();
+        label.set_name("VeryGood".to_string());
+        label.set_type(LabelType::Data);
+        label.set_scope(true);
+        label.set_def(13);
+        let _ = symbols.insert_label(label);
+
+        label = LabelElem::new();
+        label.set_name("NeedSomeSpaceGotIt".to_string());
+        label.set_type(LabelType::Data);
+        label.set_scope(true);
+        label.set_def(26);
+        let _ = symbols.insert_label(label);
+
+        let correct_vec: Vec<MemData> = vec![
+                                                MemData::Bytes(Vec::from([
+                                                    ByteData::Byte('O' as i16), ByteData::Byte('A' as i16), ByteData::Byte('I' as i16), ByteData::Byte('M' as i16), 
+                                                    ByteData::Byte(0), ByteData::Byte('!' as i16)
+                                                ]), true),
+                                                MemData::Bytes(Vec::from([
+                                                    ByteData::Byte(10), ByteData::Byte(10), ByteData::String("HelloKitty".to_string()), ByteData::Byte(0),
+                                                    ByteData::Byte(0), ByteData::Byte(0)
+                                                ]), false),
+                                                MemData::Words(Vec::from([
+                                                    WordData::Word(1250), WordData::Word(1250), WordData::Word(1250)
+                                                ])),
+                                                MemData::Bytes(Vec::from([
+                                                    ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+                                                    ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+                                                    ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+                                                    ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
+                                                ]), true)
+                                            ];
+
+        assert_eq!(parse(data_code, &mut symbol_map),
+                   Ok(("", correct_vec)));
+        assert_eq!(symbol_map, symbols);
     }
 }

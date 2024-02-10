@@ -581,7 +581,11 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
 
         for data_obj in data.iter_mut() {
             match data_obj {
-                MemData::Bytes(data_vec) => {
+                MemData::Bytes(data_vec, not_containing_labels) => {
+                    if *not_containing_labels {
+                        continue
+                    }
+
                     // modify vec in place, nice performance
                     let data_slice = data_vec.as_mut_slice();
 
@@ -614,11 +618,7 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
                         }
                     }
                 },
-                MemData::Words(data_vec, not_containing_labels) => {
-                    if *not_containing_labels {
-                        continue
-                    }
-
+                MemData::Words(data_vec) => {
                     let data_slice = data_vec.as_mut_slice();
 
                     for index in 0..data_slice.len() {

@@ -332,9 +332,9 @@ impl From<String> for DWordData {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MemData {
-    Bytes(Vec<ByteData>),
+    Bytes(Vec<ByteData>, bool),
     Halfs(Vec<HalfData>),
-    Words(Vec<WordData>, bool),
+    Words(Vec<WordData>),
     DWords(Vec<DWordData>),
     Namespace(usize)
 }

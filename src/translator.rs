@@ -328,14 +328,39 @@ impl Writable for &Vec<MemData> {
       Ok(())
    }
 
-   fn write_raw(&self, _output: &Path) -> Result<(), std::io::Error> {
-      //let mut file = File::create(output)?;
-      //let mut byte_instrs: Vec<u8> = vec![];
+   fn write_raw(&self, output: &Path) -> Result<(), std::io::Error> {
+      let mut file = File::create(output)?;
+      let mut byte_instrs: Vec<u8> = vec![];
+      
+      let translate_vec = translate_data_to_byte_vec(self);
 
-      /*for instr in self.iter() {
-         byte_instrs.extend(instr.translate_instruction().to_le_bytes());
+      let iter = translate_vec.chunks_exact(4);
+
+      for instr in iter.clone() {
+         byte_instrs.push(instr[3]);
+         byte_instrs.push(instr[2]);
+         byte_instrs.push(instr[1]);
+         byte_instrs.push(instr[0]);
       }
-      file.write_all(&byte_instrs)?;*/
+
+      let remainder = iter.remainder();
+
+      match remainder.len() {
+         0 => (),
+         1 => byte_instrs.push(remainder[0]),
+         2 => {
+            byte_instrs.push(remainder[1]);
+            byte_instrs.push(remainder[0])
+         },
+         3 => {
+            byte_instrs.push(remainder[2]);
+            byte_instrs.push(remainder[1]);
+            byte_instrs.push(remainder[0])
+         },
+         _ => unreachable!(),
+      }
+
+      file.write_all(&byte_instrs)?;
       Ok(())
    }
 }

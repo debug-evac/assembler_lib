@@ -1585,7 +1585,7 @@ END:                    ; TEST
     }
 
     #[test]
-    fn test_parse_repeat() {
+    fn test_parse_repeat_instr() {
         let source_code = r#"
     ; testing repeat
 TESTING: rep 1000, nop
@@ -1614,6 +1614,20 @@ TESTING: rep 1000, nop
                    Ok(("", correct_vec)));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());
+    }
+
+    #[test]
+    fn test_parse_repeat_macro() {
+        let mut subroutines = Subroutines::new();
+
+        let mut symbol_map = LabelRecog::new();
+        let mut symbols = LabelRecog::new();
+        let mut label = LabelElem::new();
+        label.set_name("TESTING".to_string());
+        label.set_type(LabelType::Address);
+        label.set_scope(true);
+        label.set_def(0);
+        let _ = symbols.insert_label(label);
 
         let source_code_two = r#"
     ; testing repeat with macros

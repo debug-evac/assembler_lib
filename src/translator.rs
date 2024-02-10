@@ -279,7 +279,7 @@ impl Writable for &Vec<MemData> {
       let iter = translate_vec.chunks_exact(4);
 
       for instr in iter.clone() {
-         writeln!(file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};", instr[3], instr[2], instr[1], instr[0])?;
+         writeln!(file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};", instr[0], instr[1], instr[2], instr[3])?;
          counter += 4;
       }
 
@@ -309,7 +309,7 @@ impl Writable for &Vec<MemData> {
       let iter = translate_vec.chunks_exact(4);
 
       for instr in iter.clone() {
-         writeln!(file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", instr[3], instr[2], instr[1], instr[0])?;
+         writeln!(file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", instr[0], instr[1], instr[2], instr[3])?;
          counter += 1;
       }
 
@@ -317,9 +317,9 @@ impl Writable for &Vec<MemData> {
 
       match remainder.len() {
          0 => (),
-         1 => writeln!(file, "{counter}\t: {:032b};", remainder[0])?,
-         2 => writeln!(file, "{counter}\t: {:024b}{:08b};", remainder[1], remainder[0])?,
-         3 => writeln!(file, "{counter}\t: {:016b}{:08b}{:08b};", remainder[2], remainder[1], remainder[0])?,
+         1 => writeln!(file, "{counter}\t: {:08b}{:024b};", remainder[0], 0)?,
+         2 => writeln!(file, "{counter}\t: {:08b}{:08b}{:016b};", remainder[1], remainder[0], 0)?,
+         3 => writeln!(file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", remainder[2], remainder[1], remainder[0], 0)?,
          _ => unreachable!(),
       }
 
@@ -337,10 +337,10 @@ impl Writable for &Vec<MemData> {
       let iter = translate_vec.chunks_exact(4);
 
       for instr in iter.clone() {
-         byte_instrs.push(instr[3]);
-         byte_instrs.push(instr[2]);
-         byte_instrs.push(instr[1]);
          byte_instrs.push(instr[0]);
+         byte_instrs.push(instr[1]);
+         byte_instrs.push(instr[2]);
+         byte_instrs.push(instr[3]);
       }
 
       let remainder = iter.remainder();

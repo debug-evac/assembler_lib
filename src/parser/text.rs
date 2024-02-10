@@ -185,7 +185,7 @@ fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usi
                     }
                 }
             }
-            data.len() + 1
+            data.len()
         },
         MemData::Halfs(data) => {
             for half in data.iter() {
@@ -194,7 +194,7 @@ fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usi
                     HalfData::String(label) => symbol_map.crt_or_ref_label(label),
                 }
             }
-            data.len() * 2 + 1
+            data.len() * 2
         },
         MemData::Words(data) => {
             for word in data.iter() {
@@ -203,7 +203,7 @@ fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usi
                     WordData::String(label) => symbol_map.crt_or_ref_label(label),
                 }
             }
-            data.len() * 4 + 1
+            data.len() * 4
         },
         MemData::DWords(data) => {
             for dword in data.iter() {
@@ -212,7 +212,7 @@ fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usi
                     DWordData::String(label) => symbol_map.crt_or_ref_label(label),
                 }
             }
-            data.len() * 8 + 1
+            data.len() * 8
         },
         _ => unreachable!(),
     }
@@ -234,10 +234,10 @@ fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut [MemDa
             if free_bytes != 0 {
                 match dir_list.last_mut().unwrap() {
                     MemData::Bytes(byte_data, _) => {
-                        for _ in 0..free_bytes {
+                        for _ in 0..free_bytes + 2 {
                             byte_data.push(ByteData::Byte(0));
                         }
-                        *next_free_ptr += free_bytes;
+                        *next_free_ptr += free_bytes + 2;
                     },
                     MemData::Halfs(half_data) => {
                         half_data.push(HalfData::Half(0));
@@ -275,24 +275,14 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
                 dir_list.push(direct);
             },
             (Some(label), None) => {
-                let free_ptr = if next_free_ptr > 0 {
-                    next_free_ptr - 1
-                } else {
-                    0
-                };
-                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, free_ptr) {
+                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr) {
                     error!("{e}");
                     std::process::exit(1)
                 };
             },
             (Some(label), Some(direct)) => {
                 align_data(&direct, &mut next_free_ptr, &mut dir_list);
-                let free_ptr = if next_free_ptr > 0 {
-                    next_free_ptr - 1
-                } else {
-                    0
-                };
-                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, free_ptr) {
+                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr) {
                     error!("{e}");
                     std::process::exit(1)
                 };
@@ -571,14 +561,14 @@ NeedSomeSpaceGotIt:                     ; 26
         label.set_name("VeryGood".to_string());
         label.set_type(LabelType::Data);
         label.set_scope(true);
-        label.set_def(13);
+        label.set_def(12);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new();
         label.set_name("NeedSomeSpaceGotIt".to_string());
         label.set_type(LabelType::Data);
         label.set_scope(true);
-        label.set_def(26);
+        label.set_def(24);
         let _ = symbols.insert_label(label);
 
         let correct_vec: Vec<MemData> = vec![

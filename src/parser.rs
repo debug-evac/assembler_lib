@@ -8,9 +8,10 @@
 
 mod instructions;
 mod literals;
-mod code;
 mod text;
+mod data;
 
+use log::warn;
 use nom::{
     bytes::complete::escaped, 
     character::complete::{multispace1, not_line_ending}, 
@@ -75,7 +76,8 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
 
     let (mut rest, parsed) = tuple((parse_multiline_comments, opt(parse_data_segment_id), parse_multiline_comments))(input)?;
     if parsed.1.is_some() {
-        let parsed = text::parse(rest, assembly.get_labels_refmut())?;
+        warn!("Experimental: Data sections have not been tested rigorously! Expect bugs and errors!");
+        let parsed = data::parse(rest, assembly.get_labels_refmut())?;
         rest = parsed.0;
         assembly.set_data(parsed.1);
     } else {
@@ -83,7 +85,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
         rest = rested;
     }
 
-    let (rest, vec_ops) = code::parse(rest, subroutines, assembly.get_labels_refmut())?;
+    let (rest, vec_ops) = text::parse(rest, subroutines, assembly.get_labels_refmut())?;
     assembly.set_text(vec_ops);
 
     Ok((rest, assembly))

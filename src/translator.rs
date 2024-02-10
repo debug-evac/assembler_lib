@@ -394,6 +394,8 @@ pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode,
                }
             }
          } else if width == 8 {
+            warn!("Deprecated: 8 bit word width and corresponding command arg are going to be removed in the next releases!");
+
             if ((depth as usize) / 4) < input.len() {
                return Err(format!("MIF depth is smaller than the instruction count! {} < {}", (depth / 4), input.len()));
             }

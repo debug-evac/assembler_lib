@@ -25,7 +25,7 @@ use std::borrow::Cow;
 use log::debug;
 
 use crate::{
-    common::{errors::OptimizerError, ByteData, DWordData, HalfData, Instruction, MacroInstr, MemData, Operation, Part, Reg, TranslatableCode, WordData
+    common::{errors::OptimizerError, ByteData, DWordData, HalfData, Instruction, LabelType, MacroInstr, MemData, Operation, Part, Reg, TranslatableCode, WordData
     },
     linker::Namespaces,
     AssemblyCode
@@ -411,13 +411,15 @@ impl MacroInstr {
 }
 
 fn translate_label(current_line: i128, label: String, namespaces: &mut Namespaces, current_space: usize) -> Result<i32, OptimizerError> {
-    match namespaces.get_label(label.clone(), Some(current_space)) {
-        Some(label_elem) => {
-            // should always work
-            Ok(<i128 as TryInto<i32>>::try_into((*label_elem.get_def() * 4) - (current_line * 4)).unwrap())
-        },
-        None => Err(OptimizerError::LabelNonExistent(label)),
+    if let Some(label_elem) = namespaces.get_label(label.clone(), Some(current_space)) {
+        // should always work
+        if *label_elem.get_type() == LabelType::Address {
+            return Ok(<i128 as TryInto<i32>>::try_into((*label_elem.get_def() * 4) - (current_line * 4)).unwrap());
+        } else if *label_elem.get_type() == LabelType::Data {
+            return Ok(<i128 as TryInto<i32>>::try_into(*label_elem.get_def() - 4).unwrap());
+        }
     }
+    Err(OptimizerError::LabelNonExistent(label))
 }
 
 fn cond_add_acc_label(namespaces: &mut Namespaces, accumulator: i128, label: Cow<str>, space: usize) -> Result<(), OptimizerError> {
@@ -593,8 +595,12 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
                         if let ByteData::String(label) = &data_slice[index] {
                             match labels.get_label(label.clone(), Some(namespace)) {
                                 Some(labelel) => {
-                                    let label_def = labelel.get_def() & (2_i128.pow(9) - 1);
-                                    debug!("{label} of {:?} substituted label ref to {:?}", data_slice, label_def);
+                                    let mut line = *labelel.get_def();
+                                    if *labelel.get_type() == LabelType::Address {
+                                        line *= 4;
+                                    }
+                                    let label_def = line & (2_i128.pow(9) - 1);
+                                    debug!("Label ref '{label}' of byte data {:?} substituted to {:?}", data_slice, label_def);
                                     data_slice[index] = ByteData::Byte(label_def.try_into().unwrap());
                                 },
                                 None => return Err(OptimizerError::LabelNonExistent(label.clone())),
@@ -609,7 +615,11 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
                         if let HalfData::String(label) = &data_slice[index] {
                             match labels.get_label(label.clone(), Some(namespace)) {
                                 Some(labelel) => {
-                                    let label_def = labelel.get_def() & (2_i128.pow(17) - 1);
+                                    let mut line = *labelel.get_def();
+                                    if *labelel.get_type() == LabelType::Address {
+                                        line *= 4;
+                                    }
+                                    let label_def = line & (2_i128.pow(17) - 1);
                                     debug!("{label} of {:?} substituted label ref to {:?}", data_slice, label_def);
                                     data_slice[index] = HalfData::Half(label_def.try_into().unwrap());
                                 },
@@ -625,7 +635,11 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
                         if let WordData::String(label) = &data_slice[index] {
                             match labels.get_label(label.clone(), Some(namespace)) {
                                 Some(labelel) => {
-                                    let label_def = labelel.get_def() & (2_i128.pow(33) - 1);
+                                    let mut line = *labelel.get_def();
+                                    if *labelel.get_type() == LabelType::Address {
+                                        line *= 4;
+                                    }
+                                    let label_def = line & (2_i128.pow(33) - 1);
                                     debug!("{label} of {:?} substituted label ref to {:?}", data_slice, label_def);
                                     data_slice[index] = WordData::Word(label_def.try_into().unwrap());
                                 },
@@ -641,7 +655,11 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
                         if let DWordData::String(label) = &data_slice[index] {
                             match labels.get_label(label.clone(), Some(namespace)) {
                                 Some(labelel) => {
-                                    let label_def = labelel.get_def() & (2_i128.pow(65) - 1);
+                                    let mut line = *labelel.get_def();
+                                    if *labelel.get_type() == LabelType::Address {
+                                        line *= 4;
+                                    }
+                                    let label_def = line & (2_i128.pow(65) - 1);
                                     debug!("{label} of {:?} substituted label ref to {:?}", data_slice, label_def);
                                     data_slice[index] = DWordData::DWord(label_def);
                                 },

@@ -258,11 +258,100 @@ pub enum Operation <'a> {
     Labl(Cow<'a, str>)
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ByteData {
+    Byte(i16),
+    String(String)
+}
+
+impl From<i32> for ByteData {
+    fn from(value: i32) -> Self {
+        ByteData::Byte((value & (2_i32.pow(17) - 1)).try_into().expect("Could not cast number to byte!"))
+    }
+}
+
+impl From<String> for ByteData {
+    fn from(value: String) -> Self {
+        ByteData::String(value)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum HalfData {
+    Half(i32),
+    String(String)
+}
+
+impl From<i32> for HalfData {
+    fn from(value: i32) -> Self {
+        HalfData::Half(value)
+    }
+}
+
+impl From<String> for HalfData {
+    fn from(value: String) -> Self {
+        HalfData::String(value)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum WordData {
+    Word(i64),
+    String(String)
+}
+
+impl From<i128> for WordData {
+    fn from(value: i128) -> Self {
+        WordData::Word((value & (2_i128.pow(65) - 1)).try_into().expect("Could not cast number to word!"))
+    }
+}
+
+impl From<String> for WordData {
+    fn from(value: String) -> Self {
+        WordData::String(value)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum DWordData {
+    DWord(i128),
+    String(String)
+}
+
+impl From<i128> for DWordData {
+    fn from(value: i128) -> Self {
+        DWordData::DWord(value)
+    }
+}
+
+impl From<String> for DWordData {
+    fn from(value: String) -> Self {
+        DWordData::String(value)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum MemData {
+    Bytes(Vec<ByteData>, bool),
+    Halfs(Vec<HalfData>),
+    Words(Vec<WordData>),
+    DWords(Vec<DWordData>),
+    Namespace(usize)
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum LabelType {
+    Data,
+    Address,
+    Uninit
+}
+
 #[derive(Debug, Clone, PartialEq)]
 // Scope for locality: true for global; false for local
 pub struct LabelElem {
     name: String,
     definition: i128,
+    ltype: LabelType,
     scope: bool,
     referenced: bool
 }
@@ -270,14 +359,15 @@ pub struct LabelElem {
 impl LabelElem {
     pub fn new() -> LabelElem {
         let name = String::new();
-        let definition: i128 = -1;
+        let definition: i128 = 0;
+        let ltype = LabelType::Uninit;
         let scope = false;
-        //let references: Box<HashSet<usize>> = Box::from(HashSet::new());
         let referenced = false;
 
         LabelElem {
             name,
             definition,
+            ltype,
             scope, 
             referenced 
         }
@@ -298,16 +388,16 @@ impl LabelElem {
         elem
     }
 
-    // TODO: Custom error struct
     pub fn combine(&mut self, other: &LabelElem) -> Result<&str, CommonError> {
         if self.name.ne(&other.name) || self.scope != other.scope {
             return Err(CommonError::LabelsNameNotEqual(self.clone(), other.clone()));
         }
 
-        if self.definition != -1 && other.definition != -1 {
+        if self.ltype != LabelType::Uninit && other.ltype != LabelType::Uninit {
             return Err(CommonError::MultipleGlobalDefined(self.clone()));
-        } else if self.definition == -1 && other.definition != -1 {
+        } else if self.ltype == LabelType::Uninit && other.ltype != LabelType::Uninit {
             self.definition = other.definition;
+            self.ltype = other.ltype.clone();
         }
 
         if self.referenced || other.referenced {
@@ -348,6 +438,15 @@ impl LabelElem {
     pub fn set_refd(&mut self) {
         self.referenced = true;
     }
+
+    pub fn set_type(&mut self, ltype: LabelType) {
+        self.ltype = ltype;
+    }
+
+    #[allow(dead_code)]
+    pub fn get_type(&mut self) -> &LabelType {
+        &self.ltype
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -385,20 +484,26 @@ impl LabelRecog {
         }
     }
 
-    pub fn crt_or_def_label(&mut self, label_str: &String, scope: bool, definition: i128) {
+    pub fn crt_or_def_label(&mut self, label_str: &String, scope: bool, ltype: LabelType, definition: i128) -> Result<(), CommonError> {
         match self.get_label(label_str) {
             Some(label) => {
+                if *label.get_type() != LabelType::Uninit {
+                    return Err(CommonError::LabelAlreadyDefined(label.clone()))
+                }
                 label.set_def(definition);
+                label.set_type(ltype);
                 label.set_scope(scope);
             },
             None => {
                 let mut label = LabelElem::new();
                 label.set_name(label_str.clone());
                 label.set_def(definition);
+                label.set_type(ltype);
                 label.set_scope(scope);
                 let _ = self.insert_label(label);
             },
         }
+        Ok(())
     }
 
     // Creates a label, if it does not exist already with the name label_str, scope and the reference.
@@ -414,11 +519,12 @@ impl LabelRecog {
         }
     }
 
-    pub fn crt_def_ref(&mut self, label_str: &String, scope: bool, definition: i128) {
+    pub fn crt_def_ref(&mut self, label_str: &String, scope: bool, ltype: LabelType, definition: i128) {
         if self.get_label(label_str).is_none() {
             let mut label = LabelElem::new();
             label.set_name(label_str.clone());
             label.set_def(definition);
+            label.set_type(ltype);
             label.set_refd();
             label.set_scope(scope);
             let _ = self.insert_label(label);
@@ -452,9 +558,86 @@ impl LabelRecog {
         global_labels
     }
 
-    pub fn add_offset(&mut self, offset: i128) {
-        for lblelm in self.label_list.iter_mut().filter(|e| *e.get_def() != -1) {
+    pub fn add_offset(&mut self, offset: i128, ltype: LabelType) {
+        if ltype == LabelType::Uninit {
+            return;
+        }
+        for lblelm in self.label_list.iter_mut().filter(|e| e.ltype == ltype) {
             lblelm.add_def(offset);
         }
+    }
+}
+
+pub trait RestrictLabelData {}
+
+impl RestrictLabelData for LabelRecog {}
+
+#[derive(Debug, PartialEq)]
+pub struct AssemblyCode<'a, T: RestrictLabelData> {
+    labels: T,
+    data: Vec<MemData>,
+    text: Vec<Operation<'a>>
+}
+
+impl <'a, T: RestrictLabelData> AssemblyCode<'a, T> {
+    pub fn new(labels: T) -> Self {
+        AssemblyCode { labels, data: vec![], text: vec![] }
+    }
+
+    pub fn get_labels_refmut(&mut self) -> &mut T {
+        &mut self.labels
+    }
+
+    #[allow(dead_code)]
+    pub fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
+        &mut self.data
+    }
+
+    pub fn get_text_refmut(&mut self) -> &mut Vec<Operation<'a>> {
+        &mut self.text
+    }
+
+    pub fn get_all_refmut(&mut self) -> (&mut T, &mut Vec<Operation<'a>>, &mut Vec<MemData>) {
+        (&mut self.labels, &mut self.text, &mut self.data)
+    }
+}
+
+impl <'a> AssemblyCode<'a, LabelRecog> {
+    pub fn set_text(&mut self, other: Vec<Operation<'a>>) {
+        self.text = other
+    }
+
+    pub fn set_data(&mut self, other: Vec<MemData>) {
+        self.data = other
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct TranslatableCode {
+    data: Vec<MemData>,
+    text: Vec<Instruction>
+}
+
+impl TranslatableCode {
+    #[allow(dead_code)]
+    pub fn new() -> Self {
+        TranslatableCode { data: vec![], text: vec![] }
+    }
+
+    pub fn new_with_data(data: Vec<MemData>) -> Self {
+        TranslatableCode { data, text: vec![] }
+    }
+
+    #[allow(dead_code)]
+    pub fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
+        &mut self.data
+    }
+
+    pub fn get_text_refmut(&mut self) -> &mut Vec<Instruction> {
+        &mut self.text
+    }
+
+    pub fn get_all_ref(&self) -> (&Vec<Instruction>, &Vec<MemData>) {
+        (&self.text, &self.data)
     }
 }

@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Initial & experimental support for constants and assembler directives!
+  - Currently only initializing constants are supported with the `.byte`, `.half`, `.word`, `.dword`, `.ascii`, `.asciz` and `.string` identifier
+  - To use constants you have to use sections, namely `.data` for constant declarations and `.text` for instructions
+  - It is compatible to RARS, if you want to look there first!
+  - If you specify `.data`, that data will be stored in a separate file with the same name but `<name>.mem.<ext>` 
+  - Note: Comment has no effect on data mifs
 - Simple progress bar for tracking... well, progress!
   - Progress bars are always written to stderr
 - Simple Logging
@@ -49,6 +55,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Panic behavior of functions
   - They now return errors and present them better to users!
 - Mif format with 8 bit word width is now more compact
+
+### Deprecated
+
+- 8 bit word width for MIF format
+  - We don't have a use for that and removing this feature could reduce the complexity of some functions
 
 ### Removed
 

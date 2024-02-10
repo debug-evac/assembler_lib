@@ -31,7 +31,7 @@ use std::{
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use console::Term;
 
-use crate::common::{LabelRecog, Operation};
+use crate::common::{LabelRecog, AssemblyCode};
 
 fn cli_interface() -> ArgMatches {
     #[allow(non_upper_case_globals)]
@@ -138,7 +138,7 @@ fn main() {
     .expect("At least one assembly input file is required")
     .collect();
 
-    let mut parsed_vector: Vec<(LabelRecog, Vec<Operation>)> = vec![];
+    let mut parsed_vector: Vec<AssemblyCode<LabelRecog>> = vec![];
     let mut string_vector: Vec<String> = vec![];
 
     let progbar;
@@ -211,7 +211,7 @@ fn main() {
 
     let no_nop_insert = matches.get_flag("nop_insert");
 
-    let optimized_code = match optimizer::optimize(linked_vector, no_nop_insert) {
+    let translatable_code = match optimizer::optimize(linked_vector, no_nop_insert) {
         Ok(instr_list) => instr_list,
         Err(e) => {
             error!("{e}");
@@ -229,7 +229,7 @@ fn main() {
     let depth = matches.get_one("format-depth").unwrap();
     let width = str::parse::<u8>(matches.get_one::<String>("format-width").unwrap()).unwrap();
 
-    if let Err(e) = translator::translate_and_present(outpath, optimized_code, comment, outfmt, (*depth, width)) {
+    if let Err(e) = translator::translate_and_present(outpath, translatable_code, comment, outfmt, (*depth, width)) {
         error!("{e}");
         std::process::exit(1)
     };

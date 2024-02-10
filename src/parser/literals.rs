@@ -7,34 +7,30 @@
  */
 
 use nom::{
-    IResult,
-    bytes::complete::{
-        is_a,
-        tag,
-        tag_no_case
-    },
-    branch::alt,
-    combinator::{
-        opt,
-        map_res,
-        recognize,
-        success,
-    },
-    character::complete::{
-        alpha1,
-        digit1,
-        hex_digit1,
-        alphanumeric0,
-        alphanumeric1,
-        one_of
-    },
-    sequence::{
-        tuple,
-        pair
-    }
+    branch::alt, bytes::complete::{
+        is_a, tag, tag_no_case
+    }, character::complete::{
+        alpha1, alphanumeric0, alphanumeric1, digit1, hex_digit1, one_of
+    }, combinator::{
+        map_res, opt, recognize, success
+    }, sequence::{
+        pair, tuple
+    }, IResult
 };
 
 use crate::common::{Imm, Reg};
+
+pub fn parse_data_segment_id(input: &str) -> IResult<&str, &str> {
+    recognize(
+        tuple((nom::character::complete::char('.'), tag("data")))
+    )(input)
+}
+
+pub fn parse_text_segment_id(input: &str) -> IResult<&str, &str> {
+    recognize(
+        pair(nom::character::complete::char('.'), tag("text"))
+    )(input)
+}
 
 pub fn parse_label_name(input: &str) -> IResult<&str, &str> {
     recognize(
@@ -87,6 +83,24 @@ fn from_hex(input: &str) -> Result<Imm, std::num::ParseIntError> {
     }
 }
 
+fn from_bighex(input: &str) -> Result<i128, std::num::ParseIntError> {
+    let num_str = input.to_lowercase();
+    if let Some(number) = num_str.strip_suffix('u') {
+        i128::from_str_radix(number, 16)
+    } else if let Some(number) = num_str.strip_suffix('s') {
+        match i128::from_str_radix(number, 16) {
+            Ok(num) => {
+                let num_zero = num.leading_zeros();
+                let or_num = -1 << (i32::BITS - num_zero);
+                Ok(num | or_num)
+            },
+            Err(e) => Err(e),
+        }
+    } else {
+        i128::from_str_radix(input, 16)
+    }
+}
+
 fn from_binary(input: &str) -> Result<Imm, std::num::ParseIntError> {
     let num_str = input.to_lowercase();
     if let Some(number) = num_str.strip_suffix('u') {
@@ -102,6 +116,46 @@ fn from_binary(input: &str) -> Result<Imm, std::num::ParseIntError> {
         }
     } else {
         Imm::from_str_radix(input, 2)
+    }
+}
+
+fn from_bigbinary(input: &str) -> Result<i128, std::num::ParseIntError> {
+    let num_str = input.to_lowercase();
+    if let Some(number) = num_str.strip_suffix('u') {
+        i128::from_str_radix(number, 2)
+    } else if let Some(number) = num_str.strip_suffix('s') {
+        match i128::from_str_radix(number, 2) {
+            Ok(num) => {
+                let num_zero = num.leading_zeros();
+                let or_num = -1 << (i32::BITS - num_zero);
+                Ok(num | or_num)
+            },
+            Err(e) => Err(e),
+        }
+    } else {
+        i128::from_str_radix(input, 2)
+    }
+}
+
+pub fn parse_bigimm(input: &str) -> IResult<&str, i128> {
+    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0x"))(input) {
+        // Hexadecimal
+        map_res(
+            recognize(tuple((hex_digit1, opt(one_of("suSU"))))), 
+            from_bighex
+        )(rest)
+    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0b"))(input) {
+        // Binary
+        map_res(
+            recognize(tuple((is_a("01"), opt(one_of("suSU"))))), 
+            from_bigbinary
+        )(rest)
+    } else {
+        // Decimal
+        map_res(
+            recognize(tuple((opt(tag("-")), digit1))),
+            str::parse
+        )(input)
     }
 }
 

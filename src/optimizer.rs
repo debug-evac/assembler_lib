@@ -416,6 +416,9 @@ fn translate_label(current_line: i128, label: String, namespaces: &mut Namespace
         if *label_elem.get_type() == LabelType::Address {
             return Ok(<i128 as TryInto<i32>>::try_into((*label_elem.get_def() * 4) - (current_line * 4)).unwrap());
         } else if *label_elem.get_type() == LabelType::Data {
+            #[cfg(feature = "raw_nop")]
+            return Ok(<i128 as TryInto<i32>>::try_into(*label_elem.get_def() - 16).unwrap());
+            #[cfg(not(feature = "raw_nop"))]
             return Ok(<i128 as TryInto<i32>>::try_into(*label_elem.get_def() - 4).unwrap());
         }
     }
@@ -868,6 +871,7 @@ mod tests {
         let namespace = assembly_code.get_labels_refmut();
 
         let mut label = LabelElem::new_refd("START".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(5);
         let _ = label_recog_1.insert_label(label);
@@ -875,6 +879,7 @@ mod tests {
         let _ = namespace.insert_recog(label_recog_1);
 
         label = LabelElem::new_refd("END".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(3);
         let _ = label_recog_2.insert_label(label);
@@ -912,6 +917,7 @@ mod tests {
         let namespace_ver = assembly_code_ver.get_labels_refmut();
 
         let mut label = LabelElem::new_refd("START".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(5);
         let _ = label_recog_ver1.insert_label(label);
@@ -919,6 +925,7 @@ mod tests {
         let _ = namespace_ver.insert_recog(label_recog_ver1);
 
         label = LabelElem::new_refd("END".to_string());
+        label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(3);
         let _ = label_recog_ver2.insert_label(label);

@@ -607,14 +607,31 @@ GETIT:
     let mut data_vec: Vec<u32> = vec![];
     data_vec.push(0);
     data_vec = data_vec.repeat(750);
-    data_vec.push(12);
 
-    let instr_vec: Vec<u32> = Vec::from([
-        0b00_11000_00000_00000_00000_01000_10011,
-        0b00_00000_00000_00000_00100_10100_10111,
-        0b10_11101_11000_00101_00000_10100_10011,
-        0b00_00000_00000_00000_00000_00011_01111
-    ]);
+    let instr_vec: Vec<u32>;
+
+    #[cfg(feature = "raw_nop")] {
+        instr_vec = Vec::from([
+            0b00_11000_00000_00000_00000_01000_10011,
+            0b00_00000_00000_00000_00100_10100_10111,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b10_11101_11000_00101_00000_10100_10011,
+            0b00_00000_00000_00000_00000_00011_01111
+        ]);
+        data_vec.push(24);
+    }
+
+    #[cfg(not(feature = "raw_nop"))] {
+        instr_vec = Vec::from([
+            0b00_11000_00000_00000_00000_01000_10011,
+            0b00_00000_00000_00000_00100_10100_10111,
+            0b10_11101_11000_00101_00000_10100_10011,
+            0b00_00000_00000_00000_00000_00011_01111
+        ]);
+        data_vec.push(12);
+    }
 
     let mut output_data_str = "DEPTH = 1024;\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
     let mut output_instr_str = "DEPTH = 1024;\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
@@ -642,6 +659,8 @@ GETIT:
     cmd.assert()
         .success()
         .stdout(predicate::str::is_empty());
+
+    println!("{}", std::fs::read_to_string(output_path.path())?);
 
     output_path
         .assert(predicate::path::is_file())

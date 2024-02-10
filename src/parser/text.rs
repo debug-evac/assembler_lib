@@ -208,7 +208,7 @@ fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usi
     }
 }
 
-fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut Vec<MemData>) {
+fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut [MemData]) {
     match direct {
         MemData::Bytes(_) => (),
         MemData::Halfs(_) => {

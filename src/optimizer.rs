@@ -643,7 +643,7 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
                                 Some(labelel) => {
                                     let label_def = labelel.get_def() & (2_i128.pow(65) - 1);
                                     debug!("{label} of {:?} substituted label ref to {:?}", data_slice, label_def);
-                                    data_slice[index] = DWordData::DWord(label_def.try_into().unwrap());
+                                    data_slice[index] = DWordData::DWord(label_def);
                                 },
                                 None => return Err(OptimizerError::LabelNonExistent(label.clone())),
                             }

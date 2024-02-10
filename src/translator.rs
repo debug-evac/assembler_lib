@@ -13,9 +13,7 @@
 mod pretty_print;
 
 use std::{
-   io::Write,
-   fs::File,
-   path::PathBuf,
+   fs::File, io::Write, path::{Path, PathBuf}
 };
 use log::{debug, info, log_enabled, warn};
 
@@ -147,8 +145,8 @@ impl Instruction {
    }
 }
 
-fn set_data_path(output: &PathBuf, extension: &str) -> PathBuf {
-   let mut datapath = output.clone();
+fn set_data_path(output: &Path, extension: &str) -> PathBuf {
+   let mut datapath = output.to_path_buf();
    datapath.set_extension(extension);
    info!("Data specified. It will be saved to {:?}", datapath);
    datapath
@@ -156,13 +154,13 @@ fn set_data_path(output: &PathBuf, extension: &str) -> PathBuf {
 
 trait Writable {
    // about to be phased out, only included here to not have to deal with two proceedings
-   fn write_to_mif_8(&self, output: &PathBuf, depth: u16, comment: bool) -> Result<(), std::io::Error>;
-   fn write_to_mif(&self, output: &PathBuf, depth: u16, comment: bool) -> Result<(), std::io::Error>;
-   fn write_raw(&self, output: &PathBuf) -> Result<(), std::io::Error>;
+   fn write_to_mif_8(&self, output: &Path, depth: u16, comment: bool) -> Result<(), std::io::Error>;
+   fn write_to_mif(&self, output: &Path, depth: u16, comment: bool) -> Result<(), std::io::Error>;
+   fn write_raw(&self, output: &Path) -> Result<(), std::io::Error>;
 }
 
 impl Writable for &Vec<Instruction> {
-   fn write_to_mif_8(&self, output: &PathBuf, depth: u16, comment: bool) -> Result<(), std::io::Error> {
+   fn write_to_mif_8(&self, output: &Path, depth: u16, comment: bool) -> Result<(), std::io::Error> {
       let mut file = File::create(output)?;
 
       writeln!(file, "DEPTH = {depth};\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
@@ -187,7 +185,7 @@ impl Writable for &Vec<Instruction> {
       Ok(())
    }
 
-   fn write_to_mif(&self, output: &PathBuf, depth: u16, comment: bool) -> Result<(), std::io::Error> {
+   fn write_to_mif(&self, output: &Path, depth: u16, comment: bool) -> Result<(), std::io::Error> {
       let mut file = File::create(output)?;
 
       writeln!(file, "DEPTH = {depth};\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
@@ -209,7 +207,7 @@ impl Writable for &Vec<Instruction> {
       Ok(())
    }
 
-   fn write_raw(&self, output: &PathBuf) -> Result<(), std::io::Error> {
+   fn write_raw(&self, output: &Path) -> Result<(), std::io::Error> {
       let mut file = File::create(output)?;
       let mut byte_instrs: Vec<u8> = vec![];
 
@@ -221,7 +219,7 @@ impl Writable for &Vec<Instruction> {
    }
 }
 
-fn translate_data_to_byte_vec(memdata: &Vec<MemData>) -> Vec<u8> {
+fn translate_data_to_byte_vec(memdata: &[MemData]) -> Vec<u8> {
    let mut translatable_data: Vec<u8> = vec![];
 
    for data in memdata.iter() {
@@ -247,8 +245,8 @@ fn translate_data_to_byte_vec(memdata: &Vec<MemData>) -> Vec<u8> {
             for word in data_vec {
                if let WordData::Word(num) = word {
                   let bytes = num.to_le_bytes();
-                  for i in 0..4 {
-                     translatable_data.push(bytes[i]);
+                  for byte in bytes.iter().take(4) {
+                     translatable_data.push(*byte);
                   }
                }
             }
@@ -257,8 +255,8 @@ fn translate_data_to_byte_vec(memdata: &Vec<MemData>) -> Vec<u8> {
             for dword in data_vec {
                if let DWordData::DWord(num) = dword {
                   let bytes = num.to_le_bytes();
-                  for i in 0..8 {
-                     translatable_data.push(bytes[i]);
+                  for byte in bytes.iter().take(8) {
+                     translatable_data.push(*byte);
                   }
                }
             }
@@ -270,7 +268,7 @@ fn translate_data_to_byte_vec(memdata: &Vec<MemData>) -> Vec<u8> {
 }
 
 impl Writable for &Vec<MemData> {
-   fn write_to_mif_8(&self, output: &PathBuf, depth: u16, _comment: bool) -> Result<(), std::io::Error> {
+   fn write_to_mif_8(&self, output: &Path, depth: u16, _comment: bool) -> Result<(), std::io::Error> {
       let mut file = File::create(output)?;
 
       writeln!(file, "DEPTH = {depth};\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
@@ -300,7 +298,7 @@ impl Writable for &Vec<MemData> {
       Ok(())
    }
 
-   fn write_to_mif(&self, output: &PathBuf, depth: u16, _comment: bool) -> Result<(), std::io::Error> {
+   fn write_to_mif(&self, output: &Path, depth: u16, _comment: bool) -> Result<(), std::io::Error> {
       let mut file = File::create(output)?;
 
       writeln!(file, "DEPTH = {depth};\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
@@ -330,7 +328,7 @@ impl Writable for &Vec<MemData> {
       Ok(())
    }
 
-   fn write_raw(&self, _output: &PathBuf) -> Result<(), std::io::Error> {
+   fn write_raw(&self, _output: &Path) -> Result<(), std::io::Error> {
       //let mut file = File::create(output)?;
       //let mut byte_instrs: Vec<u8> = vec![];
 

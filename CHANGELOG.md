@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Initial support for label constants!
+  - `.eqv <LABEL>, <IMMEDIATE>` can be used to set the label to that immediate
+  - `li <REG>, <LABEL>` can be used to load that label into a register
+
 ## [1.2.0] - 2024-02-10
 
 ### Added

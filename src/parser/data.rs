@@ -26,6 +26,18 @@ use super::{
     }, parse_multiline_comments, ByteData, DWordData, HalfData, LabelRecog, LabelType, MemData, WordData
 };
 
+#[derive(Clone, Debug, PartialEq)]
+enum Directive {
+    Data(MemData),
+    EqvLabel(String, i128)
+}
+
+impl From<MemData> for Directive {
+    fn from(value: MemData) -> Self {
+        Directive::Data(value)
+    }
+}
+
 fn parse_byte(input: &str) -> IResult<&str, MemData> {
     map(
         separated_list1(
@@ -78,6 +90,16 @@ fn parse_dword(input: &str) -> IResult<&str, MemData> {
     )(input)
 }
 
+fn parse_eqv(input: &str) -> IResult<&str, Directive> {
+    map(
+        separated_pair(
+            parse_label_name, 
+            parse_seper, 
+            parse_bigimm),
+        |(label, def)| Directive::EqvLabel(label.to_string(), def)
+    )(input)
+}
+
 fn string_to_le_words(input: String) -> MemData {
     let mut vec_data = vec![];
     let iter = input.as_bytes().chunks_exact(4);
@@ -105,31 +127,31 @@ fn string_to_le_words(input: String) -> MemData {
     MemData::Bytes(vec_data, true)
 }
 
-fn parse_directive(input: &str) -> IResult<&str, MemData> {
+fn parse_directive(input: &str) -> IResult<&str, Directive> {
     let (rest, (_, directive)) = alt((
-        separated_pair(tag(".byte"), space1, parse_byte),
-        separated_pair(tag(".half"), space1, parse_half),
-        separated_pair(tag(".word"), space1, parse_word),
-        separated_pair(tag(".dword"), space1, parse_dword),
+        separated_pair(tag(".byte"), space1, map(parse_byte, Directive::Data)),
+        separated_pair(tag(".half"), space1, map(parse_half, Directive::Data)),
+        separated_pair(tag(".word"), space1, map(parse_word, Directive::Data)),
+        separated_pair(tag(".dword"), space1, map(parse_dword, Directive::Data)),
         separated_pair(tag(".space"), space1, map(
             digit1, |num| {
                 let mut vec_data = vec![];
                 for _ in 0..str::parse(num).unwrap() {
                     vec_data.push(ByteData::Byte(0));
                 }
-                MemData::Bytes(vec_data, true) 
+                MemData::Bytes(vec_data, true).into()
             }
         )),
         separated_pair(tag(".ascii"), space1, map(
             delimited(nom::character::complete::char('"'), is_not("\n\";"), nom::character::complete::char('"')),
-            |ascii_str: &str| string_to_le_words(ascii_str.to_string())
+            |ascii_str: &str| string_to_le_words(ascii_str.to_string()).into()
         )),
         separated_pair(tag(".asciz"), space1, map(
             delimited(nom::character::complete::char('"'), is_not("\n\";"), nom::character::complete::char('"')),
             |ascii_str: &str| {
                 let mut ascii_string = ascii_str.to_string(); 
                 ascii_string.push('\0');
-                string_to_le_words(ascii_string)
+                string_to_le_words(ascii_string).into()
             } 
         )),
         separated_pair(tag(".string"), space1, map(
@@ -137,16 +159,17 @@ fn parse_directive(input: &str) -> IResult<&str, MemData> {
             |ascii_str: &str| {
                 let mut ascii_string = ascii_str.to_string(); 
                 ascii_string.push('\0');
-                string_to_le_words(ascii_string)
+                string_to_le_words(ascii_string).into()
             }
         )),
+        separated_pair(tag(".eqv"), space1, parse_eqv)
     ))(input)?;
 
     Ok((rest, directive))
 }
 
 #[allow(clippy::type_complexity)]
-fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<MemData>)> {
+fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Directive>)> {
     let (rest, early) = parse_multiline_comments(input)?;
     if early {
         return Ok((rest, (None, None)))
@@ -270,9 +293,19 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
 
         match parsed {
             (None, Some(direct)) => {
-                align_data(&direct, &mut next_free_ptr, &mut dir_list);
-                next_free_ptr += handle_label_refs_count(&direct, symbol_map);
-                dir_list.push(direct);
+                match direct {
+                    Directive::Data(data) => {
+                        align_data(&data, &mut next_free_ptr, &mut dir_list);
+                        next_free_ptr += handle_label_refs_count(&data, symbol_map);
+                        dir_list.push(data);
+                    },
+                    Directive::EqvLabel(label, def) => {
+                        if let Err(e) = symbol_map.crt_or_def_label(&label, true, LabelType::Data, def) {
+                            error!("{e}");
+                            std::process::exit(1)
+                        };
+                    },
+                }
             },
             (Some(label), None) => {
                 if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr) {
@@ -281,13 +314,23 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
                 };
             },
             (Some(label), Some(direct)) => {
-                align_data(&direct, &mut next_free_ptr, &mut dir_list);
-                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr) {
-                    error!("{e}");
-                    std::process::exit(1)
-                };
-                next_free_ptr += handle_label_refs_count(&direct, symbol_map);
-                dir_list.push(direct);
+                match direct {
+                    Directive::Data(data) => {
+                        align_data(&data, &mut next_free_ptr, &mut dir_list);
+                        if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr) {
+                            error!("{e}");
+                            std::process::exit(1)
+                        };
+                        next_free_ptr += handle_label_refs_count(&data, symbol_map);
+                        dir_list.push(data);
+                    },
+                    Directive::EqvLabel(label, def) => {
+                        if let Err(e) = symbol_map.crt_or_def_label(&label, true, LabelType::Data, def) {
+                            error!("{e}");
+                            std::process::exit(1)
+                        };
+                    },
+                }
             },
             (None, None) => {
                 error!("Specified .data section without .text section!");
@@ -386,6 +429,13 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_eqv() {
+        assert_eq!(parse_eqv("test, 120"), Ok(("", Directive::EqvLabel("test".to_string(), 120))));
+        assert_eq!(parse_eqv("testing,0b10"), Ok(("", Directive::EqvLabel("testing".to_string(), 2))));
+        assert_ne!(parse_eqv("test"), Ok(("", Directive::EqvLabel("test".to_string(), 0))));
+    }
+
+    #[test]
     fn test_string_to_le_words() {
         let mut words_vec = Vec::from([
             ByteData::Byte(0x20), ByteData::Byte(0x65), ByteData::Byte(0x68), ByteData::Byte(0x74),
@@ -444,33 +494,33 @@ mod tests {
         assert_eq!(parse_directive(".word 2000, 1510"), Ok(("", MemData::Words(Vec::from([
             WordData::Word(2000),
             WordData::Word(1510)
-        ])))));
+        ])).into())));
 
         assert_eq!(parse_directive(".word       lolgetit,12002, 5195"), Ok(("", MemData::Words(Vec::from([
             WordData::String("lolgetit".to_string()),
             WordData::Word(12002),
             WordData::Word(5195)
-        ])))));
+        ])).into())));
 
         assert_ne!(parse_directive(".space 20,1"), Ok(("", MemData::Bytes(Vec::from([
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
-        ]), true))));
+        ]), true).into())));
 
         assert_eq!(parse_directive(".space 20"), Ok(("", MemData::Bytes(Vec::from([
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
-        ]), true))));
+        ]), true).into())));
 
         assert_eq!(parse_directive(".space      13"), Ok(("", MemData::Bytes(Vec::from([
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0)
-        ]), true))));
+        ]), true).into())));
 
         let mut words_vec = Vec::from([
             ByteData::Byte(0x20), ByteData::Byte(0x65), ByteData::Byte(0x68), ByteData::Byte(0x74),
@@ -487,17 +537,21 @@ mod tests {
         ]);
 
         assert_eq!(parse_directive(".ascii  \"the quick brown fox jumps over the lazy dog\""),
-            Ok(("", MemData::Bytes(words_vec.clone(), true)))
+            Ok(("", MemData::Bytes(words_vec.clone(), true).into()))
         );
 
         words_vec.insert(40, ByteData::Byte(0));
 
         assert_eq!(parse_directive(".string  \"the quick brown fox jumps over the lazy dog\""),
-            Ok(("", MemData::Bytes(words_vec.clone(), true)))
+            Ok(("", MemData::Bytes(words_vec.clone(), true).into()))
         );
 
         assert_eq!(parse_directive(".asciz  \"the quick brown fox jumps over the lazy dog\""),
-            Ok(("", MemData::Bytes(words_vec.clone(), true)))
+            Ok(("", MemData::Bytes(words_vec.clone(), true).into()))
+        );
+
+        assert_eq!(parse_directive(".eqv  test,1505"),
+            Ok(("", Directive::EqvLabel("test".to_string(), 1505)))
         );
     }
 
@@ -507,18 +561,18 @@ mod tests {
                    Ok(("", (Some("label"), Some(MemData::Words(Vec::from([
                         WordData::Word(30),
                         WordData::Word(51)
-                    ])))))));
+                    ])).into())))));
         assert_eq!(parse_line("\ntest:\n\n.string   \"HANS!\""),
                    Ok(("", (Some("test"), Some(MemData::Bytes(Vec::from([
                         ByteData::Byte('S' as i16), ByteData::Byte('N' as i16), ByteData::Byte('A' as i16), ByteData::Byte('H' as i16),
                         ByteData::Byte(0), ByteData::Byte('!' as i16)
-                   ]), true))))));
+                   ]), true).into())))));
         assert_eq!(parse_line("\n\n\n.space     12\n"),
                    Ok(("\n", (None, Some(MemData::Bytes(Vec::from([
                         ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
                         ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
                         ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
-                   ]), true))))));
+                   ]), true).into())))));
         assert_eq!(parse_line("\n\ntest:   \n\n.text"),
                    Ok(("   \n\n.text", (Some("test"), None))));
         assert_eq!(parse_line("label:\n.half    105, testing, 120"),
@@ -526,11 +580,11 @@ mod tests {
                         HalfData::Half(105),
                         HalfData::String("testing".to_string()),
                         HalfData::Half(120)
-                   ])))))));
+                   ])).into())))));
         assert_eq!(parse_line("label:\n.ascii \"SToP\""),
                    Ok(("", (Some("label"), Some(MemData::Bytes(Vec::from([
                         ByteData::Byte('P' as i16), ByteData::Byte('o' as i16), ByteData::Byte('T' as i16), ByteData::Byte('S' as i16)
-                   ]), true))))));
+                   ]), true).into())))));
     }
 
     #[test]

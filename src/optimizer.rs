@@ -208,7 +208,7 @@ impl From<&Operation<'_>> for RegActType {
                     MacroInstr::Bge(reg1, reg2, _) |
                     MacroInstr::Bgeu(reg1, reg2, _) => RegActType::Read2(reg1.clone(), reg2.clone()),
 
-                    MacroInstr::Lui(reg, _) |
+                    MacroInstr::Lui(reg, _, _) |
                     MacroInstr::Auipc(reg, _, _) |
                     MacroInstr::Jal(reg, _) => RegActType::Write(reg.clone()),
 
@@ -341,8 +341,9 @@ impl MacroInstr {
                 instructions.push(Instruction::Jalr(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
-            MacroInstr::Lui(reg, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+            MacroInstr::Lui(reg, labl, part) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                handle_part(&mut lines, part);
                 instructions.push(Instruction::Lui(reg.to_owned(), lines));
             },
             MacroInstr::Auipc(reg, labl, part) => {
@@ -1318,7 +1319,7 @@ mod tests {
 
         let mut test_macros: Vec<(MacroInstr, Instruction)> = vec![];
 
-        test_macros.push((MacroInstr::Lui(Reg::G21, "GLOBAL".to_string()), Instruction::Lui(Reg::G21, -8)));
+        test_macros.push((MacroInstr::Lui(Reg::G21, "GLOBAL".to_string(), Part::None), Instruction::Lui(Reg::G21, -8)));
         test_macros.push((MacroInstr::Slli(Reg::G30, Reg::G19, "LOCAL".to_string()), Instruction::Slli(Reg::G30, Reg::G19, -4)));
         test_macros.push((MacroInstr::Srli(Reg::G5, Reg::G20, "GLOBAL".to_string()), Instruction::Srli(Reg::G5, Reg::G20, -8)));
         test_macros.push((MacroInstr::Srai(Reg::G7, Reg::G15, "LOCAL".to_string()), Instruction::Srai(Reg::G7, Reg::G15, -4)));

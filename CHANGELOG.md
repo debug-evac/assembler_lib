@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial support for label constants!
   - `.eqv <LABEL>, <IMMEDIATE>` can be used to set the label to that immediate
   - `li <REG>, <LABEL>` can be used to load that label into a register
+- More tests
+
+### Changed
+
+- 8 bit word width for MIF format being deprecated
+  - It will not be deprecated!
 
 ## [1.2.0] - 2024-02-10
 

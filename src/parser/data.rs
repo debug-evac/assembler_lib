@@ -249,7 +249,7 @@ fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut [MemDa
                 if let MemData::Bytes(byte_data, _) = dir_list.last_mut().unwrap() {
                     byte_data.push(ByteData::Byte(0));
                 }
-                *next_free_ptr += 1;
+                *next_free_ptr += 2;
             }
         },
         MemData::Words(_) | MemData::DWords(_) => {

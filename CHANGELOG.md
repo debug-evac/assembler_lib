@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 8 bit word width for MIF format being deprecated
   - It will not be deprecated!
 
+### Fixed
+
+- Data label after aligning halfs before words and dwords
+  - This resulted in wrong labels afterwards. 
+
 ## [1.2.0] - 2024-02-10
 
 ### Added

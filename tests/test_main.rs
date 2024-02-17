@@ -42,6 +42,7 @@ ret
 
     #[cfg(feature = "raw_nop")]
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_11000_00000_00000_00000_01000_10011,
         0b00_00000_00000_00100_10111_00101_10111, // Li - lui
         0b00_00000_00000_00000_00000_00000_10011, // 3x NOP
@@ -60,6 +61,7 @@ ret
 
     #[cfg(not(feature = "raw_nop"))]
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_11000_00000_00000_00000_01000_10011,
         0b00_00000_00000_00100_10111_00101_10111, // Li - lui
         0b10_01111_10110_11001_00011_00100_10011, // Li - addi
@@ -140,6 +142,7 @@ ret
 
     #[cfg(not(feature = "raw_nop"))]
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_11000_00000_00000_00000_01000_10011,
         0b00_00000_00000_00100_10111_00101_10111, // Li - lui
         0b10_01111_10110_11001_00011_00100_10011, // Li - addi
@@ -161,6 +164,11 @@ ret
     cor_output.write_binary(&cor_instr_vec)?;
 
     let mut cmd = Command::cargo_bin("assembler")?;
+    #[cfg(feature = "raw_nop")]
+    cmd.arg("-i").arg(main_in.path()).arg(sec_in.path())
+                 .arg("-o").arg(output_path.path())
+                 .arg("-f").arg("raw").arg("--no-sp-init");
+    #[cfg(not(feature = "raw_nop"))]
     cmd.arg("-i").arg(main_in.path()).arg(sec_in.path())
                  .arg("-o").arg(output_path.path())
                  .arg("-f").arg("raw");
@@ -204,6 +212,7 @@ ret
     let mut cor_instr_vec: Vec<u8> = vec![];
 
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_11000_00000_00000_00000_01000_10011,
         0b00_00000_00000_00100_10111_00101_10111, // Li - lui
         0b10_01111_10110_11001_00011_00100_10011, // Li - addi
@@ -300,6 +309,7 @@ farAway: j farAway
 
     #[cfg(not(feature = "raw_nop"))]
     let mut instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_00000_00000_00000_00100_00100_10111, // auipc call farAway
         0b00_00000_01100_00001_00000_00111_00111, // jalr
     ]);
@@ -318,6 +328,10 @@ farAway: j farAway
 
     let mut cmd = Command::cargo_bin("assembler")?;
 
+    #[cfg(feature = "raw_nop")]
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
+                 .arg("-f").arg("raw").arg("--no-sp-init");
+    #[cfg(not(feature = "raw_nop"))]
     cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
                  .arg("-f").arg("raw");
     cmd.assert()
@@ -348,6 +362,7 @@ rep 3, nop
     let mut cor_instr_vec: Vec<u8> = vec![];
 
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011  // nop
@@ -397,6 +412,7 @@ rep 3, nop
     let cor_output = temp.child("correct_output.mif");
 
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011  // nop
@@ -448,6 +464,7 @@ rep 3, nop
     let mut cor_instr_vec: Vec<u8> = vec![];
 
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011  // nop
@@ -460,7 +477,11 @@ rep 3, nop
     let mut output_str = "DEPTH = 1024;\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
 
     for (counter, values) in cor_instr_vec.chunks_exact(4).enumerate() {
-        output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "Addi(G0, G0, 0)"));
+        if counter == 0 {
+            output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "Lui(G2, 4096)"));
+        } else {
+            output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "Addi(G0, G0, 0)"));
+        }
     }
 
     output_str.push_str("END;\n");
@@ -497,6 +518,7 @@ rep 3, nop
     let cor_output = temp.child("correct_output.mif");
 
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011  // nop
@@ -508,7 +530,11 @@ rep 3, nop
 
     for instr in instr_vec.iter() {
         let mach_instr = instr.to_le_bytes();
-        output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "Addi(G0, G0, 0)"));
+        if counter == 0 {
+            output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "Lui(G2, 4096)"));
+        } else {
+            output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "Addi(G0, G0, 0)"));
+        }
         counter += 4;
     }
 
@@ -544,6 +570,7 @@ rep 3, nop
 "#)?;
 
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011  // nop
@@ -612,6 +639,7 @@ GETIT:
 
     #[cfg(feature = "raw_nop")] {
         instr_vec = Vec::from([
+            0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
             0b00_11000_00000_00000_00000_01000_10011,
             0b00_00000_00000_00000_00100_10100_10111,
             0b00_00000_00000_00000_00000_00000_10011,
@@ -620,17 +648,18 @@ GETIT:
             0b10_11101_11000_00101_00000_10100_10011,
             0b00_00000_00000_00000_00000_00011_01111
         ]);
-        data_vec.push(24);
+        data_vec.push(28); // was 24
     }
 
     #[cfg(not(feature = "raw_nop"))] {
         instr_vec = Vec::from([
+            0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
             0b00_11000_00000_00000_00000_01000_10011,
             0b00_00000_00000_00000_00100_10100_10111,
             0b10_11101_11000_00101_00000_10100_10011,
             0b00_00000_00000_00000_00000_00011_01111
         ]);
-        data_vec.push(12);
+        data_vec.push(16); // was 12
     }
 
     let mut output_data_str = "DEPTH = 1024;\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();

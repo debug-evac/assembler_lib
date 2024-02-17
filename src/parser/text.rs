@@ -697,7 +697,7 @@ fn expand_instrs(symbol_map: &mut LabelRecog, instr_list: &mut Vec<Operation>) {
     }
 }
 
-pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog) -> IResult<&'a str, Vec<Operation<'a>>> {
+pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, sp_init: bool) -> IResult<&'a str, Vec<Operation<'a>>> {
     let mut instr_list: Vec<Operation> = vec![];
 
     // Key = line forward; value = current line
@@ -705,6 +705,11 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
 
     let mut rest = input;
     let mut instr_counter: usize = 0;
+
+    if sp_init {
+        instr_list.push(Instruction::Lui(Reg::G2, 4096).into());
+        instr_counter += 1;
+    }
 
     let privileged = subroutines.is_none();
 
@@ -1007,7 +1012,7 @@ END:
                                                 Operation::Labl(Cow::from("END"))
                                                 ];
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map),
+        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
                    Ok(("", correct_vec)));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty())
@@ -1067,7 +1072,7 @@ r#" li  x4, 16
                                                 Operation::Labl(Cow::from("__7"))
                                                 ];
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map),
+        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
                    Ok(("", correct_vec)));
         assert_eq!(symbol_map, symbols);
         assert_eq!(subroutines.get_code().is_empty(), true);
@@ -1181,7 +1186,7 @@ TEST: srli a7, a7, 1
         correct_vec.push(Operation::LablMacro(Cow::from("__29"), MacroInstr::Bne(Reg::G12, Reg::G0, "__9".to_string())));
         correct_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map),
+        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
                    Ok(("", correct_vec)));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());
@@ -1578,7 +1583,7 @@ END:                    ; TEST
                                                 Operation::Labl(Cow::from("END"))
                                                 ];
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map),
+        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
                    Ok(("", correct_vec)));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty())
@@ -1610,7 +1615,7 @@ TESTING: rep 1000, nop
             correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
         }
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map),
+        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
                    Ok(("", correct_vec)));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());
@@ -1644,7 +1649,7 @@ TESTING: rep 50, pop x15
             sec_correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G2, Reg::G2, 4)));
         }
 
-        assert_eq!(parse(source_code_two, &mut Some(&mut subroutines), &mut symbol_map),
+        assert_eq!(parse(source_code_two, &mut Some(&mut subroutines), &mut symbol_map, false),
                    Ok(("", sec_correct_vec)));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());

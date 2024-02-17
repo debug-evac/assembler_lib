@@ -276,7 +276,7 @@ fn translate_data_to_word_vec(memdata: &[MemData]) -> Vec<u32> {
    let mut word_vec: Vec<u32> = vec![];
    let mut iter = translatable_data.chunks_exact(4);
 
-   while let Some(byte) = iter.next() {
+   for byte in iter.by_ref() {
       word_vec.push(((byte[3] as u32) << 24) + ((byte[2] as u32) << 16) + ((byte[1] as u32) << 8) + (byte[0] as u32));
    }
 

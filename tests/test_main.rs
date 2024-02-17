@@ -572,7 +572,7 @@ rep 3, nop
         .stdout(predicate::str::is_empty())
         .stderr(predicate::str::contains("Comment flag has no effect on debug format!"))
         .stderr(predicate::str::contains(match_str))
-        .stderr(predicate::str::contains("Emitted 00000000000000000000000000010011 from Addi(G0, G0, 0)"));
+        .stderr(predicate::str::contains("Emitted 00000000000000000000000000010011 from 'addi zero, zero, 0'"));
 
     no_output_path
         .assert(predicate::path::missing());

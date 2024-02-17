@@ -304,6 +304,9 @@ fn parse_macro_noparm(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
         value(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)), tag("nop")),
         value(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)), tag("ret")),
+
+        value(Operation::Instr(Instruction::Ebreak), tag("ebreak")),
+        value(Operation::Instr(Instruction::Ecall), tag("ecall")),
     ))(input)?;
 
     Ok((rest, instr))

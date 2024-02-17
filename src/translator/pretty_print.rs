@@ -119,5 +119,8 @@ pub fn emit_debug_translate_instruction(instr: &Instruction, translation: u32) -
         Instruction::Divu(_, _, _) |
         Instruction::Rem(_, _, _) |
         Instruction::Remu(_, _, _) => format!("Emitted {}{}{}{}{}{opcode} from {:?}", pretty_func7(translation), pretty_register(translation, 3), pretty_register(translation, 2), pretty_func3(translation), pretty_register(translation, 1), instr),
+
+        Instruction::Ebreak |
+        Instruction::Ecall => format!("Emitted {}{}{}{}{opcode} from {:?}", pretty_imm_short(translation), pretty_register(translation, 2), pretty_func3(translation), pretty_register(translation, 1), instr),
      }
 }

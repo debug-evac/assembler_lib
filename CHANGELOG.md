@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Last instructions of RV32I for debugging & RARS compatibility
+  - `ecall` - System call (should not be used, we don't have an OS)
+  - `ebreak` - Breaking point for debugging purposes (should be used in debugger only)
+
 ## [1.2.0] - 2024-02-10
 
 ### Added

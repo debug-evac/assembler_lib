@@ -236,6 +236,11 @@ pub enum Instruction {
     Equal(Reg, Reg, Reg),
 
     // ------------------
+    // To cover all commands of RV32I
+    Ecall,
+    Ebreak,
+
+    // ------------------
     // All commands from RV32M
     Mul(Reg, Reg, Reg),
     Mulh(Reg, Reg, Reg),

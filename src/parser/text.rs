@@ -375,7 +375,7 @@ fn handle_multiline_immediate<'a>(
 }
 
 #[inline]
-fn debug_operation_vec(macro_in: &MacroInstr, pointer: &usize, mid_list: &Vec<Operation>) {
+fn debug_operation_vec(macro_in: &MacroInstr, pointer: &usize, mid_list: &[Operation]) {
     let mut print_string = format!("Expanded '{macro_in}' at {} into '[{}", *pointer, mid_list[0]);
 
     for op in &mid_list[1..] {
@@ -408,7 +408,7 @@ fn translate_macros<'a>(
             }
 
             if log_enabled!(log::Level::Debug) {
-                debug_operation_vec(macro_in, &pointer, &mid_list);
+                debug_operation_vec(macro_in, pointer, &mid_list);
             }
 
             incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
@@ -426,7 +426,7 @@ fn translate_macros<'a>(
             }
 
             if log_enabled!(log::Level::Debug) {
-                debug_operation_vec(macro_in, &pointer, &mid_list);
+                debug_operation_vec(macro_in, pointer, &mid_list);
             }
 
             incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
@@ -587,7 +587,7 @@ fn translate_macros<'a>(
             }
 
             if log_enabled!(log::Level::Debug) {
-                debug_operation_vec(macro_in, &pointer, &mid_list);
+                debug_operation_vec(macro_in, pointer, &mid_list);
             }
 
             *accumulator += (mid_list.len() - 1) as i128;
@@ -617,7 +617,7 @@ fn translate_macros<'a>(
             mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, regs.len() as i32 * 4).into());
 
             if log_enabled!(log::Level::Debug) {
-                debug_operation_vec(macro_in, &pointer, &mid_list);
+                debug_operation_vec(macro_in, pointer, &mid_list);
             }
 
             *accumulator += (mid_list.len() - 1) as i128;
@@ -642,7 +642,7 @@ fn translate_macros<'a>(
             }
 
             if log_enabled!(log::Level::Debug) {
-                debug_operation_vec(macro_in, &pointer, &mid_list);
+                debug_operation_vec(macro_in, pointer, &mid_list);
             }
 
             *accumulator += (*num - 1) as i128;
@@ -677,7 +677,7 @@ fn translate_macros<'a>(
             }
 
             if log_enabled!(log::Level::Debug) {
-                debug_operation_vec(macro_in, &pointer, &mid_list);
+                debug_operation_vec(macro_in, pointer, &mid_list);
             }
 
             *accumulator += (space_needed - 1) as i128;

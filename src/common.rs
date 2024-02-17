@@ -15,6 +15,7 @@ pub mod errors;
 
 use std::collections::HashMap;
 use std::borrow::Cow;
+use std::fmt::Display;
 
 use self::errors::CommonError;
 
@@ -107,6 +108,45 @@ impl Reg {
     }
 }
 
+impl Display for Reg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            Reg::G0 => "zero",
+            Reg::G1 => "ra",
+            Reg::G2 => "sp",
+            Reg::G3 => "gp",
+            Reg::G4 => "tp",
+            Reg::G5 => "t0",
+            Reg::G6 => "t1",
+            Reg::G7 => "t2",
+            Reg::G8 => "s0",
+            Reg::G9 => "s1",
+            Reg::G10 => "a0",
+            Reg::G11 => "a1",
+            Reg::G12 => "a2",
+            Reg::G13 => "a3",
+            Reg::G14 => "a4",
+            Reg::G15 => "a5",
+            Reg::G16 => "a6",
+            Reg::G17 => "a7",
+            Reg::G18 => "s2",
+            Reg::G19 => "s3",
+            Reg::G20 => "s4",
+            Reg::G21 => "s5",
+            Reg::G22 => "s6",
+            Reg::G23 => "s7",
+            Reg::G24 => "s8",
+            Reg::G25 => "s9",
+            Reg::G26 => "s10",
+            Reg::G27 => "s11",
+            Reg::G28 => "t3",
+            Reg::G29 => "t4",
+            Reg::G30 => "t5",
+            Reg::G31 => "t6",
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Part {
     Upper,
@@ -169,6 +209,61 @@ pub enum MacroInstr {
     //Subi(Reg, Reg, Imm),
     //Muli(Reg, Reg, Imm),
     //Divi(Reg, Reg, Imm),
+}
+
+impl Display for MacroInstr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MacroInstr::Beq(reg1, reg2, label) => write!(f, "beq {reg1}, {reg2}, \"{label}\""),
+            MacroInstr::Bne(reg1, reg2, label) => write!(f, "bne {reg1}, {reg2}, \"{label}\""),
+            MacroInstr::Blt(reg1, reg2, label) => write!(f, "blt {reg1}, {reg2}, \"{label}\""),
+            MacroInstr::Bltu(reg1, reg2, label) => write!(f, "bltu {reg1}, {reg2}, \"{label}\""),
+            MacroInstr::Bge(reg1, reg2, label) => write!(f, "bge {reg1}, {reg2}, \"{label}\""),
+            MacroInstr::Bgeu(reg1, reg2, label) => write!(f, "bgeu {reg1}, {reg2}, \"{label}\""),
+
+            MacroInstr::Jal(reg, label) => write!(f, "not done"),
+            MacroInstr::Jalr(reg1, reg2, label, _) => write!(f, "not done"),
+
+            MacroInstr::Lui(reg, label) => write!(f, "not done"),
+            MacroInstr::Auipc(reg, label, _) => write!(f, "not done"),
+
+            MacroInstr::Slli(reg1, reg2, label) => write!(f, "not done"),
+            MacroInstr::Srli(reg1, reg2, label) => write!(f, "not done"),
+            MacroInstr::Srai(reg1, reg2, label) => write!(f, "not done"),
+            
+            MacroInstr::Lb(reg1, reg2, label, _) => write!(f, "not done"),
+            MacroInstr::Lh(reg1, reg2, label, _) => write!(f, "not done"),
+            MacroInstr::Lw(reg1, reg2, label, _) => write!(f, "not done"),
+            
+            MacroInstr::Lbu(reg1, reg2, label) => write!(f, "not done"),
+            MacroInstr::Lhu(reg1, reg2, label) => write!(f, "not done"),
+            
+            MacroInstr::Sb(reg1, reg2, label, _) => write!(f, "not done"),
+            MacroInstr::Sh(reg1, reg2, label, _) => write!(f, "not done"),
+            MacroInstr::Sw(reg1, reg2, label, _) => write!(f, "not done"),
+
+            MacroInstr::Addi(reg1, reg2, label, _) => write!(f, "not done"),
+
+            MacroInstr::Srr(reg1, reg2, imm) => write!(f, "not done"),
+            MacroInstr::Slr(reg1, reg2, imm) => write!(f, "not done"),
+
+            MacroInstr::Li(reg, imm) => write!(f, "not done"),
+            MacroInstr::LaImm(reg, imm) => write!(f, "not done"),
+            MacroInstr::LaLabl(reg, label) => write!(f, "not done"),
+
+            MacroInstr::CallImm(imm) => write!(f, "not done"),
+            MacroInstr::TailImm(imm) => write!(f, "not done"),
+
+            MacroInstr::CallLabl(label) => write!(f, "not done"),
+            MacroInstr::TailLabl(label) => write!(f, "not done"),
+
+            MacroInstr::Push(vec_regs) => write!(f, "not done"),
+            MacroInstr::Pop(vec_regs) => write!(f, "not done"),
+
+            MacroInstr::RepMacro(imm, macro_in) => write!(f, "not done"),
+            MacroInstr::RepInstr(imm, instr) => write!(f, "not done")
+        }
+    }
 }
 
 // Possibly split Instruction to instruction enums with 1 imm, 1 reg and 1 imm and so on
@@ -249,13 +344,26 @@ pub enum Instruction {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Operation <'a> {
+pub enum Operation<'a> {
     Namespace(usize),
     Instr(Instruction),
     Macro(MacroInstr),
     LablMacro(Cow<'a, str>, MacroInstr),
     LablInstr(Cow<'a, str>, Instruction),
     Labl(Cow<'a, str>)
+}
+
+impl <'a> Display for Operation<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Operation::Namespace(space) => write!(f, "Namespace({space})"),
+            Operation::Instr(instr) => write!(f, "{:?}", instr),
+            Operation::Macro(macro_in) => write!(f, "{macro_in}"),
+            Operation::LablMacro(label, macro_in) =>  write!(f, "{label}: {macro_in}"),
+            Operation::LablInstr(label, instr) => write!(f, "{label}: {:?}", instr),
+            Operation::Labl(label) => write!(f, "{label}:")
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

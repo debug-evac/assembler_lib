@@ -174,7 +174,7 @@ trait Writable {
    fn write_raw(&self, output: &Path) -> Result<(), std::io::Error>;
 }
 
-impl <T: Translatable + std::fmt::Debug> Writable for &Vec<T> {
+impl <T: Translatable + std::fmt::Display> Writable for &Vec<T> {
    fn write_raw(&self, output: &Path) -> Result<(), std::io::Error> {
       let mut file = File::create(output)?;
       let mut byte_instrs: Vec<u8> = vec![];
@@ -210,7 +210,7 @@ impl <T: Translatable + std::fmt::Debug> Writable for &Vec<T> {
       if comment {
          for elem in self.iter() {
             let mach_instr = elem.translate().to_le_bytes();
-            writeln!(file, "{counter}\t: {:08b}{sep}{:08b}{sep}{:08b}{sep}{:08b};\t\t-- {:?}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], elem).unwrap();
+            writeln!(file, "{counter}\t: {:08b}{sep}{:08b}{sep}{:08b}{sep}{:08b};\t\t-- {elem}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
             counter += added;
          }
       } else {

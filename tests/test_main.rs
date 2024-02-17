@@ -460,7 +460,7 @@ rep 3, nop
     let mut output_str = "DEPTH = 1024;\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
 
     for (counter, values) in cor_instr_vec.chunks_exact(4).enumerate() {
-        output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "Addi(G0, G0, 0)"));
+        output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "addi zero, zero, 0"));
     }
 
     output_str.push_str("END;\n");
@@ -508,7 +508,7 @@ rep 3, nop
 
     for instr in instr_vec.iter() {
         let mach_instr = instr.to_le_bytes();
-        output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "Addi(G0, G0, 0)"));
+        output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "addi zero, zero, 0"));
         counter += 4;
     }
 

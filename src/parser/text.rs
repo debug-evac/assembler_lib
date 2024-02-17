@@ -419,7 +419,7 @@ fn translate_macros<'a>(
             let mut imm_used = *imm;
 
             if handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Addi(reg.to_owned(), Reg::G0, *imm)) {
-                debug!("Expanded '{macro_in}' at {} into '{:?}'", *pointer - 1, instr_list.last());
+                debug!("Expanded '{macro_in}' at {} into '{}'", *pointer - 1, instr_list.last().unwrap());
                 return
             }
 
@@ -432,7 +432,7 @@ fn translate_macros<'a>(
             instr_list.insert(*pointer,
             Instruction::Addi(reg.to_owned(), reg.to_owned(), imm_used).into());
 
-            debug!("Expanded '{macro_in}' at {} into '[{:?}, {:?}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
 
             *pointer += 1;
             *accumulator += 1;
@@ -442,7 +442,7 @@ fn translate_macros<'a>(
             let mut imm_used = *imm;
 
             if handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Addi(reg.to_owned(), Reg::G0, *imm)) {
-                debug!("Expanded '{macro_in}' at {} into '{:?}'", *pointer - 1, instr_list.last());
+                debug!("Expanded '{macro_in}' at {} into '{}'", *pointer - 1, instr_list.last().unwrap());
                 return
             }
 
@@ -455,7 +455,7 @@ fn translate_macros<'a>(
             instr_list.insert(*pointer,
             Instruction::Addi(reg.to_owned(), reg.to_owned(), imm_used).into());
 
-            debug!("Expanded '{macro_in}' at {} into '[{:?}, {:?}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
 
             *pointer += 1;
             *accumulator += 1;
@@ -471,7 +471,7 @@ fn translate_macros<'a>(
             instr_list.insert(*pointer,
             MacroInstr::Addi(reg.to_owned(), reg.to_owned(), targ_labl.to_string(), Part::Lower).into());
 
-            debug!("Expanded '{macro_in}' at {} into '[{:?}, {:?}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
 
             *pointer += 1;
             *accumulator += 1;
@@ -481,7 +481,7 @@ fn translate_macros<'a>(
             let mut imm_used = *imm;
 
             if handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Jalr(Reg::G1, Reg::G0, *imm)) {
-                debug!("Expanded '{macro_in}' at {} into '{:?}'", *pointer - 1, instr_list.last());
+                debug!("Expanded '{macro_in}' at {} into '{}'", *pointer - 1, instr_list.last().unwrap());
                 return
             }
 
@@ -494,7 +494,7 @@ fn translate_macros<'a>(
             instr_list.insert(*pointer,
             Instruction::Jalr(Reg::G1, Reg::G1, imm_used).into());
 
-            debug!("Expanded '{macro_in}' at {} into '[{:?}, {:?}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
 
             *pointer += 1;
             *accumulator += 1;
@@ -504,7 +504,7 @@ fn translate_macros<'a>(
             let mut imm_used = *imm;
 
             if handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Jalr(Reg::G0, Reg::G0, *imm)) {
-                debug!("Expanded '{macro_in}' at {} into '{:?}'", *pointer - 1, instr_list.last());
+                debug!("Expanded '{macro_in}' at {} into '{}'", *pointer - 1, instr_list.last().unwrap());
                 return
             }
 
@@ -517,7 +517,7 @@ fn translate_macros<'a>(
             instr_list.insert(*pointer,
             Instruction::Jalr(Reg::G0, Reg::G6, imm_used).into());
 
-            debug!("Expanded '{macro_in}' at {} into '[{:?}, {:?}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
 
             *pointer += 1;
             *accumulator += 1;
@@ -533,7 +533,7 @@ fn translate_macros<'a>(
             instr_list.insert(*pointer,
             MacroInstr::Jalr(Reg::G1, Reg::G1, targ_labl.to_string(), Part::Lower).into());
 
-            debug!("Expanded '{macro_in}' at {} into '[{:?}, {:?}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
 
             *pointer += 1;
             *accumulator += 1;
@@ -549,7 +549,7 @@ fn translate_macros<'a>(
             instr_list.insert(*pointer,
             MacroInstr::Jalr(Reg::G0, Reg::G6, targ_labl.to_string(), Part::Lower).into());
 
-            debug!("Expanded '{macro_in}' at {} into '[{:?}, {:?}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
 
             *pointer += 1;
             *accumulator += 1;
@@ -724,7 +724,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
 
         match &mut parsed {
             (Some(label), Some(instr)) => {
-                debug!("({instr_counter}) - Parsed label '{label}' and instruction '{:?}'", instr);
+                debug!("({instr_counter}) - Parsed label '{label}' and instruction '{instr}'");
                 if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Address, instr_counter) {
                     error!("{e}");
                     std::process::exit(1)
@@ -808,7 +808,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
                 instr_list.push(instr.to_owned());
             },
             (None, Some(instr)) => {
-                debug!("({instr_counter}) - Parsed instruction '{:?}'", instr);
+                debug!("({instr_counter}) - Parsed instruction '{instr}'");
                 match instr {
                     Operation::Macro(macro_in) => handle_label_refs(macro_in, subroutines, symbol_map),
                     Operation::Instr(instr_in) => {
@@ -894,7 +894,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
                 instr_counter += 1;
                 instr_list.push(Operation::Labl(std::borrow::Cow::Borrowed(label)));
             },
-            (None, None) => debug!("{instr_counter} - Parsed nothing!"),
+            (None, None) => debug!("({instr_counter}) - Parsed nothing!"),
         }
 
         if rest.trim().is_empty() {
@@ -921,8 +921,6 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
     }
 
     expand_instrs(symbol_map, &mut instr_list);
-
-    debug!("Finished parser step");
 
     Ok(("", instr_list))
 }

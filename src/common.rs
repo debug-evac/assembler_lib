@@ -214,54 +214,66 @@ pub enum MacroInstr {
 impl Display for MacroInstr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MacroInstr::Beq(reg1, reg2, label) => write!(f, "beq {reg1}, {reg2}, \"{label}\""),
-            MacroInstr::Bne(reg1, reg2, label) => write!(f, "bne {reg1}, {reg2}, \"{label}\""),
-            MacroInstr::Blt(reg1, reg2, label) => write!(f, "blt {reg1}, {reg2}, \"{label}\""),
-            MacroInstr::Bltu(reg1, reg2, label) => write!(f, "bltu {reg1}, {reg2}, \"{label}\""),
-            MacroInstr::Bge(reg1, reg2, label) => write!(f, "bge {reg1}, {reg2}, \"{label}\""),
-            MacroInstr::Bgeu(reg1, reg2, label) => write!(f, "bgeu {reg1}, {reg2}, \"{label}\""),
+            MacroInstr::Beq(reg1, reg2, label) => write!(f, "beq {reg1}, {reg2}, {label}"),
+            MacroInstr::Bne(reg1, reg2, label) => write!(f, "bne {reg1}, {reg2}, {label}"),
+            MacroInstr::Blt(reg1, reg2, label) => write!(f, "blt {reg1}, {reg2}, {label}"),
+            MacroInstr::Bltu(reg1, reg2, label) => write!(f, "bltu {reg1}, {reg2}, {label}"),
+            MacroInstr::Bge(reg1, reg2, label) => write!(f, "bge {reg1}, {reg2}, {label}"),
+            MacroInstr::Bgeu(reg1, reg2, label) => write!(f, "bgeu {reg1}, {reg2}, {label}"),
 
-            MacroInstr::Jal(reg, label) => write!(f, "not done"),
-            MacroInstr::Jalr(reg1, reg2, label, _) => write!(f, "not done"),
+            MacroInstr::Jal(reg, label) => write!(f, "jal {reg}, {label}"),
+            MacroInstr::Jalr(reg1, reg2, label, _) => write!(f, "jalr {reg1}, {reg2}, {label}"),
 
-            MacroInstr::Lui(reg, label) => write!(f, "not done"),
-            MacroInstr::Auipc(reg, label, _) => write!(f, "not done"),
+            MacroInstr::Lui(reg, label) => write!(f, "lui {reg}, {label}"),
+            MacroInstr::Auipc(reg, label, _) => write!(f, "auipc {reg}, {label}"),
 
-            MacroInstr::Slli(reg1, reg2, label) => write!(f, "not done"),
-            MacroInstr::Srli(reg1, reg2, label) => write!(f, "not done"),
-            MacroInstr::Srai(reg1, reg2, label) => write!(f, "not done"),
+            MacroInstr::Slli(reg1, reg2, label) => write!(f, "slli {reg1}, {reg2}, {label}"),
+            MacroInstr::Srli(reg1, reg2, label) => write!(f, "srli {reg1}, {reg2}, {label}"),
+            MacroInstr::Srai(reg1, reg2, label) => write!(f, "srai {reg1}, {reg2}, {label}"),
             
-            MacroInstr::Lb(reg1, reg2, label, _) => write!(f, "not done"),
-            MacroInstr::Lh(reg1, reg2, label, _) => write!(f, "not done"),
-            MacroInstr::Lw(reg1, reg2, label, _) => write!(f, "not done"),
+            MacroInstr::Lb(reg1, reg2, label, _) => write!(f, "lb {reg1}, {reg2}, {label}"),
+            MacroInstr::Lh(reg1, reg2, label, _) => write!(f, "lh {reg1}, {reg2}, {label}"),
+            MacroInstr::Lw(reg1, reg2, label, _) => write!(f, "lw {reg1}, {reg2}, {label}"),
             
-            MacroInstr::Lbu(reg1, reg2, label) => write!(f, "not done"),
-            MacroInstr::Lhu(reg1, reg2, label) => write!(f, "not done"),
+            MacroInstr::Lbu(reg1, reg2, label) => write!(f, "lbu {reg1}, {reg2}, {label}"),
+            MacroInstr::Lhu(reg1, reg2, label) => write!(f, "lhu {reg1}, {reg2}, {label}"),
             
-            MacroInstr::Sb(reg1, reg2, label, _) => write!(f, "not done"),
-            MacroInstr::Sh(reg1, reg2, label, _) => write!(f, "not done"),
-            MacroInstr::Sw(reg1, reg2, label, _) => write!(f, "not done"),
+            MacroInstr::Sb(reg1, reg2, label, _) => write!(f, "sb {reg1}, {reg2}, {label}"),
+            MacroInstr::Sh(reg1, reg2, label, _) => write!(f, "sh {reg1}, {reg2}, {label}"),
+            MacroInstr::Sw(reg1, reg2, label, _) => write!(f, "sw {reg1}, {reg2}, {label}"),
 
-            MacroInstr::Addi(reg1, reg2, label, _) => write!(f, "not done"),
+            MacroInstr::Addi(reg1, reg2, label, _) => write!(f, "addi {reg1}, {reg2}, {label}"),
 
-            MacroInstr::Srr(reg1, reg2, imm) => write!(f, "not done"),
-            MacroInstr::Slr(reg1, reg2, imm) => write!(f, "not done"),
+            MacroInstr::Srr(reg1, reg2, imm) => write!(f, "srr {reg1}, {reg2}, {imm}"),
+            MacroInstr::Slr(reg1, reg2, imm) => write!(f, "slr {reg1}, {reg2}, {imm}"),
 
-            MacroInstr::Li(reg, imm) => write!(f, "not done"),
-            MacroInstr::LaImm(reg, imm) => write!(f, "not done"),
-            MacroInstr::LaLabl(reg, label) => write!(f, "not done"),
+            MacroInstr::Li(reg, imm) => write!(f, "li {reg}, {imm}"),
+            MacroInstr::LaImm(reg, imm) => write!(f, "la {reg}, {imm}"),
+            MacroInstr::LaLabl(reg, label) => write!(f, "la {reg}, {label}"),
 
-            MacroInstr::CallImm(imm) => write!(f, "not done"),
-            MacroInstr::TailImm(imm) => write!(f, "not done"),
+            MacroInstr::CallImm(imm) => write!(f, "call {imm}"),
+            MacroInstr::TailImm(imm) => write!(f, "tail {imm}"),
 
-            MacroInstr::CallLabl(label) => write!(f, "not done"),
-            MacroInstr::TailLabl(label) => write!(f, "not done"),
+            MacroInstr::CallLabl(label) => write!(f, "call {label}"),
+            MacroInstr::TailLabl(label) => write!(f, "tail {label}"),
 
-            MacroInstr::Push(vec_regs) => write!(f, "not done"),
-            MacroInstr::Pop(vec_regs) => write!(f, "not done"),
+            MacroInstr::Push(vec_regs) => {
+                write!(f, "push {}", vec_regs[0])?;
+                for reg in &vec_regs[1..] {
+                    write!(f, "{}", reg)?;
+                }
+                Ok(())
+            },
+            MacroInstr::Pop(vec_regs) => {
+                write!(f, "pop {}", vec_regs[0])?;
+                for reg in &vec_regs[1..] {
+                    write!(f, "{}", reg)?;
+                }
+                Ok(())
+            },
 
-            MacroInstr::RepMacro(imm, macro_in) => write!(f, "not done"),
-            MacroInstr::RepInstr(imm, instr) => write!(f, "not done")
+            MacroInstr::RepMacro(imm, macro_in) => write!(f, "rep {imm}, {macro_in}"),
+            MacroInstr::RepInstr(imm, instr) => write!(f, "rep {imm}, {:?}", instr)
         }
     }
 }
@@ -343,6 +355,66 @@ pub enum Instruction {
     Remu(Reg, Reg, Reg)
 }
 
+impl Display for Instruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Instruction::Add(reg1, reg2, reg3) => write!(f, "add {reg1}, {reg2}, {reg3}"),
+            Instruction::Sub(reg1, reg2, reg3) => write!(f, "sub {reg1}, {reg2}, {reg3}"),
+            Instruction::Xor(reg1, reg2, reg3) => write!(f, "xor {reg1}, {reg2}, {reg3}"),
+            Instruction::Or(reg1, reg2, reg3) => write!(f, "or {reg1}, {reg2}, {reg3}"),
+            Instruction::And(reg1, reg2, reg3) => write!(f, "and {reg1}, {reg2}, {reg3}"),
+            Instruction::Sll(reg1, reg2, reg3) => write!(f, "sll {reg1}, {reg2}, {reg3}"),
+            Instruction::Srl(reg1, reg2, reg3) => write!(f, "srl {reg1}, {reg2}, {reg3}"),
+            Instruction::Sra(reg1, reg2, reg3) => write!(f, "sra {reg1}, {reg2}, {reg3}"),
+            Instruction::Slt(reg1, reg2, reg3) => write!(f, "slt {reg1}, {reg2}, {reg3}"),
+            Instruction::Sltu(reg1, reg2, reg3) => write!(f, "sltu {reg1}, {reg2}, {reg3}"),
+
+            Instruction::Addi(reg1, reg2, imm) => write!(f, "addi {reg1}, {reg2}, {imm}"),
+            Instruction::Xori(reg1, reg2, imm) => write!(f, "xori {reg1}, {reg2}, {imm}"),
+            Instruction::Ori(reg1, reg2, imm) => write!(f, "ori {reg1}, {reg2}, {imm}"),
+            Instruction::Andi(reg1, reg2, imm) => write!(f, "andi {reg1}, {reg2}, {imm}"),
+            Instruction::Slli(reg1, reg2, imm) => write!(f, "slli {reg1}, {reg2}, {imm}"),
+            Instruction::Srli(reg1, reg2, imm) => write!(f, "srli {reg1}, {reg2}, {imm}"),
+            Instruction::Srai(reg1, reg2, imm) => write!(f, "srai {reg1}, {reg2}, {imm}"),
+            Instruction::Slti(reg1, reg2, imm) => write!(f, "slti {reg1}, {reg2}, {imm}"),
+            Instruction::Sltiu(reg1, reg2, imm) => write!(f, "sltiu {reg1}, {reg2}, {imm}"),
+
+            Instruction::Lb(reg1, reg2, imm) => write!(f, "lb {reg1}, {reg2}, {imm}"),
+            Instruction::Lh(reg1, reg2, imm) => write!(f, "lh {reg1}, {reg2}, {imm}"),
+            Instruction::Lw(reg1, reg2, imm) => write!(f, "lw {reg1}, {reg2}, {imm}"),
+            Instruction::Lbu(reg1, reg2, imm) => write!(f, "lbu {reg1}, {reg2}, {imm}"),
+            Instruction::Lhu(reg1, reg2, imm) => write!(f, "lhu {reg1}, {reg2}, {imm}"),
+
+            Instruction::Sb(reg1, reg2, imm) => write!(f, "sb {reg1}, {reg2}, {imm}"),
+            Instruction::Sh(reg1, reg2, imm) => write!(f, "sh {reg1}, {reg2}, {imm}"),
+            Instruction::Sw(reg1, reg2, imm) => write!(f, "sw {reg1}, {reg2}, {imm}"),
+
+            Instruction::Beq(reg1, reg2, imm) => write!(f, "beq {reg1}, {reg2}, {imm}"),
+            Instruction::Bne(reg1, reg2, imm) => write!(f, "bne {reg1}, {reg2}, {imm}"),
+            Instruction::Blt(reg1, reg2, imm) => write!(f, "blt {reg1}, {reg2}, {imm}"),
+            Instruction::Bltu(reg1, reg2, imm) => write!(f, "bltu {reg1}, {reg2}, {imm}"),
+            Instruction::Bge(reg1, reg2, imm) => write!(f, "bge {reg1}, {reg2}, {imm}"),
+            Instruction::Bgeu(reg1, reg2, imm) => write!(f, "bgeu {reg1}, {reg2}, {imm}"),
+
+            Instruction::Jal(reg, imm) => write!(f, "jal {reg}, {imm}"),
+            Instruction::Jalr(reg1, reg2, imm) => write!(f, "jalr {reg1}, {reg2}, {imm}"),
+            Instruction::Lui(reg, imm) => write!(f, "lui {reg}, {imm}"),
+            Instruction::Auipc(reg, imm) => write!(f, "auipc {reg}, {imm}"),
+
+            Instruction::Xnor(reg1, reg2, reg3) => write!(f, "xnor {reg1}, {reg2}, {reg3}"),
+            Instruction::Equal(reg1, reg2, reg3) => write!(f, "equal {reg1}, {reg2}, {reg3}"),
+            Instruction::Mul(reg1, reg2, reg3) => write!(f, "mul {reg1}, {reg2}, {reg3}"),
+            Instruction::Mulh(reg1, reg2, reg3) => write!(f, "mulh {reg1}, {reg2}, {reg3}"),
+            Instruction::Mulhu(reg1, reg2, reg3) => write!(f, "mulhu {reg1}, {reg2}, {reg3}"),
+            Instruction::Mulhsu(reg1, reg2, reg3) => write!(f, "mulhsu {reg1}, {reg2}, {reg3}"),
+            Instruction::Div(reg1, reg2, reg3) => write!(f, "div {reg1}, {reg2}, {reg3}"),
+            Instruction::Divu(reg1, reg2, reg3) => write!(f, "divu {reg1}, {reg2}, {reg3}"),
+            Instruction::Rem(reg1, reg2, reg3) => write!(f, "rem {reg1}, {reg2}, {reg3}"),
+            Instruction::Remu(reg1, reg2, reg3) => write!(f, "remu {reg1}, {reg2}, {reg3}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Operation<'a> {
     Namespace(usize),
@@ -357,10 +429,10 @@ impl <'a> Display for Operation<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Operation::Namespace(space) => write!(f, "Namespace({space})"),
-            Operation::Instr(instr) => write!(f, "{:?}", instr),
+            Operation::Instr(instr) => write!(f, "{instr}"),
             Operation::Macro(macro_in) => write!(f, "{macro_in}"),
             Operation::LablMacro(label, macro_in) =>  write!(f, "{label}: {macro_in}"),
-            Operation::LablInstr(label, instr) => write!(f, "{label}: {:?}", instr),
+            Operation::LablInstr(label, instr) => write!(f, "{label}: {instr}"),
             Operation::Labl(label) => write!(f, "{label}:")
         }
     }

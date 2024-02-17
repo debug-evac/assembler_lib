@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use log::error;
+use log::{debug, error};
 use nom::{
     branch::alt, 
     bytes::complete::{is_not, tag}, 
@@ -270,17 +270,20 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
 
         match parsed {
             (None, Some(direct)) => {
+                debug!("Parsed data {:?}", direct);
                 align_data(&direct, &mut next_free_ptr, &mut dir_list);
                 next_free_ptr += handle_label_refs_count(&direct, symbol_map);
                 dir_list.push(direct);
             },
             (Some(label), None) => {
+                debug!("Parsed label {label}");
                 if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr) {
                     error!("{e}");
                     std::process::exit(1)
                 };
             },
             (Some(label), Some(direct)) => {
+                debug!("Parsed label {label} and data {:?}", direct);
                 align_data(&direct, &mut next_free_ptr, &mut dir_list);
                 if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr) {
                     error!("{e}");
@@ -297,6 +300,7 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
 
         let (rested, breakout) = delimited(parse_multiline_comments, opt(parse_text_segment_id), parse_multiline_comments)(rest)?;
         if breakout.is_some() {
+            debug!("Finished data parsing sub step");
             rest = rested;
             break
         }

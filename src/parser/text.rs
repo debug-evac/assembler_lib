@@ -21,7 +21,7 @@ use nom::{
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::borrow::Cow;
-use log::{debug, error};
+use log::{debug, error, log_enabled};
 
 use crate::parser::{
     handle_label_defs, instructions::parse_instruction, literals::{
@@ -374,6 +374,19 @@ fn handle_multiline_immediate<'a>(
     false
 }
 
+#[inline]
+fn debug_operation_vec(macro_in: &MacroInstr, pointer: &usize, mid_list: &Vec<Operation>) {
+    let mut print_string = format!("Expanded '{macro_in}' at {} into '[{}", *pointer, mid_list[0]);
+
+    for op in &mid_list[1..] {
+        print_string.push_str(&("; ".to_owned() + &op.to_string()));
+    }
+
+    print_string.push_str("]'");
+
+    debug!("{print_string}");
+}
+
 fn translate_macros<'a>(
     macro_in: &MacroInstr,
     instr_list: &mut Vec<Operation<'a>>,
@@ -394,7 +407,9 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
 
-            debug!("Expanded '{macro_in}' at {} into '{:?}'", *pointer, mid_list);
+            if log_enabled!(log::Level::Debug) {
+                debug_operation_vec(macro_in, &pointer, &mid_list);
+            }
 
             incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
@@ -410,7 +425,9 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
 
-            debug!("Expanded '{macro_in}' at {} into '{:?}'", *pointer, mid_list);
+            if log_enabled!(log::Level::Debug) {
+                debug_operation_vec(macro_in, &pointer, &mid_list);
+            }
 
             incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
@@ -569,7 +586,9 @@ fn translate_macros<'a>(
                 acc -= 4;
             }
 
-            debug!("Expanded '{macro_in}' at {} into '{:?}'", *pointer, mid_list);
+            if log_enabled!(log::Level::Debug) {
+                debug_operation_vec(macro_in, &pointer, &mid_list);
+            }
 
             *accumulator += (mid_list.len() - 1) as i128;
             *pointer += mid_list.len();
@@ -597,7 +616,9 @@ fn translate_macros<'a>(
 
             mid_list.push(Instruction::Addi(Reg::G2, Reg::G2, regs.len() as i32 * 4).into());
 
-            debug!("Expanded '{macro_in}' at {} into '{:?}'", *pointer, mid_list);
+            if log_enabled!(log::Level::Debug) {
+                debug_operation_vec(macro_in, &pointer, &mid_list);
+            }
 
             *accumulator += (mid_list.len() - 1) as i128;
             *pointer += mid_list.len();
@@ -620,7 +641,9 @@ fn translate_macros<'a>(
                 mid_list.push(instrni.clone().into());
             }
 
-            debug!("Expanded '{macro_in}' at {} into '{:?}'", *pointer, mid_list);
+            if log_enabled!(log::Level::Debug) {
+                debug_operation_vec(macro_in, &pointer, &mid_list);
+            }
 
             *accumulator += (*num - 1) as i128;
             *pointer += *num as usize;
@@ -653,7 +676,9 @@ fn translate_macros<'a>(
                 }
             }
 
-            debug!("Expanded '{macro_in}' at {} into '{:?}'", *pointer, mid_list);
+            if log_enabled!(log::Level::Debug) {
+                debug_operation_vec(macro_in, &pointer, &mid_list);
+            }
 
             *accumulator += (space_needed - 1) as i128;
             *pointer += space_needed;

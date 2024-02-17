@@ -260,14 +260,14 @@ impl Display for MacroInstr {
             MacroInstr::Push(vec_regs) => {
                 write!(f, "push {}", vec_regs[0])?;
                 for reg in &vec_regs[1..] {
-                    write!(f, "{}", reg)?;
+                    write!(f, ", {}", reg)?;
                 }
                 Ok(())
             },
             MacroInstr::Pop(vec_regs) => {
                 write!(f, "pop {}", vec_regs[0])?;
                 for reg in &vec_regs[1..] {
-                    write!(f, "{}", reg)?;
+                    write!(f, ", {}", reg)?;
                 }
                 Ok(())
             },

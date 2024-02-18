@@ -55,19 +55,89 @@ the extension mem.<ext>. For example, executing
 
 These options control the format, location and type of the output.
 
-  * `-f`, `--format`:
-    Specify the format of the output. Valid values are `[raw, mif, debug]`.
-    The default is `mif`. `debug` only prints the output to stderr(3). As the
-    name implies, it should only be used for debugging purposes. Do not expect
-    stability in the format.
+  * `-f`=[`raw`|`mif`|`debug`], `--format`=[`raw`|`mif`|`debug`]:
+    Specify the format of the output. The default is `mif`. `debug` only prints
+    the output to stderr(3). As the name implies, it should only be used for
+    debugging purposes. Do not expect stability in the format.
 
     `raw` writes the machine code and data as binary to the output files.
 
     `mif` writes and formats the machine code and data as MIF, see src_mif(5)
     for details. The MIF format can be commented with the instruction assembly
-    names using option `-c` or `--comment`. The memory depth and word width can
+    names using option `-c` or `--comment`. The memory <depth> and word <width> can
     be changed using `--depth` and `--width` respectively.
 
   * `-c`, `--comment`:
-    Flag to indicate that MIF output should be commented. By default MIF output
-    is not commented. When used,
+    Indicate that MIF output should be commented. By default MIF output is not
+    commented. When used with `-f`=`mif` or `--format`=`mif`, every machine
+    code instruction includes a human readable representation as comment. Note
+    that pseudo instructions or macros are not represented as such and only
+    hardware instructions are used for representation in comments.
+
+  * `--depth`=<depth>:
+    Sets the memory <depth> for the MIF format. By default <depth> equals 1024
+    for 32 bit or 4096 for 8 bit word <width>. Valid values are between 1 and
+    65535 (including). See src_mif(5) for details.
+
+  * `--width`=[`8`|`32`]:
+    Sets the word <width> for the MIF format. By default <width> equals 32
+    (bit). See src_mif(5) for details.
+
+  * `-o`=<file>, `--output`=<file>:
+    Write output to <file> instead of the default location `a.`<ext>. Does not
+    do anything if `-f`=`debug` or `--format`=`debug`. If .data sections are
+    used in input files, then data output will be written to the directory and
+    stem of filename with the extension of `.mem.`<ext>. If `-f`=`mif` or
+    `--format`=`mif`, then <ext>=`mif`, otherwise <ext>=`bin`.
+
+These options control how the assembly code is assembled.
+
+  * `--no-nop-insertion`:
+    Indicate that no nop insertions should be done by the assembler. By default
+    nop's are inserted to circumvent data, control and memory hazards. By using
+    this flag, subroutines cannot be used since they contain hazards!
+
+Input option:
+
+  * `-i`=<file>,[<file>]..., `--input`=<file>,[<file>]...:
+    The list of input assembly files to use for assembling. At least one input
+    file must be used. Multiple input files can be used and must be separated
+    by a space.
+
+    The input files will be linked together in the order of specification in
+    this option. The first file specified comes first, the last file
+    specified comes last.
+
+Miscellaneous options:
+
+  * `-h`, `--help`:
+    Show help.
+
+  * `-v`, `--version`:
+    Show version and exit.
+
+## EXAMPLES
+
+TODO
+
+## ENVIRONMENT
+
+  * `RUST_LOG`:
+    Used to set the log level for the assembler. Valid log levels are
+    [`warn`|`error`|`info`|`debug`|`tracing`]. Different log levels for
+    different modules may also be specified by using <module>=<log_level>.
+    Only `debug` and below are used currently. Expect log output format to
+    change. See <https://docs.rs/env_logger/0.11.1/env_logger/> for more
+    information on logging.
+
+## COPYRIGHT
+
+Copyright (c) 2023 Steven Becker
+
+This Source Code Form is subject to the terms of the Mozilla Public License,
+v. 2.0. If a copy of the MPL was not distributed with this file, You can
+obtain one at <http://mozilla.org/MPL/2.0/>.
+
+## SEE ALSO
+
+src_mif(5), stderr(3), assembler-format(5)

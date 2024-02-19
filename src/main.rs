@@ -109,6 +109,12 @@ Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
                 .required(false)
                 .help("Disallow nop insertion")
     )
+    .arg(Arg::new("sp_init")
+                .long("no-sp-init")
+                .action(ArgAction::SetFalse)
+                .required(false)
+                .help("Disallow stack pointer initialization")
+    )
     .arg(Arg::new("comment_mif")
                 .long("comment")
                 .short('c')
@@ -176,9 +182,10 @@ fn main() {
     progbar.set_message("Parsing...");
 
     let mut subroutines = Subroutines::new();
+    let sp_init = matches.get_flag("sp_init");
 
-    for val in string_vector.as_slice() {
-        match parser::parse(val, &mut Some(&mut subroutines)) {
+    for (counter, val) in string_vector.iter().enumerate() {
+        match parser::parse(val, &mut Some(&mut subroutines), counter == 0 && sp_init) {
             Ok(val) => parsed_vector.push(val.1),
             Err(e) => {
                 error!("{e}");
@@ -189,7 +196,7 @@ fn main() {
 
     let sub_code = subroutines.get_code();
     for code in sub_code.as_slice() {
-        let val = parser::parse(code, &mut None);
+        let val = parser::parse(code, &mut None, false);
         if let Ok(res) = val {
             parsed_vector.push(res.1)
         }

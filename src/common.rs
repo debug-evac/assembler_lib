@@ -166,7 +166,7 @@ pub enum MacroInstr {
     Jal(Reg, String),
     Jalr(Reg, Reg, String, Part),
 
-    Lui(Reg, String),
+    Lui(Reg, String, Part),
     Auipc(Reg, String, Part),
 
     Slli(Reg, Reg, String),
@@ -189,7 +189,8 @@ pub enum MacroInstr {
     Srr(Reg, Reg, Imm),
     Slr(Reg, Reg, Imm),
 
-    Li(Reg, Imm),
+    LiImm(Reg, Imm),
+    LiLabl(Reg, String),
     LaImm(Reg, Imm),
     LaLabl(Reg, String),
 
@@ -224,7 +225,7 @@ impl Display for MacroInstr {
             MacroInstr::Jal(reg, label) => write!(f, "jal {reg}, {label}"),
             MacroInstr::Jalr(reg1, reg2, label, _) => write!(f, "jalr {reg1}, {reg2}, {label}"),
 
-            MacroInstr::Lui(reg, label) => write!(f, "lui {reg}, {label}"),
+            MacroInstr::Lui(reg, label, _) => write!(f, "lui {reg}, {label}"),
             MacroInstr::Auipc(reg, label, _) => write!(f, "auipc {reg}, {label}"),
 
             MacroInstr::Slli(reg1, reg2, label) => write!(f, "slli {reg1}, {reg2}, {label}"),
@@ -247,7 +248,8 @@ impl Display for MacroInstr {
             MacroInstr::Srr(reg1, reg2, imm) => write!(f, "srr {reg1}, {reg2}, {imm}"),
             MacroInstr::Slr(reg1, reg2, imm) => write!(f, "slr {reg1}, {reg2}, {imm}"),
 
-            MacroInstr::Li(reg, imm) => write!(f, "li {reg}, {imm}"),
+            MacroInstr::LiImm(reg, imm) => write!(f, "li {reg}, {imm}"),
+            MacroInstr::LiLabl(reg, label) => write!(f, "li {reg}, {label}"),
             MacroInstr::LaImm(reg, imm) => write!(f, "la {reg}, {imm}"),
             MacroInstr::LaLabl(reg, label) => write!(f, "la {reg}, {label}"),
 

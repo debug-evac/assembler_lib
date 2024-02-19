@@ -42,6 +42,7 @@ ret
 
     #[cfg(feature = "raw_nop")]
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_11000_00000_00000_00000_01000_10011,
         0b00_00000_00000_00100_10111_00101_10111, // Li - lui
         0b00_00000_00000_00000_00000_00000_10011, // 3x NOP
@@ -60,6 +61,7 @@ ret
 
     #[cfg(not(feature = "raw_nop"))]
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_11000_00000_00000_00000_01000_10011,
         0b00_00000_00000_00100_10111_00101_10111, // Li - lui
         0b10_01111_10110_11001_00011_00100_10011, // Li - addi
@@ -140,6 +142,7 @@ ret
 
     #[cfg(not(feature = "raw_nop"))]
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_11000_00000_00000_00000_01000_10011,
         0b00_00000_00000_00100_10111_00101_10111, // Li - lui
         0b10_01111_10110_11001_00011_00100_10011, // Li - addi
@@ -161,6 +164,11 @@ ret
     cor_output.write_binary(&cor_instr_vec)?;
 
     let mut cmd = Command::cargo_bin("assembler")?;
+    #[cfg(feature = "raw_nop")]
+    cmd.arg("-i").arg(main_in.path()).arg(sec_in.path())
+                 .arg("-o").arg(output_path.path())
+                 .arg("-f").arg("raw").arg("--no-sp-init");
+    #[cfg(not(feature = "raw_nop"))]
     cmd.arg("-i").arg(main_in.path()).arg(sec_in.path())
                  .arg("-o").arg(output_path.path())
                  .arg("-f").arg("raw");
@@ -204,6 +212,7 @@ ret
     let mut cor_instr_vec: Vec<u8> = vec![];
 
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_11000_00000_00000_00000_01000_10011,
         0b00_00000_00000_00100_10111_00101_10111, // Li - lui
         0b10_01111_10110_11001_00011_00100_10011, // Li - addi
@@ -300,6 +309,7 @@ farAway: j farAway
 
     #[cfg(not(feature = "raw_nop"))]
     let mut instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_00000_00000_00000_00100_00100_10111, // auipc call farAway
         0b00_00000_01100_00001_00000_00111_00111, // jalr
     ]);
@@ -318,6 +328,10 @@ farAway: j farAway
 
     let mut cmd = Command::cargo_bin("assembler")?;
 
+    #[cfg(feature = "raw_nop")]
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
+                 .arg("-f").arg("raw").arg("--no-sp-init");
+    #[cfg(not(feature = "raw_nop"))]
     cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
                  .arg("-f").arg("raw");
     cmd.assert()
@@ -348,6 +362,7 @@ rep 3, nop
     let mut cor_instr_vec: Vec<u8> = vec![];
 
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011  // nop
@@ -397,6 +412,7 @@ rep 3, nop
     let cor_output = temp.child("correct_output.mif");
 
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011  // nop
@@ -448,6 +464,7 @@ rep 3, nop
     let mut cor_instr_vec: Vec<u8> = vec![];
 
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011  // nop
@@ -460,7 +477,11 @@ rep 3, nop
     let mut output_str = "DEPTH = 1024;\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
 
     for (counter, values) in cor_instr_vec.chunks_exact(4).enumerate() {
-        output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "addi zero, zero, 0"));
+        if counter == 0 {
+            output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "lui sp, 4096"));
+        } else {
+            output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "addi zero, zero, 0"));
+        }
     }
 
     output_str.push_str("END;\n");
@@ -497,6 +518,7 @@ rep 3, nop
     let cor_output = temp.child("correct_output.mif");
 
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011  // nop
@@ -508,7 +530,11 @@ rep 3, nop
 
     for instr in instr_vec.iter() {
         let mach_instr = instr.to_le_bytes();
-        output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "addi zero, zero, 0"));
+        if counter == 0 {
+            output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "lui sp, 4096"));
+        } else {
+            output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "addi zero, zero, 0"));
+        }
         counter += 4;
     }
 
@@ -544,6 +570,7 @@ rep 3, nop
 "#)?;
 
     let instr_vec: Vec<u32> = Vec::from([
+        0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011, // nop
         0b00_00000_00000_00000_00000_00000_10011  // nop
@@ -596,10 +623,12 @@ fn test_data_mif() -> Result<(), Box<dyn std::error::Error>> {
     .space  3000            ; very much free space
 testing:
     .word   GETIT
+    .eqv    INSTANT, 25
 .text
 SmallExample:
     addi    sp, zero, 0x300
     la      t0, testing     ; load address of testing
+    li      t1, INSTANT     ; load 25
 GETIT:
     j       GETIT           ; haha get it?
 "#)?;
@@ -612,25 +641,34 @@ GETIT:
 
     #[cfg(feature = "raw_nop")] {
         instr_vec = Vec::from([
+            0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
             0b00_11000_00000_00000_00000_01000_10011,
             0b00_00000_00000_00000_00100_10100_10111,
             0b00_00000_00000_00000_00000_00000_10011,
             0b00_00000_00000_00000_00000_00000_10011,
             0b00_00000_00000_00000_00000_00000_10011,
             0b10_11101_11000_00101_00000_10100_10011,
+            0b00_00000_00000_00000_00000_11001_10111, // lui - li
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_11001_00110_00000_11000_10011, // lui - addi
             0b00_00000_00000_00000_00000_00011_01111
         ]);
-        data_vec.push(24);
+        data_vec.push(48);
     }
 
     #[cfg(not(feature = "raw_nop"))] {
         instr_vec = Vec::from([
-            0b00_11000_00000_00000_00000_01000_10011,
-            0b00_00000_00000_00000_00100_10100_10111,
-            0b10_11101_11000_00101_00000_10100_10011,
-            0b00_00000_00000_00000_00000_00011_01111
+            0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
+            0b00_11000_00000_00000_00000_01000_10011, // addi
+            0b00_00000_00000_00000_00100_10100_10111, // la
+            0b10_11101_11000_00101_00000_10100_10011, // la
+            0b00_00000_00000_00000_00000_11001_10111, // lui - li
+            0b00_00000_11001_00110_00000_11000_10011, // lui - addi
+            0b00_00000_00000_00000_00000_00011_01111  // j GETIT
         ]);
-        data_vec.push(12);
+        data_vec.push(24);
     }
 
     let mut output_data_str = "DEPTH = 1024;\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
@@ -661,6 +699,223 @@ GETIT:
         .stdout(predicate::str::is_empty());
 
     println!("{}", std::fs::read_to_string(output_path.path())?);
+
+    output_path
+        .assert(predicate::path::is_file())
+        .assert(predicate::path::eq_file(cor_instr_output.path()));
+
+    temp.child("a.mem.mif")
+        .assert(predicate::path::is_file())
+        .assert(predicate::path::eq_file(cor_data_output.path()));
+
+    temp.close()?;
+
+    Ok(())
+}
+
+#[test]
+fn test_data_mif8() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = assert_fs::TempDir::new()?;
+
+    let output_path = temp.child("a.mif");
+    let cor_instr_output = temp.child("correct_output.mif");
+    let cor_data_output = temp.child("correct_output.mem.mif");
+
+    let input = temp.child("test_mif_format.asm");
+    input.write_str(r#"
+.data
+BYTEDATA:
+    .byte   1, 2, 3
+    .half   1, 2, 3
+DWORDDATA:
+    .dword  20, 15
+.text
+SmallExample:
+    addi    sp, zero, 0x300
+    la      t0, BYTEDATA        ; load address of bytes and halfs
+    la      t1, DWORDDATA       ; load dword data address
+GETIT:
+    j       GETIT               ; haha get it?
+"#)?;
+
+    let mut data_vec: Vec<u32> = vec![];
+    data_vec.push(1_u32 + (2_u32 << 8) + (3_u32 << 16));
+    data_vec.push((2_u32 << 16) + 1_u32);
+    data_vec.push(3_u32);
+    data_vec.push(20_u32);
+    data_vec.push(0);
+    data_vec.push(15_u32);
+    data_vec.push(0);
+
+    let instr_vec: Vec<u32>;
+
+    #[cfg(feature = "raw_nop")] {
+        instr_vec = Vec::from([
+            0b00_11000_00000_00000_00000_01000_10011,
+            0b00_00000_00000_00000_00000_10100_10111, // la BYTEDATA (0)
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00101_00000_10100_10011, // la
+            0b00_00000_00000_00000_00000_11000_10111, // la DWORDDATA (12)
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_01100_00110_00000_11000_10011, // la
+            0b00_00000_00000_00000_00000_00011_01111
+        ]);
+    }
+
+    #[cfg(not(feature = "raw_nop"))] {
+        instr_vec = Vec::from([
+            0b00_11000_00000_00000_00000_01000_10011, // addi
+            0b00_00000_00000_00000_00000_10100_10111, // la BYTEDATA (0)
+            0b00_00000_00000_00101_00000_10100_10011, // la
+            0b00_00000_00000_00000_00000_11000_10111, // la DWORDDATA (12)
+            0b00_00000_01100_00110_00000_11000_10011, // la
+            0b00_00000_00000_00000_00000_00011_01111  // j GETIT
+        ]);
+    }
+
+    let mut output_data_str = "DEPTH = 1024;\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
+    let mut output_instr_str = "DEPTH = 1024;\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
+
+    let mut counter: usize = 0;
+
+    for instr in instr_vec.iter() {
+        let mach_instr = instr.to_le_bytes();
+        output_instr_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]));
+        counter += 4;
+    }
+
+    counter = 0;
+
+    for data in data_vec.iter() {
+        let mach_data = data.to_le_bytes();
+        output_data_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\n", mach_data[0], mach_data[1], mach_data[2], mach_data[3]));
+        counter += 4;
+    }
+
+    output_data_str.push_str("END;\n");
+    output_instr_str.push_str("END;\n");
+
+    cor_data_output.write_str(&output_data_str)?;
+    cor_instr_output.write_str(&output_instr_str)?;
+
+    let mut cmd = Command::cargo_bin("assembler")?;
+
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
+        .arg("-f").arg("mif").arg("--width").arg("8").arg("--no-sp-init");
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::is_empty());
+
+    output_path
+        .assert(predicate::path::is_file())
+        .assert(predicate::path::eq_file(cor_instr_output.path()));
+
+    temp.child("a.mem.mif")
+        .assert(predicate::path::is_file())
+        .assert(predicate::path::eq_file(cor_data_output.path()));
+
+    temp.close()?;
+
+    Ok(())
+}
+
+#[test]
+fn test_data_mif_alignment() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = assert_fs::TempDir::new()?;
+
+    let output_path = temp.child("a.mif");
+    let cor_instr_output = temp.child("correct_output.mif");
+    let cor_data_output = temp.child("correct_output.mem.mif");
+
+    let input = temp.child("test_mif_format.asm");
+    input.write_str(r#"
+.data
+BYTEDATA:
+    .byte   1
+DWORDDATA:
+    .dword  20, 15
+.text
+SmallExample:
+    addi    sp, zero, 0x300
+    la      t0, BYTEDATA        ; load address of bytes and halfs
+    la      t1, DWORDDATA       ; load dword data address
+GETIT:
+    j       GETIT               ; haha get it?
+"#)?;
+
+    let mut data_vec: Vec<u32> = vec![];
+    data_vec.push(1_u32);
+    data_vec.push(20_u32);
+    data_vec.push(0);
+    data_vec.push(15_u32);
+    data_vec.push(0);
+
+    let instr_vec: Vec<u32>;
+
+    #[cfg(feature = "raw_nop")] {
+        instr_vec = Vec::from([
+            0b00_11000_00000_00000_00000_01000_10011,
+            0b00_00000_00000_00000_00000_10100_10111, // la BYTEDATA (0)
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00101_00000_10100_10011, // la
+            0b00_00000_00000_00000_00000_11000_10111, // la DWORDDATA (4)
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00000_00000_00000_00000_10011,
+            0b00_00000_00100_00110_00000_11000_10011, // la
+            0b00_00000_00000_00000_00000_00011_01111
+        ]);
+    }
+
+    #[cfg(not(feature = "raw_nop"))] {
+        instr_vec = Vec::from([
+            0b00_11000_00000_00000_00000_01000_10011, // addi
+            0b00_00000_00000_00000_00000_10100_10111, // la BYTEDATA (0)
+            0b00_00000_00000_00101_00000_10100_10011, // la
+            0b00_00000_00000_00000_00000_11000_10111, // la DWORDDATA (4)
+            0b00_00000_00100_00110_00000_11000_10011, // la
+            0b00_00000_00000_00000_00000_00011_01111  // j GETIT
+        ]);
+    }
+
+    let mut output_data_str = "DEPTH = 1024;\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
+    let mut output_instr_str = "DEPTH = 1024;\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
+
+    let mut counter: usize = 0;
+
+    for instr in instr_vec.iter() {
+        let mach_instr = instr.to_le_bytes();
+        output_instr_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]));
+        counter += 4;
+    }
+
+    counter = 0;
+
+    for data in data_vec.iter() {
+        let mach_data = data.to_le_bytes();
+        output_data_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\n", mach_data[0], mach_data[1], mach_data[2], mach_data[3]));
+        counter += 4;
+    }
+
+    output_data_str.push_str("END;\n");
+    output_instr_str.push_str("END;\n");
+
+    cor_data_output.write_str(&output_data_str)?;
+    cor_instr_output.write_str(&output_instr_str)?;
+
+    let mut cmd = Command::cargo_bin("assembler")?;
+
+    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
+        .arg("-f").arg("mif").arg("--width").arg("8").arg("--no-sp-init");
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::is_empty());
 
     output_path
         .assert(predicate::path::is_file())

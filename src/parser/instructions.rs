@@ -85,10 +85,12 @@ impl InstrType {
                 let (rest, args) = separated_pair(parse_reg, parse_seper, parse_label_name)(rest)?;
 
                 Ok((rest, match interop {
-                    IntermediateOp::Lui => MacroInstr::Lui(args.0, args.1.to_string()).into(),
+                    IntermediateOp::Lui => MacroInstr::Lui(args.0, args.1.to_string(), Part::None).into(),
                     IntermediateOp::Auipc => MacroInstr::Auipc(args.0, args.1.to_string(), Part::None).into(),
                     IntermediateOp::Jal => MacroInstr::Jal(args.0, args.1.to_string()).into(),
                     IntermediateOp::La => MacroInstr::LaLabl(args.0, args.1.to_string()).into(),
+
+                    IntermediateOp::Li => MacroInstr::LiLabl(args.0, args.1.to_string()).into(),
 
                     op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
@@ -101,7 +103,7 @@ impl InstrType {
                     IntermediateOp::Auipc => Instruction::Auipc(args.0, args.1).into(),
                     IntermediateOp::Jal => Instruction::Jal(args.0, args.1).into(),
             
-                    IntermediateOp::Li => MacroInstr::Li(args.0, args.1).into(),
+                    IntermediateOp::Li => MacroInstr::LiImm(args.0, args.1).into(),
                     IntermediateOp::La => MacroInstr::LaImm(args.0, args.1).into(),
             
                     op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
@@ -344,6 +346,8 @@ fn parse_macro_1labl1reg(input: &str) -> IResult<&str, Operation> {
         value(InstrType::RegLabl(IntermediateOp::Lui), tag("lui")),
         value(InstrType::RegLabl(IntermediateOp::Auipc), tag("auipc")),
         value(InstrType::RegLabl(IntermediateOp::Jal), tag("jal")),
+
+        value(InstrType::RegLabl(IntermediateOp::Li), tag("li")),
         value(InstrType::RegLabl(IntermediateOp::La), tag("la")),
     ))(input)?;
     instr.translate_parse(rest)
@@ -586,8 +590,8 @@ mod tests {
     #[test]
     fn test_parse_instr1labl1reg() {
         assert_ne!(parse_macro_1labl1reg(""), Ok(("", Instruction::Addi(Reg::G0, Reg::G0, 0).into())));
-        assert_ne!(parse_macro_1labl1reg("lui"), Ok(("", MacroInstr::Lui(Reg::G0, "".to_string()).into())));
-        assert_eq!(parse_macro_1labl1reg("lui a2, stop"), Ok(("", MacroInstr::Lui(Reg::G12, "stop".to_string()).into())));
+        assert_ne!(parse_macro_1labl1reg("lui"), Ok(("", MacroInstr::Lui(Reg::G0, "".to_string(), Part::None).into())));
+        assert_eq!(parse_macro_1labl1reg("lui a2, stop"), Ok(("", MacroInstr::Lui(Reg::G12, "stop".to_string(), Part::None).into())));
         assert_eq!(parse_macro_1labl1reg("auipc s2, helloWorld"), Ok(("", MacroInstr::Auipc(Reg::G18, "helloWorld".to_string(), Part::None).into())));
         assert_eq!(parse_macro_1labl1reg("jal   x20, test"), Ok(("", MacroInstr::Jal(Reg::G20, "test".to_string()).into())));
         assert_ne!(parse_macro_1labl1reg("jal x19, train "), Ok(("", MacroInstr::Jal(Reg::G19, "train".to_string()).into())));

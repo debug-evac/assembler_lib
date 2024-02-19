@@ -11,7 +11,7 @@ mod literals;
 mod text;
 mod data;
 
-use log::warn;
+use log::{debug, warn};
 use nom::{
     bytes::complete::escaped, 
     character::complete::{multispace1, not_line_ending}, 
@@ -71,7 +71,7 @@ fn parse_multiline_comments(input: &str) -> IResult<&str, bool> {
     Ok((rest, false))
 }
 
-pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> IResult<&'a str, AssemblyCode<'a, LabelRecog>> {
+pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sp_init: bool) -> IResult<&'a str, AssemblyCode<'a, LabelRecog>> {
     let mut assembly = AssemblyCode::new(LabelRecog::new());
 
     let (mut rest, parsed) = tuple((parse_multiline_comments, opt(parse_data_segment_id), parse_multiline_comments))(input)?;
@@ -85,8 +85,10 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>) -> 
         rest = rested;
     }
 
-    let (rest, vec_ops) = text::parse(rest, subroutines, assembly.get_labels_refmut())?;
+    let (rest, vec_ops) = text::parse(rest, subroutines, assembly.get_labels_refmut(), sp_init)?;
     assembly.set_text(vec_ops);
+
+    debug!("Finished parser step");
 
     Ok((rest, assembly))
 }

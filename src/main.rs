@@ -31,7 +31,7 @@ use std::{
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use console::Term;
 
-use crate::common::{LabelRecog, AssemblyCode};
+use crate::common::{LabelRecog, AssemblyCode, errors::ExitErrorCode};
 
 fn cli_interface() -> ArgMatches {
     #[allow(non_upper_case_globals)]
@@ -109,6 +109,12 @@ Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
                 .required(false)
                 .help("Disallow nop insertion")
     )
+    .arg(Arg::new("sp_init")
+                .long("no-sp-init")
+                .action(ArgAction::SetFalse)
+                .required(false)
+                .help("Disallow stack pointer initialization")
+    )
     .arg(Arg::new("comment_mif")
                 .long("comment")
                 .short('c')
@@ -135,7 +141,7 @@ fn main() {
     let matches = cli_interface();
 
     let vals: Vec<&PathBuf> = matches.get_many::<PathBuf>("input")
-    .expect("At least one assembly input file is required")
+    .unwrap()
     .collect();
 
     let mut parsed_vector: Vec<AssemblyCode<LabelRecog>> = vec![];
@@ -167,7 +173,7 @@ fn main() {
             Ok(val) => string_vector.push(val),
             Err(msg) => {
                 error!("Could not read '{}': {}", file.as_path().to_string_lossy(), msg);
-                std::process::exit(1)
+                std::process::exit(66)
             },
         };
     }
@@ -176,20 +182,21 @@ fn main() {
     progbar.set_message("Parsing...");
 
     let mut subroutines = Subroutines::new();
+    let sp_init = matches.get_flag("sp_init");
 
-    for val in string_vector.as_slice() {
-        match parser::parse(val, &mut Some(&mut subroutines)) {
+    for (counter, val) in string_vector.iter().enumerate() {
+        match parser::parse(val, &mut Some(&mut subroutines), counter == 0 && sp_init) {
             Ok(val) => parsed_vector.push(val.1),
             Err(e) => {
                 error!("{e}");
-                std::process::exit(1)
+                std::process::exit(65)
             },
         }
     }
 
     let sub_code = subroutines.get_code();
     for code in sub_code.as_slice() {
-        let val = parser::parse(code, &mut None);
+        let val = parser::parse(code, &mut None, false);
         if let Ok(res) = val {
             parsed_vector.push(res.1)
         }
@@ -202,7 +209,7 @@ fn main() {
         Ok(linked) => linked,
         Err(e) => {
             error!("{e}");
-            std::process::exit(1)
+            std::process::exit(e.get_err_code())
         },
     };
 
@@ -215,7 +222,7 @@ fn main() {
         Ok(instr_list) => instr_list,
         Err(e) => {
             error!("{e}");
-            std::process::exit(1)
+            std::process::exit(e.get_err_code())
         }
     };
 
@@ -231,7 +238,7 @@ fn main() {
 
     if let Err(e) = translator::translate_and_present(outpath, translatable_code, comment, outfmt, (*depth, width)) {
         error!("{e}");
-        std::process::exit(1)
+        std::process::exit(e.get_err_code())
     };
 
     let line = if outfmt != "debug" {

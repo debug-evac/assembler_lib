@@ -18,7 +18,7 @@ use std::{
 use log::{debug, info, log_enabled, warn};
 
 use self::pretty_print::emit_debug_translate_instruction;
-use crate::common::{ByteData, DWordData, HalfData, Imm, Instruction, MemData, Reg, TranslatableCode, WordData};
+use crate::common::{ByteData, DWordData, HalfData, Imm, Instruction, MemData, Reg, TranslatableCode, WordData, errors::TranslatorError};
 
 fn btype_instr(rs1: &Reg, rs2: &Reg, imm: &Imm) -> u32 {
    let u12 =  (imm & 0b100_00000_00000i32) >> 1;
@@ -152,74 +152,82 @@ fn set_data_path(output: &Path, extension: &str) -> PathBuf {
    datapath
 }
 
+trait Translatable {
+   fn translate(&self) -> u32;
+}
+
+impl Translatable for Instruction {
+   fn translate(&self) -> u32 {
+      self.translate_instruction()
+   }
+}
+
+impl Translatable for u32 {
+   fn translate(&self) -> u32 {
+      *self
+   }
+}
+
 trait Writable {
    // about to be phased out, only included here to not have to deal with two proceedings
-   fn write_to_mif_8(&self, output: &Path, depth: u16, comment: bool) -> Result<(), std::io::Error>;
-   fn write_to_mif(&self, output: &Path, depth: u16, comment: bool) -> Result<(), std::io::Error>;
+   fn write_to_mif(&self, output: &Path, depth: u16, width: u8, comment: bool) -> Result<(), TranslatorError>;
    fn write_raw(&self, output: &Path) -> Result<(), std::io::Error>;
 }
 
-impl Writable for &Vec<Instruction> {
-   fn write_to_mif_8(&self, output: &Path, depth: u16, comment: bool) -> Result<(), std::io::Error> {
-      let mut file = File::create(output)?;
-
-      writeln!(file, "DEPTH = {depth};\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
-
-      let mut counter: usize = 0;
-      if comment {
-         for instr in self.iter() {
-            let mach_instr = instr.translate_instruction().to_le_bytes();
-            writeln!(file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {:?}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], instr).unwrap();
-            counter += 4;
-         }
-      } else {
-         for instr in self.iter() {
-            let mach_instr = instr.translate_instruction().to_le_bytes();
-            writeln!(file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
-            counter += 4;
-         }
-      }
-
-      writeln!(file, "END;")?;
-
-      Ok(())
-   }
-
-   fn write_to_mif(&self, output: &Path, depth: u16, comment: bool) -> Result<(), std::io::Error> {
-      let mut file = File::create(output)?;
-
-      writeln!(file, "DEPTH = {depth};\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
-
-      if comment {
-         for (counter, instr) in self.iter().enumerate() {
-            let mach_instr = instr.translate_instruction().to_le_bytes();
-            writeln!(file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {:?}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], instr)?;
-         }
-      } else {
-         for (counter, instr) in self.iter().enumerate() {
-            let mach_instr = instr.translate_instruction().to_le_bytes();
-            writeln!(file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3])?;
-         }
-      }
-
-      writeln!(file, "END;")?;
-
-      Ok(())
-   }
-
+impl <T: Translatable + std::fmt::Display> Writable for &Vec<T> {
    fn write_raw(&self, output: &Path) -> Result<(), std::io::Error> {
       let mut file = File::create(output)?;
       let mut byte_instrs: Vec<u8> = vec![];
 
       for instr in self.iter() {
-         byte_instrs.extend(instr.translate_instruction().to_le_bytes());
+         byte_instrs.extend(instr.translate().to_le_bytes());
       }
       file.write_all(&byte_instrs)?;
       Ok(())
    }
+
+   fn write_to_mif(&self, output: &Path, depth: u16, width: u8, comment: bool) -> Result<(), TranslatorError> {
+      let (sep, added) = if width == 32 {
+         if (depth as usize) < self.len() {
+            return Err(TranslatorError::DepthNotFit(depth as usize, self.len()))
+         }
+         ("", 1)
+      } else if width == 8 {
+         let addr_count = (depth as usize) / 4;
+         if addr_count < self.len() {
+            return Err(TranslatorError::DepthNotFit(addr_count, self.len()))
+         }
+         (" ", 4)
+      } else {
+         return Err(TranslatorError::UndefinedWidth(width));
+      };
+
+      let mut file = File::create(output)?;
+
+      writeln!(file, "DEPTH = {depth};\nWIDTH = {width};\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
+
+      let mut counter: usize = 0;
+      if comment {
+         for elem in self.iter() {
+            let mach_instr = elem.translate().to_le_bytes();
+            writeln!(file, "{counter}\t: {:08b}{sep}{:08b}{sep}{:08b}{sep}{:08b};\t\t-- {elem}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
+            counter += added;
+         }
+      } else {
+         for elem in self.iter() {
+            let mach_instr = elem.translate().to_le_bytes();
+            writeln!(file, "{counter}\t: {:08b}{sep}{:08b}{sep}{:08b}{sep}{:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
+            counter += added;
+         }
+      }
+
+      writeln!(file, "END;")?;
+
+      Ok(())
+   }
 }
 
-fn translate_data_to_byte_vec(memdata: &[MemData]) -> Vec<u8> {
+fn translate_data_to_word_vec(memdata: &[MemData]) -> Vec<u32> {
    let mut translatable_data: Vec<u8> = vec![];
 
    for data in memdata.iter() {
@@ -264,111 +272,32 @@ fn translate_data_to_byte_vec(memdata: &[MemData]) -> Vec<u8> {
          MemData::Namespace(_) => (),
      }
    }
-   translatable_data
+
+   let mut word_vec: Vec<u32> = vec![];
+   let mut iter = translatable_data.chunks_exact(4);
+
+   for byte in iter.by_ref() {
+      word_vec.push(((byte[3] as u32) << 24) + ((byte[2] as u32) << 16) + ((byte[1] as u32) << 8) + (byte[0] as u32));
+   }
+
+   let remainder = iter.remainder();
+
+   match remainder.len() {
+      0 => (),
+      1 => word_vec.push((remainder[0] as u32)<< 24),
+      2 => word_vec.push(((remainder[1] as u32) << 24) + ((remainder[0] as u32) << 16)),
+      3 => word_vec.push(((remainder[2] as u32) << 24) + ((remainder[1] as u32) << 16) + ((remainder[0] as u32) << 8)),
+      _ => unreachable!(),
+   }
+
+   word_vec
 }
 
-impl Writable for &Vec<MemData> {
-   fn write_to_mif_8(&self, output: &Path, depth: u16, _comment: bool) -> Result<(), std::io::Error> {
-      let mut file = File::create(output)?;
-
-      writeln!(file, "DEPTH = {depth};\nWIDTH = 8;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
-
-      let translate_vec = translate_data_to_byte_vec(self);
-      let mut counter: usize = 0;
-
-      let iter = translate_vec.chunks_exact(4);
-
-      for instr in iter.clone() {
-         writeln!(file, "{counter}\t: {:08b} {:08b} {:08b} {:08b};", instr[0], instr[1], instr[2], instr[3])?;
-         counter += 4;
-      }
-
-      let remainder = iter.remainder();
-
-      match remainder.len() {
-         0 => (),
-         1 => writeln!(file, "{counter}\t: {:08b};", remainder[0])?,
-         2 => writeln!(file, "{counter}\t: {:08b} {:08b};", remainder[1], remainder[0])?,
-         3 => writeln!(file, "{counter}\t: {:08b} {:08b} {:08b};", remainder[2], remainder[1], remainder[0])?,
-         _ => unreachable!(),
-      }
-
-      writeln!(file, "END;")?;
-
-      Ok(())
-   }
-
-   fn write_to_mif(&self, output: &Path, depth: u16, _comment: bool) -> Result<(), std::io::Error> {
-      let mut file = File::create(output)?;
-
-      writeln!(file, "DEPTH = {depth};\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN")?;
-
-      let translate_vec = translate_data_to_byte_vec(self);
-      let mut counter: usize = 0;
-
-      let iter = translate_vec.chunks_exact(4);
-
-      for instr in iter.clone() {
-         writeln!(file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", instr[0], instr[1], instr[2], instr[3])?;
-         counter += 1;
-      }
-
-      let remainder = iter.remainder();
-
-      match remainder.len() {
-         0 => (),
-         1 => writeln!(file, "{counter}\t: {:08b}{:024b};", remainder[0], 0)?,
-         2 => writeln!(file, "{counter}\t: {:08b}{:08b}{:016b};", remainder[1], remainder[0], 0)?,
-         3 => writeln!(file, "{counter}\t: {:08b}{:08b}{:08b}{:08b};", remainder[2], remainder[1], remainder[0], 0)?,
-         _ => unreachable!(),
-      }
-
-      writeln!(file, "END;")?;
-
-      Ok(())
-   }
-
-   fn write_raw(&self, output: &Path) -> Result<(), std::io::Error> {
-      let mut file = File::create(output)?;
-      let mut byte_instrs: Vec<u8> = vec![];
-      
-      let translate_vec = translate_data_to_byte_vec(self);
-
-      let iter = translate_vec.chunks_exact(4);
-
-      for instr in iter.clone() {
-         byte_instrs.push(instr[0]);
-         byte_instrs.push(instr[1]);
-         byte_instrs.push(instr[2]);
-         byte_instrs.push(instr[3]);
-      }
-
-      let remainder = iter.remainder();
-
-      match remainder.len() {
-         0 => (),
-         1 => byte_instrs.push(remainder[0]),
-         2 => {
-            byte_instrs.push(remainder[1]);
-            byte_instrs.push(remainder[0])
-         },
-         3 => {
-            byte_instrs.push(remainder[2]);
-            byte_instrs.push(remainder[1]);
-            byte_instrs.push(remainder[0])
-         },
-         _ => unreachable!(),
-      }
-
-      file.write_all(&byte_instrs)?;
-      Ok(())
-   }
-}
-
-pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode, comment: bool, format: &str, size: (u16, u8)) -> Result<(), String> {
+pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode, comment: bool, format: &str, size: (u16, u8)) -> Result<(), TranslatorError> {
    let (input, data) = translate_code.get_all_ref();
 
    let outdata;
+   let data_vec;
 
    let mut translation_vec: Vec<(Box<dyn Writable>, &PathBuf)> = vec![];
    translation_vec.push((Box::from(input), output));
@@ -380,33 +309,12 @@ pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode,
 
          if !data.is_empty() {
             outdata = set_data_path(output, "mem.mif");
-            translation_vec.push((Box::from(data), &outdata));
-         };
+            data_vec = translate_data_to_word_vec(data);
+            translation_vec.push((Box::from(&data_vec), &outdata));
+         }
 
-         if width == 32 {
-            if (depth as usize) < input.len() {
-               return Err(format!("MIF depth is smaller than the instruction count! {} < {}", depth, input.len()));
-            }
-
-            for write_tuple in translation_vec {
-               if let Err(e) = write_tuple.0.write_to_mif(write_tuple.1, depth, comment) {
-                  return Err(e.to_string());
-               }
-            }
-         } else if width == 8 {
-            warn!("Deprecated: 8 bit word width and corresponding command arg are going to be removed in the next releases!");
-
-            if ((depth as usize) / 4) < input.len() {
-               return Err(format!("MIF depth is smaller than the instruction count! {} < {}", (depth / 4), input.len()));
-            }
-
-            for write_tuple in translation_vec {
-               if let Err(e) = write_tuple.0.write_to_mif_8(write_tuple.1, depth, comment) {
-                  return Err(e.to_string());
-               }
-            }
-         } else {
-            return Err(format!("Expected width of either 8 or 32 bits, got '{width}'!"));
+         for write_tuple in translation_vec {
+            write_tuple.0.write_to_mif(write_tuple.1, depth, width, comment)?;
          }
       },
       "raw" => {
@@ -416,13 +324,12 @@ pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode,
 
          if !data.is_empty() {
             outdata = set_data_path(output, "mem.bin");
-            translation_vec.push((Box::from(data), &outdata));
-         };
+            data_vec = translate_data_to_word_vec(data);
+            translation_vec.push((Box::from(&data_vec), &outdata));
+         }
 
          for write_tuple in translation_vec {
-            if let Err(e) = write_tuple.0.write_raw(write_tuple.1) {
-               return Err(e.to_string());
-            }
+            write_tuple.0.write_raw(write_tuple.1)?;
          }
       },
       "debug" => {

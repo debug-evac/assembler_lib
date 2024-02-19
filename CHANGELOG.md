@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Last instructions of RV32I for debugging & RARS compatibility
+  - `ecall` - System call (should not be used, we don't have an OS)
+  - `ebreak` - Breaking point for debugging purposes (should be used in debugger only)
 - Automatic stack pointer initialization!
   - Stack pointer is automatically initialized to 4096 bytes
   - Use `--no-sp-init` to avoid initializing stack pointer

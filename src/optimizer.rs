@@ -197,6 +197,9 @@ impl From<&Operation<'_>> for RegActType {
                     Instruction::Lui(reg, _) |
                     Instruction::Auipc(reg, _) |
                     Instruction::Jal(reg, _) => RegActType::Write(reg.clone()),
+
+                    Instruction::Ecall |
+                    Instruction::Ebreak => RegActType::NA,
                 }
             },
             Operation::Macro(instr) | Operation::LablMacro(_, instr) => {

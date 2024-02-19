@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Automatic stack pointer initialization!
+  - Stack pointer is automatically initialized to 4096 bytes
+  - Use `--no-sp-init` to avoid initializing stack pointer
+  - Note: When using `push` and `pop` the very bottom byte of the stack is not used. This may be subject to change!
 - Initial support for label constants!
   - `.eqv <LABEL>, <IMMEDIATE>` can be used to set the label to that immediate
   - `li <REG>, <LABEL>` can be used to load that label into a register

@@ -126,7 +126,7 @@ pub enum MacroInstr {
     Jal(Reg, String),
     Jalr(Reg, Reg, String, Part),
 
-    Lui(Reg, String),
+    Lui(Reg, String, Part),
     Auipc(Reg, String, Part),
 
     Slli(Reg, Reg, String),
@@ -149,7 +149,8 @@ pub enum MacroInstr {
     Srr(Reg, Reg, Imm),
     Slr(Reg, Reg, Imm),
 
-    Li(Reg, Imm),
+    LiImm(Reg, Imm),
+    LiLabl(Reg, String),
     LaImm(Reg, Imm),
     LaLabl(Reg, String),
 

@@ -54,7 +54,8 @@ pub fn emit_debug_translate_instruction(instr: &Instruction, translation: u32) -
         Instruction::Lui(_, _) |
         Instruction::Auipc(_, _) |
         // J-Type
-        Instruction::Jal(_, _) => format!("Emitted {}{}{opcode} from {:?}", pretty_imm_long(translation), pretty_register(translation, 1), instr),
+        Instruction::Jal(_, _) => format!("Emitted {}{}{opcode} from '{instr}'", pretty_imm_long(translation), 
+                                            pretty_register(translation, 1)),
 
         // S-Type instruction
         Instruction::Sb(_, _, _) |
@@ -66,7 +67,9 @@ pub fn emit_debug_translate_instruction(instr: &Instruction, translation: u32) -
         Instruction::Blt(_, _, _) |
         Instruction::Bltu(_, _, _) |
         Instruction::Bge(_, _, _) |
-        Instruction::Bgeu(_, _, _)=> format!("Emitted {}{}{}{}{}{opcode} from {:?}", pretty_imm_frac(translation, 2), pretty_register(translation, 3), pretty_register(translation, 2), pretty_func3(translation), pretty_imm_frac(translation, 1), instr),
+        Instruction::Bgeu(_, _, _)=> format!("Emitted {}{}{}{}{}{opcode} from '{instr}'", pretty_imm_frac(translation, 2), 
+                                                pretty_register(translation, 3), pretty_register(translation, 2), 
+                                                pretty_func3(translation), pretty_imm_frac(translation, 1)),
 
         // I-Type instruction; reg1 == rd
         Instruction::Jalr(_, _, _) |
@@ -90,7 +93,9 @@ pub fn emit_debug_translate_instruction(instr: &Instruction, translation: u32) -
         Instruction::Srai(_, _, _) |
 
         Instruction::Slti(_, _, _) |
-        Instruction::Sltiu(_, _, _) => format!("Emitted {}{}{}{}{opcode} from {:?}", pretty_imm_short(translation), pretty_register(translation, 2), pretty_func3(translation), pretty_register(translation, 1), instr),
+        Instruction::Sltiu(_, _, _) => format!("Emitted {}{}{}{}{opcode} from '{instr}'", pretty_imm_short(translation), 
+                                                pretty_register(translation, 2), pretty_func3(translation), 
+                                                pretty_register(translation, 1)),
 
         // R-Type instruction; 3 regs
         Instruction::Add(_, _, _) |
@@ -118,9 +123,11 @@ pub fn emit_debug_translate_instruction(instr: &Instruction, translation: u32) -
         Instruction::Div(_, _, _) |
         Instruction::Divu(_, _, _) |
         Instruction::Rem(_, _, _) |
-        Instruction::Remu(_, _, _) => format!("Emitted {}{}{}{}{}{opcode} from {:?}", pretty_func7(translation), pretty_register(translation, 3), pretty_register(translation, 2), pretty_func3(translation), pretty_register(translation, 1), instr),
+        Instruction::Remu(_, _, _) => format!("Emitted {}{}{}{}{}{opcode} from '{instr}'", pretty_func7(translation), 
+                                                pretty_register(translation, 3), pretty_register(translation, 2), 
+                                                pretty_func3(translation), pretty_register(translation, 1)),
 
         Instruction::Ebreak |
-        Instruction::Ecall => format!("Emitted {}{}{}{}{opcode} from {:?}", pretty_imm_short(translation), pretty_register(translation, 2), pretty_func3(translation), pretty_register(translation, 1), instr),
+        Instruction::Ecall => format!("Emitted {}{}{}{}{opcode} from {instr}", pretty_imm_short(translation), pretty_register(translation, 2), pretty_func3(translation), pretty_register(translation, 1)),
      }
 }

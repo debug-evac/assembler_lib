@@ -478,9 +478,9 @@ rep 3, nop
 
     for (counter, values) in cor_instr_vec.chunks_exact(4).enumerate() {
         if counter == 0 {
-            output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "Lui(G2, 4096)"));
+            output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "lui sp, 4096"));
         } else {
-            output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "Addi(G0, G0, 0)"));
+            output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "addi zero, zero, 0"));
         }
     }
 
@@ -531,9 +531,9 @@ rep 3, nop
     for instr in instr_vec.iter() {
         let mach_instr = instr.to_le_bytes();
         if counter == 0 {
-            output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "Lui(G2, 4096)"));
+            output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "lui sp, 4096"));
         } else {
-            output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "Addi(G0, G0, 0)"));
+            output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "addi zero, zero, 0"));
         }
         counter += 4;
     }
@@ -599,7 +599,7 @@ rep 3, nop
         .stdout(predicate::str::is_empty())
         .stderr(predicate::str::contains("Comment flag has no effect on debug format!"))
         .stderr(predicate::str::contains(match_str))
-        .stderr(predicate::str::contains("Emitted 00000000000000000000000000010011 from Addi(G0, G0, 0)"));
+        .stderr(predicate::str::contains("Emitted 00000000000000000000000000010011 from 'addi zero, zero, 0'"));
 
     no_output_path
         .assert(predicate::path::missing());

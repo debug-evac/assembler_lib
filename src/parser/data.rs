@@ -6,7 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use log::error;
+use std::fmt::Display;
+
+use log::{debug, error};
 use nom::{
     branch::alt, 
     bytes::complete::{is_not, tag}, 
@@ -35,6 +37,15 @@ enum Directive {
 impl From<MemData> for Directive {
     fn from(value: MemData) -> Self {
         Directive::Data(value)
+    }
+}
+
+impl Display for Directive {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Directive::Data(memdata) => write!(f, "{memdata}"),
+            Directive::EqvLabel(label, imm) => write!(f, ".eqv {label}, {imm}"),
+        }
     }
 }
 
@@ -293,6 +304,7 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
 
         match parsed {
             (None, Some(direct)) => {
+                debug!("Parsed data '{direct}'");
                 match direct {
                     Directive::Data(data) => {
                         align_data(&data, &mut next_free_ptr, &mut dir_list);
@@ -308,12 +320,14 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
                 }
             },
             (Some(label), None) => {
+                debug!("Parsed label '{label}'");
                 if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Data, next_free_ptr) {
                     error!("{e}");
                     std::process::exit(1)
                 };
             },
             (Some(label), Some(direct)) => {
+                debug!("Parsed label '{label}' and data '{direct}'");
                 match direct {
                     Directive::Data(data) => {
                         align_data(&data, &mut next_free_ptr, &mut dir_list);
@@ -340,6 +354,7 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
 
         let (rested, breakout) = delimited(parse_multiline_comments, opt(parse_text_segment_id), parse_multiline_comments)(rest)?;
         if breakout.is_some() {
+            debug!("Finished data parsing sub step");
             rest = rested;
             break
         }

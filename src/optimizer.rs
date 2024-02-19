@@ -604,7 +604,7 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
                                         line *= 4;
                                     }
                                     let label_def = line & (2_i128.pow(9) - 1);
-                                    debug!("Label ref '{label}' of byte data {:?} substituted to {:?}", data_slice, label_def);
+                                    debug!("Label ref '{label}' of byte data {:?} substituted to {label_def}", data_slice);
                                     data_slice[index] = ByteData::Byte(label_def.try_into().unwrap());
                                 },
                                 None => return Err(OptimizerError::LabelNonExistent(label.clone())),
@@ -624,7 +624,7 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
                                         line *= 4;
                                     }
                                     let label_def = line & (2_i128.pow(17) - 1);
-                                    debug!("{label} of {:?} substituted label ref to {:?}", data_slice, label_def);
+                                    debug!("{label} of {:?} substituted label ref to {label_def}", data_slice);
                                     data_slice[index] = HalfData::Half(label_def.try_into().unwrap());
                                 },
                                 None => return Err(OptimizerError::LabelNonExistent(label.clone())),
@@ -644,7 +644,7 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
                                         line *= 4;
                                     }
                                     let label_def = line & (2_i128.pow(33) - 1);
-                                    debug!("{label} of {:?} substituted label ref to {:?}", data_slice, label_def);
+                                    debug!("{label} of {:?} substituted label ref to {label_def}", data_slice);
                                     data_slice[index] = WordData::Word(label_def.try_into().unwrap());
                                 },
                                 None => return Err(OptimizerError::LabelNonExistent(label.clone())),
@@ -664,7 +664,7 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
                                         line *= 4;
                                     }
                                     let label_def = line & (2_i128.pow(65) - 1);
-                                    debug!("{label} of {:?} substituted label ref to {:?}", data_slice, label_def);
+                                    debug!("{label} of {:?} substituted label ref to {label_def}", data_slice);
                                     data_slice[index] = DWordData::DWord(label_def);
                                 },
                                 None => return Err(OptimizerError::LabelNonExistent(label.clone())),
@@ -685,7 +685,7 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
                 Operation::Macro(instr) | Operation::LablMacro(_, instr) => {
                     let instructions = translate_code.get_text_refmut();
                     instr.translate(labels, &namespace, instructions)?;
-                    debug!("{:?} substituted label ref to {:?}", operation, instructions.last().unwrap());
+                    debug!("Substituted label reference of '{operation}' to '{}'", instructions.last().unwrap());
                 },
                 Operation::Instr(instr) | Operation::LablInstr(_, instr) => {
                     translate_code.get_text_refmut().push(instr.to_owned());

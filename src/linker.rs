@@ -14,6 +14,7 @@
 // Linked files need to be specified and ordered from flags or a
 // particular file (probably flags only, but we'll see).
 use std::collections::HashMap;
+use std::fmt::Display;
 use log::debug;
 
 use crate::common::{LabelType, MemData};
@@ -60,7 +61,7 @@ impl Namespaces {
             }
         };
 
-        debug!("Successfully inserted '{:?}' into Namespace '{:?}'", recog, self.namespaces);
+        debug!("Successfully inserted '{recog}' into Namespace");
 
         // Possibly remove global labels from LabelRecog
         self.namespaces.push(recog);
@@ -109,6 +110,16 @@ impl Namespaces {
 
 impl RestrictLabelData for Namespaces {}
 
+impl Display for Namespaces {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Namespace {{\nglobals: {:?},\nnamespaces: [{}", self.global_namespace, self.namespaces[0])?;
+        for labelrec in &self.namespaces[1..] {
+            write!(f, ", {labelrec}")?;
+        }
+        write!(f, "] }}")
+    }
+}
+
 pub fn link(mut parsed_instr: Vec<AssemblyCode<LabelRecog>>) -> Result<AssemblyCode<Namespaces>, LinkError> {
     let mut new_assembly = AssemblyCode::new(Namespaces::new());
     let mut text_offset: usize = 0;
@@ -148,6 +159,8 @@ pub fn link(mut parsed_instr: Vec<AssemblyCode<LabelRecog>>) -> Result<AssemblyC
             return Err(LinkError::UndefinedGlobal(gl_label.clone()));
         }
     }
+
+    debug!("{}", new_assembly.get_labels_refmut());
 
     debug!("Finished linking step");
 

@@ -11,7 +11,7 @@ mod literals;
 mod text;
 mod data;
 
-use log::warn;
+use log::{debug, warn};
 use nom::{
     bytes::complete::escaped, 
     character::complete::{multispace1, not_line_ending}, 
@@ -87,6 +87,8 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sp_
 
     let (rest, vec_ops) = text::parse(rest, subroutines, assembly.get_labels_refmut(), sp_init)?;
     assembly.set_text(vec_ops);
+
+    debug!("Finished parser step");
 
     Ok((rest, assembly))
 }

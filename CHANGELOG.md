@@ -19,11 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `.eqv <LABEL>, <IMMEDIATE>` can be used to set the label to that immediate
   - `li <REG>, <LABEL>` can be used to load that label into a register
 - More tests
+- Debug information for data parsing sub step
 
 ### Changed
 
 - 8 bit word width for MIF format being deprecated
   - It will not be deprecated!
+- Information presentation in debugging log level
+  - the information should be more concise
 
 ### Fixed
 

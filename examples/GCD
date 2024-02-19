@@ -1,0 +1,25 @@
+	addi a2, zero, 56
+	addi a3, zero, 9024
+BRANCH:
+	blt a3, a2, BRANCHB     ; branch if a3 < a2
+	mv a1, a2               ; a2 was smaler
+	mv a0, a3
+	remu a0, a0, a1
+	beq a0, zero, ENDA      ; if result of modulo == 0
+	mv a3, a0
+	j BRANCH
+BRANCHB:
+	mv a0, a2               ; a3 was smaler
+	mv a1, a3
+	remu a0, a0, a1
+	beq a0, zero, ENDB       ; if result of modulo == 0
+	mv a2, a0
+	j BRANCH
+ENDA:
+	mv a0, a2
+	j LOD
+ENDB:
+	mv a0, a3
+	j LOD
+LOD:
+    j LOD                   ; LOOP OF DEATH

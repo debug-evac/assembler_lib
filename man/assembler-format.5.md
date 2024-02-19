@@ -168,7 +168,7 @@ number prefixed with an `x`, meaning `x0` to `x31`, or their ABI name.
     General purpose register, caller-saved. Thread pointer according to RISC-V
     spec, but not used as such here.
 
-  * `x5`, `t0`<br>`x6`, `t1`<br>`x7`, `t2`:
+  * `x`[`5`|`6`|`7`], `t`[`0`|`1`|`2`]:
     Temporary register, caller-saved.
 
   * `x8`, `s0`, `fp`:
@@ -177,26 +177,116 @@ number prefixed with an `x`, meaning `x0` to `x31`, or their ABI name.
   * `x9`, `s1`:
     Saved register, callee-saved.
 
-  * `x10`, `a0`<br>`x11`, `a1`:
+  * `x`[`10`|`11`], `a`[`0`|`1`]:
     Register for return values and function arguments, caller-saved.
 
-  * `x12`, `a2`<br>`x13`, `a3`<br>`x14`, `a4`<br>`x15`, `a5`<br>`x16`, `a6`<br>`x17`, `a7`:
+  * `x`[`12`|`13`|`14`|`15`|`16`|`17`], `a`[`2`|`3`|`4`|`5`|`6`|`7`]:
     Register for function arguments, caller-saved.
 
-  * `x18`, `s2`<br>`x19`, `s3`<br>`x20`, `s4`<br>`x21`, `s5`<br>`x22`, `s6`<br>`x23`, `s7`<br>`x24`, `s8`<br>`x25`, `s9`<br>`x26`, `s10`<br>`x27`, `s11`:
+  * `x`[`18`|`19`|`20`|`21`|`22`|`23`|`24`|`25`|`26`|`27`], `s`[`2`|`3`|`4`|`5`|`6`|`7`|`8`|`9`|`10`|`11`]:
     Saved register, callee-saved.
 
-  * `x28`, `t3`<br>`x29`, `t4`<br>`x30`, `t5`<br>`x31`, `t6`:
+  * `x`[`28`|`29`|`30`|`31`], `t`[`3`|`4`|`5`|`6`]:
     Temporary register, caller-saved.
 
 ## IMMEDIATES
 
 Some instructions, macros and directives require immediates to perform actions.
+Immediates are either in decimal, binary or hexadecimal format. By default the
+decimal format is assumed. To interpret immediates as binary or hexadecimal, the
+prefix `0b` and `0x` must be used respectively. Optionally binary or hexadecimal
+can be interpreted as signed numbers by suffixing the immediate with `s` or `S`.
 
+The following immediates are valid:
+
+    0b10          ; 2
+    0b10s         ; -2
+    0x14          ; 20
+    0x14s         ; 20
+    205
+    -12
+
+The following immediates are invalid:
+
+    0.1           ; floating point not supported (yet)
+    b100
+    x1516
+    02x3
+    50-20         ; expressions are not supported
 
 ## DIRECTIVES
 
+Directives are used in data sections and always prefixed with a dot (`.`). Some
+common directives are supported and mainly the ones that can be used to store
+data in the data section. The arguments can be either immediates or labels. The
+arguments are separated by commas (`,`) or commas with a space (`, `). The
+directive instruction and arguments are separated by one or more spaces.
+
+For some directives the argument is a string, which is delimited by quotation
+marks. Otherwise general rules apply here as well.
+
+The order of the directives in the assembly file dictate the order of the data
+in memory. Data starts at address 0 and grows upwards. The first directive is
+written to address 0.
+
+Currently the following directives are supported:
+
+  * `.byte` <REG>|<LABEL>,[<REG>|<LABEL>]...
+    The registers and labels are stored as 8 bit values in memory.
+
+  * `.half` <REG>|<LABEL>,[<REG>|<LABEL>]...
+    The registers and labels are stored as 16 bit values in memory.
+
+  * `.word` <REG>|<LABEL>,[<REG>|<LABEL>]...
+    The registers and labels are stored as 32 bit values in memory.
+
+  * `.dword` <REG>|<LABEL>,[<REG>|<LABEL>]...
+    The registers and labels are stored as 64 bit values in memory.
+
+  * `.space` <DECIMAL>
+    Reserve space for data. The <DECIMAL> denotes the space reserved in bytes.
+    It must be a decimal and cannot be negative.
+
+  * `.ascii` `"`<STRING>`"`
+    The <STRING> is stored as consecutive 8 bit values. The <STRING> should only
+    contain ASCII characters. All characters are translated to their ASCII code.
+    The <STRING> is not null terminated.
+
+  * `.asciz` `"`<STRING>`"`
+    Same as `.ascii` but the <STRING> is null terminated.
+
+  * `.string` `"`<STRING>`"`
+    Alias for `.asciz`.
+
+  * `.eqv` <LABEL>, <IMMEDIATE>
+    The value of the <LABEL> is <IMMEDIATE>. A <LABEL> emitted this way is a
+    constant that is not written in memory and can be used like a immediate.
+
+These are valid directives:
+
+    .byte   1, 3,2,LABEL
+    .half 20, 15, LABEL
+    .space 10
+    .eqv                          LABEL,30
+
+These are invalid directives:
+
+    .non                  ; unknown directive
+    .byte                 ; no arguments
+    .half 30 15
+    .space 0b10           ; argument can only be decimal
+    .asciz "STRING        ; missing closing quotation mark
+
 ## MACROS
+
+Macros are pseudo-instructions that are not and cannot be translated to machine
+code as is. The syntax is similiar to [INSTRUCTIONS][]. Some of the common
+macros are supported. The arguments can be immediates, registers and labels. The
+arguments are separated by commas (`,`) or commas with a space (`, `). The
+macro instruction and arguments are separated by one or more spaces.
+
+Macros are expanded and mapped to instructions that are machine translatable.
+Macros cannot be defined by programmers.
 
 ## INSTRUCTIONS
 

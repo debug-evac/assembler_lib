@@ -75,9 +75,9 @@ These options control the format, location and type of the output.
     hardware instructions are used for representation in comments.
 
   * `--depth`=<depth>:
-    Sets the memory <depth> for the MIF format. By default <depth> equals 1024
-    for 32 bit or 4096 for 8 bit word <width>. Valid values are between 1 and
-    65535 (including). See src_mif(5) for details.
+    Sets the memory <depth> for the MIF format. By default <depth> equals 1024.
+    Valid values are between 1 and 65535 (including). See src_mif(5) for
+    details.
 
   * `--width`=[`8`|`32`]:
     Sets the word <width> for the MIF format. By default <width> equals 32
@@ -116,10 +116,6 @@ Miscellaneous options:
   * `-v`, `--version`:
     Show version and exit.
 
-## EXAMPLES
-
-TODO
-
 ## ENVIRONMENT
 
   * `RUST_LOG`:
@@ -130,6 +126,47 @@ TODO
     change. See <https://docs.rs/env_logger/0.11.1/env_logger/> for more
     information on logging.
 
+## EXIT STATUS
+
+This section is WIP. Some operational errors will have different error codes.
+These are going to be documented here.
+
+  * `0`:
+    Successful program execution.
+
+  * `1`:
+    General error.
+
+## EXAMPLES
+
+Assemble one assembly file to output in MIF format:
+
+    $ assembler -i example.asm
+    Assembled a.mif (/path/to/example)
+    Finished [=========================================================] 5/5 Success
+
+Assemble more assembly files to output in binary format:
+
+    $ assembler -i example.asm example2.asm example3.asm -f raw
+    Assembled a.mif (/path/to/example)
+    Finished [=========================================================] 5/5 Success
+
+Assemble one assembly file to output in MIF format, which is commented and uses
+8 bit word width:
+
+    $ assembler -i example.asm --width 8 -c
+    Assembled a.mif (/path/to/example)
+    Finished [=========================================================] 5/5 Success
+
+Assemble one assembly file, view debug messages and do not output anything to
+files:
+
+    $ RUST_LOG=debug assembler -i example.asm -f debug
+
+## BUGS
+
+<https://git.mafiasi.de/Prj-MR/Assembler/issues>
+
 ## COPYRIGHT
 
 Copyright (c) 2023 Steven Becker
@@ -137,6 +174,10 @@ Copyright (c) 2023 Steven Becker
 This Source Code Form is subject to the terms of the Mozilla Public License,
 v. 2.0. If a copy of the MPL was not distributed with this file, You can
 obtain one at <http://mozilla.org/MPL/2.0/>.
+
+## AUTHORS
+
+Written by Steven Becker and Jan Julius.
 
 ## SEE ALSO
 

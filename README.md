@@ -132,7 +132,7 @@ Options:
 Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
 ```
 
-For more information, please head to the [wiki](https://git.mafiasi.de/Prj-MR/Assembler/wiki).
+For more information, please head to the [man directory of this repo](https://git.mafiasi.de/Prj-MR/Assembler/src/branch/main/man).
 
 ## Support
 

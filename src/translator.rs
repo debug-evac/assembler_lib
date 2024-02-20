@@ -137,6 +137,9 @@ impl Instruction {
          Instruction::Divu(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(5) + (1_u32 << 25),
          Instruction::Rem(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(6) + (1_u32 << 25),
          Instruction::Remu(reg3, reg1, reg2) => rtype_instr(reg3, reg1, reg2) + funct3(7) + (1_u32 << 25),
+
+         Instruction::Ebreak => 0b1110011_u32,
+         Instruction::Ecall => itype_instr(&Reg::G0, &Reg::G0, &1) + 0b1110011_u32,
       };
       if log_enabled!(log::Level::Debug) {
          debug!("{}", emit_debug_translate_instruction(self, mach_instr));

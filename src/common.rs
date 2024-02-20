@@ -345,6 +345,11 @@ pub enum Instruction {
     Equal(Reg, Reg, Reg),
 
     // ------------------
+    // To cover all commands of RV32I
+    Ecall,
+    Ebreak,
+
+    // ------------------
     // All commands from RV32M
     Mul(Reg, Reg, Reg),
     Mulh(Reg, Reg, Reg),
@@ -413,6 +418,9 @@ impl Display for Instruction {
             Instruction::Divu(reg1, reg2, reg3) => write!(f, "divu {reg1}, {reg2}, {reg3}"),
             Instruction::Rem(reg1, reg2, reg3) => write!(f, "rem {reg1}, {reg2}, {reg3}"),
             Instruction::Remu(reg1, reg2, reg3) => write!(f, "remu {reg1}, {reg2}, {reg3}"),
+
+            Instruction::Ecall => write!(f, "ecall"),
+            Instruction::Ebreak => write!(f, "ebreak"),
         }
     }
 }

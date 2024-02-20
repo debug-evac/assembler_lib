@@ -3,6 +3,32 @@
 This Assembler was programmed within the project "Mikrorechner" in order to run assembly code on a self-designed CPU.
 It uses a modified MIPS assembly syntax and features labels, macros, automatic nop insertion, a simple linker, instruction minimization for certain macros and output formatting to raw or mif.
 
+## Features
+
+- Support for all instructions of the RV32I and RV32M extensions
+- Support for some macros for easier programming, especially:
+  - Stack operations (push, pop)
+  - Load address (la), load immediate (li), call, tail & mv
+- Simple linker to link multiple input assembly files
+  - Global and local (file scope) labels
+- Rudimentary optimizer for automatic insertions of nop instructions when data hazards are expected
+- Rudimentary user output (wip)
+- Support for assembler directives that are used to store constants in memory
+
+## Planned Features
+
+- Improvement of error reporting (currently very bare bones)
+- Better internal code documentation
+- Disassembler-Mode (planned for release 2.0.0 or a minor release of 2.0.0)
+- Separate debugger or simulator
+- Python module for easier integration into the compiler
+
+## Out of scope
+
+These features may or may not be implemented.
+
+- Simple peephole optimization, that for example maps `add x7, x6, x6` to `slli x7, x6, 1` (since shifts are faster than additions)
+
 ## Installation
 
 There are several ways to install the assembler. We recommend using the first method outlined as it is the fastest and safest method available.
@@ -75,15 +101,15 @@ You can then use `cargo install --path .` to compile the assembler from source a
 ```
 $ assembler --help
 
-Assembler - 1.0.1
-by Steven Becker <steven.becker@studium.uni-hamburg.de>
-An assembler for a fictive RISC-V based CPU
+Assembler - 1.2.0
+by Steven Becker <steven.becker@studium.uni-hamburg.de>, Jan Julius <jan.julius@studium.uni-hamburg.de>
+An assembler for a self-written RISC-V based CPU
 
 Usage: assembler [OPTIONS] --input <main asm file> <another asm file>...
 
 Options:
   -f, --format <format>
-          The format in which the output should be written in [default: mif] [possible values: mif, raw]
+          The format in which the output should be written in [default: mif] [possible values: mif, raw, debug]
   -i, --input <main asm file> <another asm file>...
           Input assembly files, use "<PATH>"
   -o, --output <output bin file>
@@ -94,6 +120,10 @@ Options:
           Width for MIF format. Does not do anything, if format != mif. [default: 32] [possible values: 8, 32]
       --no-nop-insertion
           Disallow nop insertion
+      --no-sp-init
+          Disallow stack pointer initialization
+  -c, --comment
+          Comment mif with used instructions. Does not do anything, if format != mif.
   -h, --help
           Print help
   -V, --version

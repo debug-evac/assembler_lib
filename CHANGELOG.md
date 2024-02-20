@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `li <REG>, <LABEL>` can be used to load that label into a register
 - More tests
 - Debug information for data parsing sub step
+- Added more examples
+  - `gcd.asm` which calculates the greatest common divisor of two signed numbers
 
 ### Changed
 

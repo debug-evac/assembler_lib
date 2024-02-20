@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New documentation
+  - This can be found in the directory 'man' of the git repo
 - Automatic stack pointer initialization!
   - Stack pointer is automatically initialized to 4096 bytes
   - Use `--no-sp-init` to avoid initializing stack pointer
@@ -27,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - It will not be deprecated!
 - Information presentation in debugging log level
   - the information should be more concise
+
+### Deprecated
+
+- Documentation in the gitea wiki
+  - New documentation is in the 'man' directory and readme of the git repo
 
 ### Fixed
 

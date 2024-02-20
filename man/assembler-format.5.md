@@ -142,8 +142,11 @@ latter are planned.
 ## OPERATIONS
 
 Operations is a definition used to describe instructions, macros and
-directives. See [INSTRUCTIONS][], [DIRECTIVES][] and [MACROS][] for
-details.
+directives. The arguments can be immediates, registers and/or labels. The
+arguments are separated by commas (`,`) or commas with a space (`, `). The
+operation name and arguments are separated by one or more spaces.
+
+See [INSTRUCTIONS][], [DIRECTIVES][] and [MACROS][] for details.
 
 ## REGISTERS
 
@@ -218,9 +221,7 @@ The following immediates are invalid:
 
 Directives are used in data sections and always prefixed with a dot (`.`). Some
 common directives are supported and mainly the ones that can be used to store
-data in the data section. The arguments can be either immediates or labels. The
-arguments are separated by commas (`,`) or commas with a space (`, `). The
-directive instruction and arguments are separated by one or more spaces.
+data in the data section.
 
 For some directives the argument is a string, which is delimited by quotation
 marks. Otherwise general rules apply here as well.
@@ -231,34 +232,34 @@ written to address 0.
 
 Currently the following directives are supported:
 
-  * `.byte` <REG>|<LABEL>,[<REG>|<LABEL>]...
+  * `.byte` <REG>|<LABEL>,[<REG>|<LABEL>]...:
     The registers and labels are stored as 8 bit values in memory.
 
-  * `.half` <REG>|<LABEL>,[<REG>|<LABEL>]...
+  * `.half` <REG>|<LABEL>,[<REG>|<LABEL>]...:
     The registers and labels are stored as 16 bit values in memory.
 
-  * `.word` <REG>|<LABEL>,[<REG>|<LABEL>]...
+  * `.word` <REG>|<LABEL>,[<REG>|<LABEL>]...:
     The registers and labels are stored as 32 bit values in memory.
 
-  * `.dword` <REG>|<LABEL>,[<REG>|<LABEL>]...
+  * `.dword` <REG>|<LABEL>,[<REG>|<LABEL>]...:
     The registers and labels are stored as 64 bit values in memory.
 
-  * `.space` <DECIMAL>
+  * `.space` <DECIMAL>:
     Reserve space for data. The <DECIMAL> denotes the space reserved in bytes.
     It must be a decimal and cannot be negative.
 
-  * `.ascii` `"`<STRING>`"`
+  * `.ascii` `"`<STRING>`"`:
     The <STRING> is stored as consecutive 8 bit values. The <STRING> should only
     contain ASCII characters. All characters are translated to their ASCII code.
     The <STRING> is not null terminated.
 
-  * `.asciz` `"`<STRING>`"`
+  * `.asciz` `"`<STRING>`"`:
     Same as `.ascii` but the <STRING> is null terminated.
 
-  * `.string` `"`<STRING>`"`
+  * `.string` `"`<STRING>`"`:
     Alias for `.asciz`.
 
-  * `.eqv` <LABEL>, <IMMEDIATE>
+  * `.eqv` <LABEL>, <IMMEDIATE>:
     The value of the <LABEL> is <IMMEDIATE>. A <LABEL> emitted this way is a
     constant that is not written in memory and can be used like a immediate.
 
@@ -281,15 +282,319 @@ These are invalid directives:
 
 Macros are pseudo-instructions that are not and cannot be translated to machine
 code as is. The syntax is similiar to [INSTRUCTIONS][]. Some of the common
-macros are supported. The arguments can be immediates, registers and labels. The
-arguments are separated by commas (`,`) or commas with a space (`, `). The
-macro instruction and arguments are separated by one or more spaces.
+macros are supported.
 
 Macros are expanded and mapped to instructions that are machine translatable.
 Macros cannot be defined by programmers.
 
+The first register for macros that have them is always the register that is
+written to.
+
+Currently the following macros are supported:
+
+  * `srr` <REGISTER>, <REGISTER>, <IMMEDIATE>:
+    Shift right rotate. This is implemented as a subroutine thus saving registers
+    is required. Saving registers is not done automatically!
+
+  * `slr` <REGISTER>, <REGISTER>, <IMMEDIATE>:
+    Shift left rotate. This is implemented as a subroutine thus saving registers
+    is required. Saving registers is not done automatically!
+
+  * `li` <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Load immediate. <REGISTER> is set to the <IMMEDIATE> or <LABEL>.
+
+  * `la` <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Load address. <REGISTER> is set to either the <IMMEDIATE> or the address of
+    the <LABEL>.
+
+  * `call` <IMMEDIATE>|<LABEL>:
+    Jump to a far-away label and handle it as a subroutine. The return address
+    is written to register `ra`. Returning is possible by using the macro `ret`
+    or by the equivalent `jal` instruction.
+
+  * `tail` <IMMEDIATE>|<LABEL>:
+    Jump to a far-away label. The return address is voided. Returning is not
+    possible.
+
+  * `push` <REGISTER>, [<REGISTER>]...:
+    Save the content of these registers onto the stack. Requires initialization
+    of the stack pointer register `sp`. Multiple registers can be specified to
+    reduce the subtraction overhead. The registers are saved in the given order.
+    The first register is saved at the bottom, the last register at the top of
+    stack.
+
+  * `pop` <REGISTER>, [<REGISTER>]...:
+    Load the content of the stack into the registers. Requires initialization
+    of the stack pointer register `sp`. Multiple registers can be specified to
+    reduce the addition overhead. The content is loaded into the registers in
+    the given order. The first register receives the content of the top of
+    stack, the last register of the bottom.
+
+  * `rep` <DECIMAL>, <INSTRUCTION>|<MACRO>:
+    Repeat the <INSTRUCTION> or <MACRO> <DECIMAL> times. The decimal must be
+    positive and greater than 0. Repeats cannot be nested, meaning a repeat
+    cannot contain a repeat.
+
+  * `mv` <REGISTER>, <REGISTER>:
+    Copies the content of the latter register into the former register. This is
+    mapped to either the instruction `addi` or `add`.
+
+  * `nop`:
+    No operation. It does not do anything. This is mapped to either the
+    instruction `addi zero, zero, 0` or `add zero, zero, zero`.
+
+  * `ret`:
+    Used to return from a subroutine. This is mapped to the instruction
+    `jalr zero, ra, 0`.
+
+  * `j` <IMMEDIATE>|<LABEL>:
+    Jump to the <LABEL> or <IMMEDIATE>. This is mapped to the instruction
+    `jal zero,` <OFFSET>.
+
+  * `jal` <IMMEDIATE>|<LABEL>:
+    Jump and link to the <LABEL> or <IMMEDIATE>. This is mapped to the
+    instruction `jal ra,` <OFFSET>.
+
+  * `jr` <REGISTER>:
+    Jump to the address in the <REGISTER>. This is mapped to the instruction
+    `jalr zero,` <REGISTER>`, 0`.
+
+  * `jalr` <REGISTER>:
+    Jump and link to the address in the <REGISTER>. This is mapped to the
+    instruction `jalr ra,` <REGISTER>`, 0`.
+
+See
+[RISC-V Specification](https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_CARD.pdf)
+(<https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_CARD.pdf>)
+for details.
+
 ## INSTRUCTIONS
+
+An instruction is machine code in human-readable form. The syntax is similiar to
+[MACROS][]. All instructions of the RV32I and RV32M extensions are supported.
+
+The first register for instructions that have them is always the register that
+is written to. A limitation to that rule are branch instructions.
+
+These instructions are used to perform arithmetical, logical and shift
+operations with registers:
+
+  * `add` <REGISTER>, <REGISTER>, <REGISTER>:
+    Addition of the two latter <REGISTER>s.
+
+  * `sub` <REGISTER>, <REGISTER>, <REGISTER>:
+    Subtraction. The minuend is the content of the second <REGISTER>, the
+    subtrahend is the content of the last <REGISTER>.
+
+  * `xor` <REGISTER>, <REGISTER>, <REGISTER>:
+    Logical bitwise exclusive or of the second and third <REGISTER>.
+
+  * `or` <REGISTER>, <REGISTER>, <REGISTER>:
+    Logical bitwise or of the second and third <REGISTER>.
+
+  * `and` <REGISTER>, <REGISTER>, <REGISTER>:
+    Logical bitwise or of the second and third <REGISTER>.
+
+  * `sll` <REGISTER>, <REGISTER>, <REGISTER>:
+    Logical left shift of the second <REGISTER> by the third <REGISTER>.
+
+  * `srl` <REGISTER>, <REGISTER>, <REGISTER>:
+    Logical right shift of the second <REGISTER> by the third <REGISTER>.
+
+  * `sra` <REGISTER>, <REGISTER>, <REGISTER>:
+    Arithmetical right shift of the second <REGISTER> by the third <REGISTER>.
+
+  * `slt` <REGISTER>, <REGISTER>, <REGISTER>:
+    The first <REGISTER> is set to one (1), if the second <REGISTER> is less
+    than the last <REGISTER>.
+
+  * `sltu` <REGISTER>, <REGISTER>, <REGISTER>:
+    The first <REGISTER> is set to one (1), if the second <REGISTER> is less
+    than the last <REGISTER>. The content of the <REGISTER>s compared are
+    interpreted as unsigned numbers.
+
+  * `xnor` <REGISTER>, <REGISTER>, <REGISTER>:
+    Logical bitwise negated exclusive or of the second and third <REGISTER>.
+    Note that this is not defined in the RISC-V standard.
+
+  * `equal` <REGISTER>, <REGISTER>, <REGISTER>:
+    Compares the second and third <REGISTERS> and sets the first <REGISTER> to
+    one (1), if they are equal. Note that this is not defined in the RISC-V
+    standard.
+
+  * `mul` <REGISTER>, <REGISTER>, <REGISTER>:
+    Multiplication of the second and third <REGISTER>. The first <REGISTER> is
+    set to the lower 32 bits of the result.
+
+  * `mulh` <REGISTER>, <REGISTER>, <REGISTER>:
+    High Multiplication of the second and third <REGISTER>. The first <REGISTER>
+    is set to the higher 32 bits of the result. The content of both <REGISTER>s
+    is interpreted as signed numbers.
+
+  * `mulhu` <REGISTER>, <REGISTER>, <REGISTER>:
+    High Multiplication of the second and third <REGISTER>. The first <REGISTER>
+    is set to the higher 32 bits of the result. The content of both <REGISTER>s
+    is interpreted as unsigned numbers.
+
+  * `mulhsu` <REGISTER>, <REGISTER>, <REGISTER>:
+    High Multiplication of the second and third <REGISTER>. The first <REGISTER>
+    is set to the higher 32 bits of the result. The content of the second
+    <REGISTER> is interpreted as a signed number, the content of the third
+    <REGISTER> is interpreted as a unsigned number.
+
+  * `div` <REGISTER>, <REGISTER>, <REGISTER>:
+    Division of the second and third <REGISTER>s. The second <REGISTER> is the
+    dividend and the third <REGISTER> is the divisor. The content of both
+    <REGISTER>s are interpreted as signed numbers.
+
+  * `divu` <REGISTER>, <REGISTER>, <REGISTER>:
+    Division of the second and third <REGISTER>s. The second <REGISTER> is the
+    dividend and the third <REGISTER> is the divisor. The content of both
+    <REGISTER>s are interpreted as unsigned numbers.
+
+  * `rem` <REGISTER>, <REGISTER>, <REGISTER>:
+    Modulo operation of the second and third <REGISTER>s. The second <REGISTER>
+    is the dividend and the third <REGISTER> is the divisor. The content of both
+    <REGISTER>s are interpreted as signed numbers.
+
+  * `remu` <REGISTER>, <REGISTER>, <REGISTER>:
+    Modulo operation of the second and third <REGISTER>s. The second <REGISTER>
+    is the dividend and the third <REGISTER> is the divisor. The content of both
+    <REGISTER>s are interpreted as unsigned numbers.
+
+These instructions are used to perform arithmetical, logical and shift
+operations with immediates:
+
+Shift operations can only take 4 bit immediates.
+
+Note that some instructions cannot use labels. This is WIP.
+
+  * `addi` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Addition of the second <REGISTER> and the <IMMEDIATE> or <LABEL>.
+
+  * `xori` <REGISTER>, <REGISTER>, <IMMEDIATE>:
+    Logical bitwise exclusive or of the second <REGISTER> and the <IMMEDIATE>.
+
+  * `ori` <REGISTER>, <REGISTER>, <IMMEDIATE>:
+    Logical bitwise or of the second <REGISTER> and the <IMMEDIATE>.
+
+  * `andi` <REGISTER>, <REGISTER>, <IMMEDIATE>:
+    Logical bitwise or of the second <REGISTER> and the <IMMEDIATE>.
+
+  * `slli` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Logical left shift of the second <REGISTER> by the <IMMEDIATE> or <LABEL>.
+
+  * `srli` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Logical right shift of the second <REGISTER> by the <IMMEDIATE> or <LABEL>.
+
+  * `srai` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Arithmetical right shift of the second <REGISTER> by the <IMMEDIATE> or
+    <LABEL>.
+
+  * `slti` <REGISTER>, <REGISTER>, <IMMEDIATE>:
+    The first <REGISTER> is set to one (1), if the second <REGISTER> is less
+    than the <IMMEDIATE>.
+
+  * `sltiu` <REGISTER>, <REGISTER>, <IMMEDIATE>:
+    The first <REGISTER> is set to one (1), if the second <REGISTER> is less
+    than the <IMMEDIATE>. The content of the <REGISTER>s compared are
+    interpreted as unsigned numbers.
+
+These instructions are used to manipulate memory content:
+
+The target byte and half are always the LSBs of the target register.
+
+  * `lb` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Loads a byte from memory at the address which is the sum of the second
+    <REGISTER> and the <IMMEDIATE> or <LABEL>.
+
+  * `lh` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Loads a half (16 bits) from memory at the address which is the sum of the
+    second <REGISTER> and the <IMMEDIATE> or <LABEL>.
+
+  * `lw` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Loads a word (32 bits) from memory at the address which is the sum of the
+    second <REGISTER> and the <IMMEDIATE> or <LABEL>.
+
+  * `lbu` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Loads a byte from memory at the address which is the sum of the second
+    <REGISTER> and the <IMMEDIATE> or <LABEL>. The byte is zero extended to 32
+    bits.
+
+  * `lhu` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Loads a half from memory at the address which is the sum of the second
+    <REGISTER> and the <IMMEDIATE> or <LABEL>. The half is zero extended to 32
+    bits.
+
+  * `sb` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Stores a byte into memory at the address which is the sum of the second
+    <REGISTER> and the <IMMEDIATE> or <LABEL>.
+
+  * `sh` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Stores a half into memory at the address which is the sum of the second
+    <REGISTER> and the <IMMEDIATE> or <LABEL>.
+
+  * `sw` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Stores a word into memory at the address which is the sum of the second
+    <REGISTER> and the <IMMEDIATE> or <LABEL>.
+
+These instructions are used to control the logic flow of the program:
+
+PC-Relative addressing is used for all instructions but `jalr`. For `jalr`
+absolute addressing is used.
+
+  * `beq` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Branch if the <REGISTER>s are equal.
+
+  * `bne` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Branch if the <REGISTER>s are not equal.
+
+  * `blt` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Branch if the content of the first <REGISTER> is less than the content of
+    the last <REGISTER>. The content of the <REGISTER>s are interpreted as
+    signed numbers.
+
+  * `bltu` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Branch if the content of the first <REGISTER> is less than the content of
+    the last <REGISTER>. The content of the <REGISTER>s are interpreted as
+    unsigned numbers.
+
+  * `bge` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Branch if the content of the first <REGISTER> is greater than or equal to
+    the content of the last <REGISTER>. The content of the <REGISTER>s are
+    interpreted as signed numbers.
+
+  * `bgeu` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Branch if the content of the first <REGISTER> is greater than or equal to
+    the content of the last <REGISTER>. The content of the <REGISTER>s are
+    interpreted as unsigned numbers.
+
+  * `jal` <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Jump and link to the address which is the sum of the program counter and the
+    <IMMEDIATE> or <LABEL>. The return address is written to the <REGISTER>.
+
+  * `jalr` <REGISTER>, <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Jump and link to the address which is the sum of the second <REGISTER> and
+    the <IMMEDIATE> or <LABEL>. The return address is written to the <REGISTER>.
+
+These instructions cannot be categorized:
+
+  * `lui` <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Load upper immediate. The upper 20 bits of the <REGISTER> is set to the
+    <IMMEDIATE> or <LABEL>. The lower 12 bits are zero.
+
+  * `auipc` <REGISTER>, <IMMEDIATE>|<LABEL>:
+    Add upper immediate to program counter. The upper 20 bits of the <IMMEDIATE>
+    or <LABEL> is added to the program counter and the result is written to the
+    <REGISTER>.
+
+See
+[RISC-V Specification](https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_CARD.pdf)
+(<https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_CARD.pdf>)
+for details.
 
 ## SEE ALSO
 
-assembler(1)
+assembler(1),
+[RISC-V Specification](https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_CARD.pdf)
+(<https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_CARD.pdf>)

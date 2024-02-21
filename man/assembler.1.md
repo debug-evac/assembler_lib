@@ -9,14 +9,14 @@ date: February 2024
 
 # SYNOPSIS
 
-**assembler** \[*OPTIONS*...\] **\-\-input** *file*...\
+**assembler** [*OPTIONS*...] **\-\-input** *file*...\
 **assembler -i**|**\-\-input** *file*...\
 **assembler -i**|**\-\-input** *file*...
-\[**-o**|**\-\-output** *file*\]\
+[**-o**|**\-\-output** *file*]\
 **assembler -i**|**\-\-input** *file*...
-\[**-f**|**\-\-format** \[**debug**|**mif**|**raw**\]\]\
-**assembler -i**|**\-\-input** *file*... \[**-f**|**\-\-format mif**\]
-\[**-c**\]
+[**-f**|**\-\-format** [**debug**|**mif**|**raw**]]\
+**assembler -i**|**\-\-input** *file*... [**-f**|**\-\-format mif**]
+[**-c**]
 
 # DESCRIPTION
 
@@ -208,4 +208,4 @@ Written by Steven Becker and Jan Julius.
 
 [src_mif(5)]: https://linux.die.net/man/5/srec_mif
 [stderr(3)]: https://linux.die.net/man/3/stderr
-[assembler-format(5)]: ./assembler-format.5.pdf
+[assembler-format(5)]: ./man/assembler-format.5.md

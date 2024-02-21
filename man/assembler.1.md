@@ -109,6 +109,11 @@ These options control how the assembly code is assembled.
     nop's are inserted to circumvent data, control and memory hazards. By using
     this flag, subroutines cannot be used since they contain hazards!
 
+  * `--no-sp-init`:
+    By default the stack is initialized to 4096. This flag disallows stack
+    initialization. Note that the stack must be initialized when using stack
+    operations.
+
 Input option:
 
 **-i**=*file*,[*file*]..., **\-\-input**=*file*,[*file*]...

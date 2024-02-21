@@ -2,7 +2,7 @@
 name = "assembler"
 version = "1.2.0"
 edition = "2021"
-description = "An assembler for a fictive RISC-V based CPU"
+description = "An assembler for a self-written RISC-V based CPU"
 repository = "https://git.mafiasi.de/Prj-MR/Assembler"
 license = "MPL-2.0"
 authors = ["Steven Becker <steven.becker@studium.uni-hamburg.de>", "Jan Julius <jan.julius@studium.uni-hamburg.de>"]

@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- New documentation
+  - This can be found in the directory 'man' of the git repo
+- Last instructions of RV32I for debugging & RARS compatibility
+  - `ecall` - System call (should not be used, we don't have an OS)
+  - `ebreak` - Breaking point for debugging purposes (should be used in debugger only)
+- Automatic stack pointer initialization!
+  - Stack pointer is automatically initialized to 4096 bytes
+  - Use `--no-sp-init` to avoid initializing stack pointer
+  - Note: When using `push` and `pop` the very bottom byte of the stack is not used. This may be subject to change!
+- Initial support for label constants!
+  - `.eqv <LABEL>, <IMMEDIATE>` can be used to set the label to that immediate
+  - `li <REG>, <LABEL>` can be used to load that label into a register
+- More tests
+- Debug information for data parsing sub step
+- Added more examples
+  - `gcd.asm` which calculates the greatest common divisor of two signed numbers
+
+### Changed
+
+- 8 bit word width for MIF format being deprecated
+  - It will not be deprecated!
+- Information presentation in debugging log level
+  - the information should be more concise
+
+### Deprecated
+
+- Documentation in the gitea wiki
+  - New documentation is in the 'man' directory and readme of the git repo
+
+### Fixed
+
+- Data label after aligning halfs before words and dwords
+  - This resulted in wrong labels afterwards. 
+
 ## [1.2.0] - 2024-02-10
 
 ### Added

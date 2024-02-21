@@ -146,8 +146,11 @@ latter are planned.
 # OPERATIONS
 
 Operations is a definition used to describe instructions, macros and
-directives. See [INSTRUCTIONS][], [DIRECTIVES][] and [MACROS][] for
-details.
+directives. The arguments can be immediates, registers and/or labels. The
+arguments are separated by commas (**,**) or commas with a space (**,** ). The
+operation name and arguments are separated by one or more spaces.
+
+See [INSTRUCTIONS][], [DIRECTIVES][] and [MACROS][] for details.
 
 # REGISTERS
 
@@ -234,9 +237,7 @@ The following immediates are invalid:
 
 Directives are used in data sections and always prefixed with a dot (**.**). Some
 common directives are supported and mainly the ones that can be used to store
-data in the data section. The arguments can be either immediates or labels. The
-arguments are separated by commas (**,**) or commas with a space (**, **). The
-directive instruction and arguments are separated by one or more spaces.
+data in the data section.
 
 For some directives the argument is a string, which is delimited by quotation
 marks. Otherwise general rules apply here as well.

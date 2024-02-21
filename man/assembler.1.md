@@ -188,7 +188,7 @@ files:
 
 # BUGS
 
-<https://git.mafiasi.de/Prj-MR/Assembler/issues>
+See Gitea Issues: <https://git.mafiasi.de/Prj-MR/Assembler/issues>
 
 # COPYRIGHT
 
@@ -200,7 +200,13 @@ obtain one at <http://mozilla.org/MPL/2.0/>.
 
 # AUTHORS
 
-Written by Steven Becker and Jan Julius.
+Steven Becker <steven.becker@studium.uni-hamburg.de>
+
+:   Lead Maintainer
+
+Jan Julius <jan.julius@studium.uni-hamburg.de>
+
+:   Maintainer
 
 # SEE ALSO
 

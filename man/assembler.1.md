@@ -208,4 +208,4 @@ Written by Steven Becker and Jan Julius.
 
 [src_mif(5)]: https://linux.die.net/man/5/srec_mif
 [stderr(3)]: https://linux.die.net/man/3/stderr
-[assembler-format(5)]: ./man/assembler-format.5.md
+[assembler-format(5)]: ./src/branch/main/man/assembler-format.5.md

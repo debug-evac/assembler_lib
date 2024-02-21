@@ -679,7 +679,7 @@ See [RISC-V Shortened Spec][] for details.
 
 [assembler(1)], [RISC-V Shortened Spec][]
 
-[assembler(1)]: ./man/assembler.1.md
+[assembler(1)]: ./src/branch/main/man/assembler.1.md
 [RISC-V Shortened Spec]: https://www.cs.sfu.ca/ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_CARD.pdf
 [MACROS]: #macros
 [LABEL DEFINITIONS]: #label-definitions

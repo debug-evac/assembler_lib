@@ -158,55 +158,20 @@ Some instructions and macros require registers to perform actions. There are 31
 registers that can be used. Registers can be referenced by either the register
 number prefixed with an **x**, meaning **x0** to **x31**, or their ABI name.
 
-**x0**, **zero**
-
-:   Immutable register that is always zero.
-
-**x1**, **ra**
-
-:   Return address, callee-saved.
-
-**x2**, **sp**
-
-:   Stack pointer, callee-saved.
-
-**x3**, **gp**
-
-:   General purpose register, caller-saved. Global pointer according to RISC-V
-    spec, but not used as such here.
-
-**x4**, **tp**
-
-:   General purpose register, caller-saved. Thread pointer according to RISC-V
-    spec, but not used as such here.
-
-**x**[**5**|**6**|**7**], **t**[**0**|**1**|**2**]
-
-:   Temporary register, caller-saved.
-
-**x8**, **s0**, **fp**
-
-:   Saved register or frame pointer, callee-saved.
-
-**x9**, **s1**
-
-:   Saved register, callee-saved.
-
-**x**[**10**|**11**], **a**[**0**|**1**]
-
-:   Register for return values and function arguments, caller-saved.
-
-**x**[**12**|**13**|**14**|**15**|**16**|**17**], **a**[**2**|**3**|**4**|**5**|**6**|**7**]
-
-:   Register for function arguments, caller-saved.
-
-**x**[**18**|**19**|**20**|**21**|**22**|**23**|**24**|**25**|**26**|**27**], **s**[**2**|**3**|**4**|**5**|**6**|**7**|**8**|**9**|**10**|**11**]
-
-:   Saved register, callee-saved.
-
-**x**[**28**|**29**|**30**|**31**], **t**[**3**|**4**|**5**|**6**]
-
-:   Temporary register, caller-saved.
+| Register            | ABI Name            | Description                                                                                   | Saver    |
+|:-------------------:|:-------------------:|-----------------------------------------------------------------------------------------------|:--------:|
+| x0                  | zero                | Immutable register that is always zero.                                                       | —        |
+| x1                  | ra                  | Return address                                                                                | Callee   |
+| x2                  | sp                  | Stack pointer                                                                                 | Callee   |
+| x3                  | gp                  | General purpose register. Global pointer according to RISC-V spec, but not used as such here. | —        |
+| x4                  | tp                  | General pupose register. Thread pointer according to RISC-V spec, but not used as such here.  | —        |
+| x5-x7               | t0-t2               | Temporary register.                                                                           | Caller   |
+| x8                  | s0/fp               | Saved register or frame pointer.                                                              | Callee   |
+| x9                  | s1                  | Saved register.                                                                               | Callee   |
+| x10-x11             | a0-a1               | Register for return values and function arguments.                                            | Caller   |
+| x12-x17             | a2-a7               | Register for function arguments.                                                              | Caller   |
+| x18-x27             | s2-s11              | Saved register.                                                                               | Callee   |
+| x28-x31             | t3-t6               | Temporary register.                                                                           | Caller   |
 
 # IMMEDIATES
 
@@ -680,7 +645,7 @@ See [RISC-V Shortened Spec][] for details.
 [assembler(1)], [RISC-V Shortened Spec][]
 
 [assembler(1)]: assembler.1.md
-[RISC-V Shortened Spec]: https://www.cs.sfu.ca/ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_CARD.pdf
+[RISC-V Shortened Spec]: https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_CARD.pdf
 [MACROS]: #macros
 [LABEL DEFINITIONS]: #label-definitions
 [OPERATIONS]: #operations

@@ -1,6 +1,17 @@
+# Ignore binary files
 /target
+
+# Ignore llvm coverage file
 /lcov.info
+
+# Ignore all standard output of the assembler
 /**/a.bin
 /**/a.mem.mif
 /**/a.mif
+
+# Ignore Taskfile cache directory
 .task/*
+
+# Ignore build man files
+/man/*.[1-9]
+/man/*.[1-9].html

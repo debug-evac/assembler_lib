@@ -25,10 +25,9 @@ use std::borrow::Cow;
 use log::debug;
 
 use crate::{
-    common::{errors::OptimizerError, ByteData, DWordData, HalfData, Instruction, LabelType, MacroInstr, MemData, Operation, Part, Reg, TranslatableCode, WordData
+    common::{errors::OptimizerError, ByteData, DWordData, HalfData, Instruction, LabelType, MacroInstr, MemData, Operation, Part, Reg, TranslatableCode, WordData, AssemblyCode
     },
     linker::Namespaces,
-    AssemblyCode
 };
 
 #[derive(Clone)]

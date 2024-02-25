@@ -42,6 +42,12 @@ impl Subroutines {
     }
 }
 
+impl Default for Subroutines {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType, instr_counter: usize) -> Result<(), CommonError> {
     let (label_string, scope) = match label.strip_prefix('.') {
         Some(label) => {

@@ -711,6 +711,12 @@ impl LabelElem {
     }
 }
 
+impl Default for LabelElem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct LabelRecog {
     label_map: HashMap<String, usize>,
@@ -836,6 +842,12 @@ impl Display for LabelRecog {
     }
 }
 
+impl Default for LabelRecog {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub trait RestrictLabelData {}
 
 impl RestrictLabelData for LabelRecog {}
@@ -907,5 +919,11 @@ impl TranslatableCode {
 
     pub fn get_all_ref(&self) -> (&Vec<Instruction>, &Vec<MemData>) {
         (&self.text, &self.data)
+    }
+}
+
+impl Default for TranslatableCode {
+    fn default() -> Self {
+        Self::new()
     }
 }

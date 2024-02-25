@@ -6,11 +6,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-mod parser;
-mod linker;
-mod optimizer;
-mod translator;
-mod common;
+use assembler_lib::{
+    common::{LabelRecog, AssemblyCode, errors::ExitErrorCode},
+    parser::Subroutines,
+    parser,
+    linker,
+    optimizer,
+    translator
+};
 
 use clap::{
     builder::ArgPredicate,
@@ -23,15 +26,12 @@ use clap::{
 };
 use indicatif_log_bridge::LogWrapper;
 use log::{log_enabled, error};
-use parser::Subroutines;
 use std::{
     fs,
     path::PathBuf,
 };
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use console::Term;
-
-use crate::common::{LabelRecog, AssemblyCode, errors::ExitErrorCode};
 
 fn cli_interface() -> ArgMatches {
     #[allow(non_upper_case_globals)]

@@ -17,8 +17,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use log::debug;
 
-use crate::common::{LabelType, MemData};
-use crate::AssemblyCode;
+use crate::common::{LabelType, MemData, AssemblyCode};
 use crate::common::{RestrictLabelData, LabelRecog, Operation, LabelElem,
     errors::LinkError
 };
@@ -117,6 +116,12 @@ impl Display for Namespaces {
             write!(f, ", {labelrec}")?;
         }
         write!(f, "] }}")
+    }
+}
+
+impl Default for Namespaces {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

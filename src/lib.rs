@@ -11,3 +11,48 @@ pub mod linker;
 pub mod optimizer;
 pub mod translator;
 pub mod common;
+
+use crate::common::errors::LibraryError;
+use crate::common::AssemblyCode;
+use crate::linker::Namespaces;
+
+#[derive(Default)]
+pub struct ParseLinkBuilder {
+    assembly_code: Vec<String>
+}
+
+impl ParseLinkBuilder {
+    pub fn new() -> Self {
+        ParseLinkBuilder { assembly_code: vec![] }
+    }
+
+    pub fn add_code(&mut self, code: String) {
+        self.assembly_code.push(code)
+    }
+
+    pub fn parse_link<'a>(&'a mut self, sp_init: bool) -> Result<AssemblyCode<'a, Namespaces>, LibraryError> {
+        // Currently builder cannot be destroyed since result borrows from vec of strings
+        if self.assembly_code.len() == 0 {
+            return Err(LibraryError::NoCode)
+        }
+
+        let mut parsed_vector = Vec::with_capacity(self.assembly_code.len());
+        let mut subroutine = parser::Subroutines::new();
+
+        {
+          for (counter, code) in self.assembly_code.iter().enumerate() {
+              parsed_vector.push(parser::parse(&code, &mut Some(&mut subroutine), counter == 0 && sp_init)?.1);
+          }
+        }
+
+        /*
+        let end = self.assembly_code.len();
+        self.assembly_code.extend(subroutine.get_code());
+
+        for code in &self.assembly_code[end..] {
+            parsed_vector.push(parser::parse(&code, &mut None, false)?.1)
+        }*/
+
+        Ok(linker::link(parsed_vector)?)
+    }
+}

@@ -121,3 +121,32 @@ impl std::fmt::Display for TranslatorError {
         }
     }
 }
+
+#[derive(Debug)]
+pub enum LibraryError {
+    NoCode,
+    ParserError(String),
+    LinkerError(LinkError)
+}
+
+impl From<LinkError> for LibraryError {
+    fn from(value: LinkError) -> Self {
+        LibraryError::LinkerError(value)
+    }
+}
+
+impl <I: std::fmt::Debug> From<nom::Err<nom::error::Error<I>>> for LibraryError {
+    fn from(value: nom::Err<nom::error::Error<I>>) -> Self {
+        LibraryError::ParserError(format!("{value}"))
+    }
+}
+
+impl std::fmt::Display for LibraryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LibraryError::NoCode => write!(f, "No code has been specified!"),
+            LibraryError::ParserError(nom_err) => write!(f, "{nom_err}"),
+            LibraryError::LinkerError(link_err) => write!(f, "{link_err}"),
+        }
+    }
+}

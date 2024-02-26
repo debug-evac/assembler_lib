@@ -150,3 +150,13 @@ impl std::fmt::Display for LibraryError {
         }
     }
 }
+
+impl ExitErrorCode for LibraryError {
+    fn get_err_code(&self) -> i32 {
+        match self {
+            LibraryError::NoCode => 1,
+            LibraryError::ParserError(_) => 65,
+            LibraryError::LinkerError(link_err) => link_err.get_err_code(),
+        }
+    }
+}

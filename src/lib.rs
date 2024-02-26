@@ -6,8 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub mod parser;
-pub mod linker;
+mod parser;
+mod linker;
 pub mod optimizer;
 pub mod translator;
 pub mod common;
@@ -16,14 +16,21 @@ use crate::common::errors::LibraryError;
 use crate::common::AssemblyCode;
 use crate::linker::Namespaces;
 
+use indicatif::ProgressBar;
+
 #[derive(Default)]
-pub struct ParseLinkBuilder {
-    assembly_code: Vec<String>
+pub struct ParseLinkBuilder<'a> {
+    assembly_code: Vec<String>,
+    progbar: Option<&'a ProgressBar>
 }
 
-impl ParseLinkBuilder {
+impl <'a> ParseLinkBuilder<'a> {
     pub fn new() -> Self {
-        ParseLinkBuilder { assembly_code: vec![] }
+        ParseLinkBuilder { assembly_code: vec![], progbar: None }
+    }
+
+    pub fn set_prog(&mut self, progbar: &'a ProgressBar) {
+        self.progbar = Some(progbar)
     }
 
     pub fn add_code(&mut self, code: String) {
@@ -48,6 +55,11 @@ impl ParseLinkBuilder {
         for code in subroutine.get_code() {
             parsed_vector.push(parser::parse(&code, &mut None, false)?.1)
         }
+
+        if let Some(progbar) = self.progbar {
+            progbar.inc(1);
+            progbar.set_message("Linking...");
+        };
 
         Ok(linker::link(parsed_vector)?)
     }

@@ -70,7 +70,7 @@ impl ExitErrorCode for LinkError {
 
 #[derive(Debug)]
 pub enum OptimizerError {
-    LabelNonExistent(String),
+    LabelNonExistent(smartstring::alias::String),
     LabelSubNotRequiredFor(MacroInstr)
 }
 

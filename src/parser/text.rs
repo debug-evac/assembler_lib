@@ -20,7 +20,6 @@ use nom::{
 };
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use std::borrow::Cow;
 use log::{debug, error, log_enabled};
 
 use crate::parser::{
@@ -78,13 +77,13 @@ impl std::fmt::Display for LabelInsertError {
     }
 }
 
-impl <'a> From<Instruction> for Operation<'a> {
+impl From<Instruction> for Operation {
     fn from(item: Instruction) -> Self {
         Operation::Instr(item)
     }
 }
 
-impl <'a> From<MacroInstr> for Operation<'a> {
+impl From<MacroInstr> for Operation {
     fn from(item: MacroInstr) -> Self {
         Operation::Macro(item)
     }
@@ -190,27 +189,27 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
                 subs.srr_defined();
             };
             static LABEL: &str = "_SRR";
-            symbol_map.crt_or_ref_label(&LABEL.to_string());
+            symbol_map.crt_or_ref_label(&LABEL.into());
         },
         MacroInstr::Slr(_, _, _) => {
             if let Some(subs) = subroutines {
                 subs.slr_defined();
             };
             static LABEL: &str = "_SLR";
-            symbol_map.crt_or_ref_label(&LABEL.to_string());
+            symbol_map.crt_or_ref_label(&LABEL.into());
         },
 
         _ => (),
     }
 }
 
-fn handle_abs_addr_label_conv<'b>(
+fn handle_abs_addr_label_conv(
     instr_counter: usize,
     abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>, 
-    instr_list: &'b mut [Operation],
+    instr_list: &mut [Operation],
     symbol_map: &mut LabelRecog,
     imm: &Imm
-) -> Option<Cow<'b, str>> {
+) -> Option<smartstring::alias::String> {
     let mut jump_line: usize = match instr_counter as i128 + (*imm / 4) as i128 {
         x if x < 0 => 0,
         x => x.try_into().unwrap()
@@ -230,23 +229,23 @@ fn handle_abs_addr_label_conv<'b>(
         },
         Ordering::Less => {
             // looking back
-            let jump_label: Cow<'_, str>;
+            let jump_label: smartstring::alias::String;
             match &instr_list[jump_line] {
                 Operation::Instr(instr) => {
-                    jump_label = Cow::from("__".to_string() + &jump_line.to_string());
-                    symbol_map.crt_def_ref(&jump_label.to_string(), false, LabelType::Address, jump_line as i128);
+                    jump_label = smartstring::alias::String::from("__") + jump_line.to_string().as_str();
+                    symbol_map.crt_def_ref(&jump_label, false, LabelType::Address, jump_line as i128);
                     instr_list[jump_line] = Operation::LablInstr(jump_label.clone(), instr.to_owned());
                 },
                 Operation::Macro(macro_in) => {
-                    jump_label = Cow::from("__".to_string() + &jump_line.to_string());
-                    symbol_map.crt_def_ref(&jump_label.to_string(), false, LabelType::Address, jump_line as i128);
+                    jump_label = smartstring::alias::String::from("__") + jump_line.to_string().as_str();
+                    symbol_map.crt_def_ref(&jump_label, false, LabelType::Address, jump_line as i128);
                     instr_list[jump_line] = Operation::LablMacro(jump_label.clone(), macro_in.to_owned());
                 },
                 Operation::LablInstr(labl, _) |
                 Operation::LablMacro(labl, _) |
                 Operation::Labl(labl) => {
                     jump_label = labl.clone();
-                    symbol_map.set_refd_label(&labl.to_string());
+                    symbol_map.set_refd_label(labl);
                 },
                 Operation::Namespace(_) => unreachable!(),
             };
@@ -261,14 +260,14 @@ fn handle_instr_substitution(instr_list: &mut [Operation], elem: &[usize], jump_
         match &instr_list[*origin] {
             Operation::Instr(instr) => {
                 match instr {
-                    Instruction::Beq(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Beq(reg1.to_owned(), reg2.to_owned(), jump_label.to_string())),
-                    Instruction::Bne(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Bne(reg1.to_owned(), reg2.to_owned(), jump_label.to_string())),
-                    Instruction::Blt(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Blt(reg1.to_owned(), reg2.to_owned(), jump_label.to_string())),
-                    Instruction::Bltu(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Bltu(reg1.to_owned(), reg2.to_owned(), jump_label.to_string())),
-                    Instruction::Bge(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Bge(reg1.to_owned(), reg2.to_owned(), jump_label.to_string())),
-                    Instruction::Bgeu(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Bgeu(reg1.to_owned(), reg2.to_owned(), jump_label.to_string())),
-                    Instruction::Jal(reg, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Jal(reg.to_owned(), jump_label.to_string())),
-                    Instruction::Jalr(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Jalr(reg1.to_owned(), reg2.to_owned(), jump_label.to_string(), Part::None)),
+                    Instruction::Beq(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Beq(reg1.to_owned(), reg2.to_owned(), jump_label.into())),
+                    Instruction::Bne(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Bne(reg1.to_owned(), reg2.to_owned(), jump_label.into())),
+                    Instruction::Blt(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Blt(reg1.to_owned(), reg2.to_owned(), jump_label.into())),
+                    Instruction::Bltu(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Bltu(reg1.to_owned(), reg2.to_owned(), jump_label.into())),
+                    Instruction::Bge(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Bge(reg1.to_owned(), reg2.to_owned(), jump_label.into())),
+                    Instruction::Bgeu(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Bgeu(reg1.to_owned(), reg2.to_owned(), jump_label.into())),
+                    Instruction::Jal(reg, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Jal(reg.to_owned(), jump_label.into())),
+                    Instruction::Jalr(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Jalr(reg1.to_owned(), reg2.to_owned(), jump_label.into(), Part::None)),
                     op => {
                         println!("Matched instr: {:?}", op);
                         unreachable!()
@@ -277,14 +276,14 @@ fn handle_instr_substitution(instr_list: &mut [Operation], elem: &[usize], jump_
             },
             Operation::LablInstr(labl, instr) => {
                 match instr {
-                    Instruction::Beq(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Beq(reg1.to_owned(), reg2.to_owned(), jump_label.to_string())),
-                    Instruction::Bne(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Bne(reg1.to_owned(), reg2.to_owned(), jump_label.to_string())),
-                    Instruction::Blt(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Blt(reg1.to_owned(), reg2.to_owned(), jump_label.to_string())),
-                    Instruction::Bltu(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Bltu(reg1.to_owned(), reg2.to_owned(), jump_label.to_string())),
-                    Instruction::Bge(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Bge(reg1.to_owned(), reg2.to_owned(), jump_label.to_string())),
-                    Instruction::Bgeu(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Bgeu(reg1.to_owned(), reg2.to_owned(), jump_label.to_string())),
-                    Instruction::Jal(reg, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Jal(reg.to_owned(), jump_label.to_string())),
-                    Instruction::Jalr(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Jalr(reg1.to_owned(), reg2.to_owned(), jump_label.to_string(), Part::None)),
+                    Instruction::Beq(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Beq(reg1.to_owned(), reg2.to_owned(), jump_label.into())),
+                    Instruction::Bne(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Bne(reg1.to_owned(), reg2.to_owned(), jump_label.into())),
+                    Instruction::Blt(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Blt(reg1.to_owned(), reg2.to_owned(), jump_label.into())),
+                    Instruction::Bltu(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Bltu(reg1.to_owned(), reg2.to_owned(), jump_label.into())),
+                    Instruction::Bge(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Bge(reg1.to_owned(), reg2.to_owned(), jump_label.into())),
+                    Instruction::Bgeu(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Bgeu(reg1.to_owned(), reg2.to_owned(), jump_label.into())),
+                    Instruction::Jal(reg, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Jal(reg.to_owned(), jump_label.into())),
+                    Instruction::Jalr(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Jalr(reg1.to_owned(), reg2.to_owned(), jump_label.into(), Part::None)),
                     op => {
                         println!("Matched labl: {}, matched instr: {:?}", labl, op);
                         unreachable!()
@@ -299,7 +298,7 @@ fn handle_instr_substitution(instr_list: &mut [Operation], elem: &[usize], jump_
     }
 }
 
-fn split_list<'a>(instr_list: &mut Vec<Operation<'a>>, pointer: &usize) -> (Vec<Operation<'a>>, Vec<Operation<'a>>) {
+fn split_list(instr_list: &mut Vec<Operation>, pointer: &usize) -> (Vec<Operation>, Vec<Operation>) {
     let mut right_list = instr_list.split_off(*pointer);
     if !right_list.is_empty() {
         right_list.remove(0);
@@ -307,13 +306,13 @@ fn split_list<'a>(instr_list: &mut Vec<Operation<'a>>, pointer: &usize) -> (Vec<
     (right_list, vec![])
 }
 
-fn incorporate_changes<'a>(
-    instr_list: &mut Vec<Operation<'a>>, 
-    mid_list: &mut Vec<Operation<'a>>, 
-    right_list: &mut Vec<Operation<'a>>,
+fn incorporate_changes(
+    instr_list: &mut Vec<Operation>,
+    mid_list: &mut Vec<Operation>,
+    right_list: &mut Vec<Operation>,
     accumulator: &mut i128,
     pointer: &mut usize,
-    label: Option<Cow<'a, str>>
+    label: Option<smartstring::alias::String>
 ) {
     *accumulator += (mid_list.len() - 1) as i128;
     *pointer += mid_list.len();
@@ -328,11 +327,11 @@ fn incorporate_changes<'a>(
     instr_list.append(right_list);
 }
 
-fn handle_multiline_immediate<'a>(
+fn handle_multiline_immediate(
     imm: &mut i32, 
-    label: Option<Cow<'a, str>>, 
+    label: Option<smartstring::alias::String>,
     pointer: &mut usize, 
-    instr_list: &mut Vec<Operation<'a>>,
+    instr_list: &mut Vec<Operation>,
     instr: &Instruction
 ) -> bool {
 
@@ -379,7 +378,7 @@ fn debug_operation_vec(macro_in: &MacroInstr, pointer: &usize, mid_list: &[Opera
     let mut print_string = format!("Expanded '{macro_in}' at {} into '[{}", *pointer, mid_list[0]);
 
     for op in &mid_list[1..] {
-        print_string.push_str(&("; ".to_owned() + &op.to_string()));
+        print_string.push_str(&("; ".to_owned() + op.to_string().as_str()));
     }
 
     print_string.push_str("]'");
@@ -387,12 +386,12 @@ fn debug_operation_vec(macro_in: &MacroInstr, pointer: &usize, mid_list: &[Opera
     debug!("{print_string}");
 }
 
-fn translate_macros<'a>(
+fn translate_macros(
     macro_in: &MacroInstr,
-    instr_list: &mut Vec<Operation<'a>>,
+    instr_list: &mut Vec<Operation>,
     accumulator: &mut i128,
     pointer: &mut usize,
-    label: Option<Cow<'a, str>>
+    label: Option<smartstring::alias::String>
 ) {
     match &macro_in {
         MacroInstr::Srr(reg1, reg2, imm) => {
@@ -402,7 +401,7 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(Reg::G10, reg2.to_owned(), 0).into());
             }
             mid_list.push(Instruction::Addi(Reg::G11, Reg::G0, *imm).into());
-            mid_list.push(MacroInstr::Jal(Reg::G1, "_SRR".to_string()).into());
+            mid_list.push(MacroInstr::Jal(Reg::G1, "_SRR".into()).into());
             if *reg1 != Reg::G10 {
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
@@ -420,7 +419,7 @@ fn translate_macros<'a>(
                 mid_list.push(Instruction::Addi(Reg::G10, reg2.to_owned(), 0).into());
             }
             mid_list.push(Instruction::Addi(Reg::G11, Reg::G0, *imm).into());
-            mid_list.push(MacroInstr::Jal(Reg::G1, "_SLR".to_string()).into());
+            mid_list.push(MacroInstr::Jal(Reg::G1, "_SLR".into()).into());
             if *reg1 != Reg::G10 {
                 mid_list.push(Instruction::Addi(reg1.to_owned(), Reg::G10, 0).into());
             }
@@ -497,12 +496,12 @@ fn translate_macros<'a>(
             instr_list.remove(*pointer);
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.to_string(), Part::Upper))),
-                None => instr_list.insert(*pointer, MacroInstr::Auipc(reg.to_owned(), targ_labl.to_string(), Part::Upper).into())
+                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper))),
+                None => instr_list.insert(*pointer, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper).into())
             }
             *pointer += 1;
             instr_list.insert(*pointer,
-            MacroInstr::Addi(reg.to_owned(), reg.to_owned(), targ_labl.to_string(), Part::Lower).into());
+            MacroInstr::Addi(reg.to_owned(), reg.to_owned(), targ_labl.clone(), Part::Lower).into());
 
             debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
 
@@ -559,12 +558,12 @@ fn translate_macros<'a>(
             instr_list.remove(*pointer);
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablMacro(labl, MacroInstr::Auipc(Reg::G1, targ_labl.to_string(), Part::Upper))),
-                None => instr_list.insert(*pointer, MacroInstr::Auipc(Reg::G1, targ_labl.to_string(), Part::Upper).into())
+                                Operation::LablMacro(labl, MacroInstr::Auipc(Reg::G1, targ_labl.clone(), Part::Upper))),
+                None => instr_list.insert(*pointer, MacroInstr::Auipc(Reg::G1, targ_labl.clone(), Part::Upper).into())
             }
             *pointer += 1;
             instr_list.insert(*pointer,
-            MacroInstr::Jalr(Reg::G1, Reg::G1, targ_labl.to_string(), Part::Lower).into());
+            MacroInstr::Jalr(Reg::G1, Reg::G1, targ_labl.clone(), Part::Lower).into());
 
             debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
 
@@ -575,12 +574,12 @@ fn translate_macros<'a>(
             instr_list.remove(*pointer);
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablMacro(labl, MacroInstr::Auipc(Reg::G6, targ_labl.to_string(), Part::Upper))),
-                None => instr_list.insert(*pointer, MacroInstr::Auipc(Reg::G6, targ_labl.to_string(), Part::Upper).into())
+                                Operation::LablMacro(labl, MacroInstr::Auipc(Reg::G6, targ_labl.clone(), Part::Upper))),
+                None => instr_list.insert(*pointer, MacroInstr::Auipc(Reg::G6, targ_labl.clone(), Part::Upper).into())
             }
             *pointer += 1;
             instr_list.insert(*pointer,
-            MacroInstr::Jalr(Reg::G0, Reg::G6, targ_labl.to_string(), Part::Lower).into());
+            MacroInstr::Jalr(Reg::G0, Reg::G6, targ_labl.clone(), Part::Lower).into());
 
             debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
 
@@ -717,14 +716,14 @@ fn expand_instrs(symbol_map: &mut LabelRecog, instr_list: &mut Vec<Operation>) {
                     Operation::Instr(_) => pointer += 1,
                     Operation::Macro(macro_in) => translate_macros(&macro_in, instr_list, &mut accumulator, &mut pointer, None),
                     Operation::LablMacro(labl, macro_in) => {
-                        if let Some(label) = symbol_map.get_label(&labl.to_string()) {
+                        if let Some(label) = symbol_map.get_label(&labl) {
                             label.add_def(accumulator);
                         };
                         translate_macros(&macro_in, instr_list, &mut accumulator, &mut pointer, Some(labl));
                     },
                     Operation::LablInstr(labl, _) |
                     Operation::Labl(labl) => {
-                        if let Some(label) = symbol_map.get_label(&labl.to_string()) {
+                        if let Some(label) = symbol_map.get_label(&labl) {
                             label.add_def(accumulator);
                         }
 
@@ -738,7 +737,7 @@ fn expand_instrs(symbol_map: &mut LabelRecog, instr_list: &mut Vec<Operation>) {
     }
 }
 
-pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, sp_init: bool) -> IResult<&'a str, Vec<Operation<'a>>> {
+pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, sp_init: bool) -> IResult<&'a str, Vec<Operation>> {
     let mut instr_list: Vec<Operation> = vec![];
 
     // Key = line forward; value = current line
@@ -779,74 +778,74 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
                 match instr {
                     Operation::Macro(macro_in) => {
                         handle_label_refs(macro_in, subroutines, symbol_map);
-                        *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label), macro_in.to_owned());
+                        *instr = Operation::LablMacro(smartstring::alias::String::from(*label), macro_in.to_owned());
                     },
                     Operation::Instr(instr_in) => {
                         match instr_in {
                             Instruction::Beq(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
-                                    MacroInstr::Beq(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
+                                    MacroInstr::Beq(reg1.clone(), reg2.clone(), jump_label));
                                 }
                             },
                             Instruction::Bne(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, 
                                     &mut abs_to_label_queue, &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
-                                    MacroInstr::Bne(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
+                                    MacroInstr::Bne(reg1.clone(), reg2.clone(), jump_label));
                                 }
                             },
                             Instruction::Blt(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
-                                    MacroInstr::Blt(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
+                                    MacroInstr::Blt(reg1.clone(), reg2.clone(), jump_label));
                                 }
                             },
                             Instruction::Bltu(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
-                                    MacroInstr::Bltu(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
+                                    MacroInstr::Bltu(reg1.clone(), reg2.clone(), jump_label));
                                 }
                             },
                             Instruction::Bge(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
-                                    MacroInstr::Bge(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
+                                    MacroInstr::Bge(reg1.clone(), reg2.clone(), jump_label));
                                 }
                             },
                             Instruction::Bgeu(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
-                                    MacroInstr::Bgeu(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
+                                    MacroInstr::Bgeu(reg1.clone(), reg2.clone(), jump_label));
                                 }
                             },
                             Instruction::Jal(reg, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label),
-                                    MacroInstr::Jal(reg.clone(), jump_label.to_string()));
+                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
+                                    MacroInstr::Jal(reg.clone(), jump_label));
                                 }
                             },
                             Instruction::Jalr(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(std::borrow::Cow::Borrowed(label), 
-                                    MacroInstr::Jalr(reg1.clone(), reg2.clone(), jump_label.to_string(), Part::None));
+                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
+                                    MacroInstr::Jalr(reg1.clone(), reg2.clone(), jump_label, Part::None));
                                 }
                             },
-                            _ => *instr = Operation::LablInstr(std::borrow::Cow::Borrowed(label), instr_in.to_owned()),
+                            _ => *instr = Operation::LablInstr(smartstring::alias::String::from(*label), instr_in.to_owned()),
                         };
                     }
                     _ => (),
                 }
 
                 if let Some(list) = abs_to_label_queue.remove(&(instr_counter + 1)) {
-                    symbol_map.set_refd_label(&label.to_string());
+                    symbol_map.set_refd_label(&((*label).into()));
                     handle_instr_substitution(&mut instr_list, &list, label);
                 };
 
@@ -862,49 +861,49 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
                             Instruction::Beq(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue,
                                      &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Beq(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    *instr = Operation::Macro(MacroInstr::Beq(reg1.clone(), reg2.clone(), jump_label));
                                 }
                             },
                             Instruction::Bne(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Bne(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    *instr = Operation::Macro(MacroInstr::Bne(reg1.clone(), reg2.clone(), jump_label));
                                 }
                             },
                             Instruction::Blt(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Blt(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    *instr = Operation::Macro(MacroInstr::Blt(reg1.clone(), reg2.clone(), jump_label));
                                 }
                             },
                             Instruction::Bltu(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Bltu(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    *instr = Operation::Macro(MacroInstr::Bltu(reg1.clone(), reg2.clone(), jump_label));
                                 }
                             },
                             Instruction::Bge(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Bge(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    *instr = Operation::Macro(MacroInstr::Bge(reg1.clone(), reg2.clone(), jump_label));
                                 }
                             },
                             Instruction::Bgeu(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Bgeu(reg1.clone(), reg2.clone(), jump_label.to_string()));
+                                    *instr = Operation::Macro(MacroInstr::Bgeu(reg1.clone(), reg2.clone(), jump_label));
                                 }
                             },
                             Instruction::Jal(reg, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Jal(reg.clone(), jump_label.to_string())); 
+                                    *instr = Operation::Macro(MacroInstr::Jal(reg.clone(), jump_label));
                                 }
                             },
                             Instruction::Jalr(reg1, reg2, imm) => {
                                 if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Jalr(reg1.clone(), reg2.clone(), jump_label.to_string(), Part::None));   
+                                    *instr = Operation::Macro(MacroInstr::Jalr(reg1.clone(), reg2.clone(), jump_label, Part::None));
                                 }
                             },
                             _ => (),
@@ -914,8 +913,8 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
                 }
                 
                 if let Some(list) = abs_to_label_queue.remove(&(instr_counter + 1)) {
-                    let jump_label = Cow::from("__".to_string() + &instr_counter.to_string());
-                    symbol_map.crt_def_ref(&jump_label.to_string(), false, LabelType::Address, instr_counter as i128);
+                    let jump_label = smartstring::alias::String::from("__") + instr_counter.to_string().as_str();
+                    symbol_map.crt_def_ref(&jump_label, false, LabelType::Address, instr_counter as i128);
                     handle_instr_substitution(&mut instr_list, &list, &jump_label);
                     match &instr {
                         Operation::Instr(instr_in) => *instr = Operation::LablInstr(jump_label, instr_in.to_owned()),
@@ -934,11 +933,11 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
                     std::process::exit(1)
                 };
                 if let Some(list) = abs_to_label_queue.remove(&(instr_counter + 1)) {
-                    symbol_map.set_refd_label(&label.to_string());
+                    symbol_map.set_refd_label(&((*label).into()));
                     handle_instr_substitution(&mut instr_list, &list, label)
                 };
                 instr_counter += 1;
-                instr_list.push(Operation::Labl(std::borrow::Cow::Borrowed(label)));
+                instr_list.push(Operation::Labl(smartstring::alias::String::from(*label)));
             },
             (None, None) => debug!("({instr_counter}) - Parsed nothing!"),
         }
@@ -951,12 +950,12 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
     if !abs_to_label_queue.is_empty() {
         let jump_label = match &instr_list[instr_counter - 1] {
             Operation::Labl(labl) => {
-                symbol_map.set_refd_label(&labl.to_string());
+                symbol_map.set_refd_label(labl);
                 labl.clone()
             },
             _ => {
-                let res = Cow::from("__".to_string() + &instr_counter.to_string());
-                symbol_map.crt_def_ref(&res.to_string(), false, LabelType::Address, instr_counter as i128);
+                let res = smartstring::alias::String::from("__") + instr_counter.to_string().as_str();
+                symbol_map.crt_def_ref(&res, false, LabelType::Address, instr_counter as i128);
                 res
             }
         };
@@ -1021,18 +1020,18 @@ END:
 
         let mut symbols = LabelRecog::new();
         let mut label = LabelElem::new();
-        label.set_name("START".to_string());
+        label.set_name("START".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("MUL".to_string());
+        label = LabelElem::new_refd("MUL".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(2);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("END".to_string());
+        label = LabelElem::new_refd("END".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(6);
@@ -1042,13 +1041,13 @@ END:
         let correct_vec: Vec<Operation> = vec![
                                                 //Operation::LablInstr(Cow::from("START"), Instruction::Lui(Reg::G4, 16)),
                                                 //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
-                                                Operation::LablInstr(Cow::from("START"), Instruction::Addi(Reg::G4, Reg::G0, 16)),
+                                                Operation::LablInstr("START".into(), Instruction::Addi(Reg::G4, Reg::G0, 16)),
                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
-                                                Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
+                                                Operation::LablMacro("MUL".into(), MacroInstr::Beq(Reg::G3, Reg::G4, "END".into())),
                                                 Operation::from(Instruction::Mul(Reg::G6, Reg::G4, Reg::G3)),
                                                 Operation::from(Instruction::Lui(Reg::G4, 0x16)),
-                                                Operation::from(MacroInstr::Jal(Reg::G0, "MUL".to_string())),
-                                                Operation::Labl(Cow::from("END"))
+                                                Operation::from(MacroInstr::Jal(Reg::G0, "MUL".into())),
+                                                Operation::Labl("END".into())
                                                 ];
 
         assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
@@ -1078,20 +1077,20 @@ r#" li  x4, 16
         label.set_scope(true);
         let _ = symbols.insert_label(label);*/
 
-        let mut label = LabelElem::new_refd("__3".to_string());
+        let mut label = LabelElem::new_refd("__3".into());
         label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(3);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("__6".to_string());
+        label = LabelElem::new_refd("__6".into());
         label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(6);
         //label.set_def(9);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("__7".to_string());
+        label = LabelElem::new_refd("__7".into());
         label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(7);
@@ -1103,12 +1102,12 @@ r#" li  x4, 16
                                                 //Operation::from(Instruction::Addi(Reg::G4, Reg::G4, 16)),
                                                 Instruction::Addi(Reg::G4, Reg::G0, 16).into(),
                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
-                                                Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".to_string())),
-                                                Operation::LablInstr(Cow::from("__3"), Instruction::Mul(Reg::G6, Reg::G4, Reg::G3)),
-                                                Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__7".to_string())),
+                                                Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".into())),
+                                                Operation::LablInstr("__3".into(), Instruction::Mul(Reg::G6, Reg::G4, Reg::G3)),
+                                                Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__7".into())),
                                                 Operation::from(Instruction::Lui(Reg::G4, 0x16)),
-                                                Operation::LablMacro(Cow::from("__6"), MacroInstr::Jal(Reg::G0, "__3".to_string())),
-                                                Operation::Labl(Cow::from("__7"))
+                                                Operation::LablMacro("__6".into(), MacroInstr::Jal(Reg::G0, "__3".into())),
+                                                Operation::Labl("__7".into())
                                                 ];
 
         assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
@@ -1158,32 +1157,32 @@ TEST: srli a7, a7, 1
         let mut symbol_map = LabelRecog::new();
         let mut symbols = LabelRecog::new();
 
-        let mut label = LabelElem::new_refd("__9".to_string());
+        let mut label = LabelElem::new_refd("__9".into());
         label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(9);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("__10".to_string());
+        label = LabelElem::new_refd("__10".into());
         label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(10);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("__19".to_string());
+        label = LabelElem::new_refd("__19".into());
         label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(19);
         let _ = symbols.insert_label(label);
 
 
-        label = LabelElem::new_refd("TEST".to_string());
+        label = LabelElem::new_refd("TEST".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(26);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("__29".to_string());
+        label = LabelElem::new_refd("__29".into());
         label.set_type(LabelType::Address);
         label.set_scope(false);
         label.set_def(29);
@@ -1196,33 +1195,33 @@ TEST: srli a7, a7, 1
         correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)));
         correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0)));
 
-        correct_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G13, "__9".to_string())));
+        correct_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G13, "__9".into())));
         correct_vec.push(Operation::Instr(Instruction::Slli(Reg::G13, Reg::G13, 1)));
         correct_vec.push(Operation::Instr(Instruction::Sub(Reg::G12, Reg::G12, Reg::G13)));
         correct_vec.push(Operation::Instr(Instruction::Add(Reg::G10, Reg::G10, Reg::G17)));
-        correct_vec.push(Operation::LablMacro(Cow::from("__9"), MacroInstr::Blt(Reg::G12, Reg::G13, "__19".to_string())));
+        correct_vec.push(Operation::LablMacro("__9".into(), MacroInstr::Blt(Reg::G12, Reg::G13, "__19".into())));
 
-        correct_vec.push(Operation::LablInstr(Cow::from("__10"), Instruction::Slli(Reg::G13, Reg::G13, 1)));
+        correct_vec.push(Operation::LablInstr("__10".into(), Instruction::Slli(Reg::G13, Reg::G13, 1)));
         correct_vec.push(Operation::Instr(Instruction::Slli(Reg::G17, Reg::G17, 1)));
-        correct_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G13, Reg::G12, "__10".to_string())));
+        correct_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G13, Reg::G12, "__10".into())));
         correct_vec.push(Operation::Instr(Instruction::Srli(Reg::G13, Reg::G13, 1)));
         correct_vec.push(Operation::Instr(Instruction::Srli(Reg::G17, Reg::G17, 1)));
         correct_vec.push(Operation::Instr(Instruction::Sub(Reg::G12, Reg::G12, Reg::G13)));
         correct_vec.push(Operation::Instr(Instruction::Add(Reg::G10, Reg::G10, Reg::G17)));
-        correct_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G0, "__9".to_string())));
-        correct_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G0, Reg::G0, "__29".to_string())));
+        correct_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G0, "__9".into())));
+        correct_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G0, Reg::G0, "__29".into())));
 
-        correct_vec.push(Operation::LablInstr(Cow::from("__19"), Instruction::Srli(Reg::G13, Reg::G13, 1)));
+        correct_vec.push(Operation::LablInstr("__19".into(), Instruction::Srli(Reg::G13, Reg::G13, 1)));
         correct_vec.push(Operation::Instr(Instruction::Srli(Reg::G17, Reg::G17, 1)));
-        correct_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G12, Reg::G13, "__19".to_string())));
+        correct_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G12, Reg::G13, "__19".into())));
         correct_vec.push(Operation::Instr(Instruction::Slli(Reg::G13, Reg::G13, 1)));
         correct_vec.push(Operation::Instr(Instruction::Slli(Reg::G17, Reg::G17, 1)));
-        correct_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G12, Reg::G13, "TEST".to_string())));
+        correct_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G12, Reg::G13, "TEST".into())));
         correct_vec.push(Operation::Instr(Instruction::Srli(Reg::G13, Reg::G13, 1)));
-        correct_vec.push(Operation::LablInstr(Cow::from("TEST"), Instruction::Srli(Reg::G17, Reg::G17, 1)));
+        correct_vec.push(Operation::LablInstr("TEST".into(), Instruction::Srli(Reg::G17, Reg::G17, 1)));
         correct_vec.push(Operation::Instr(Instruction::Sub(Reg::G12, Reg::G12, Reg::G13)));
         correct_vec.push(Operation::Instr(Instruction::Add(Reg::G10, Reg::G10, Reg::G17)));
-        correct_vec.push(Operation::LablMacro(Cow::from("__29"), MacroInstr::Bne(Reg::G12, Reg::G0, "__9".to_string())));
+        correct_vec.push(Operation::LablMacro("__29".into(), MacroInstr::Bne(Reg::G12, Reg::G0, "__9".into())));
         correct_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
         assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
@@ -1253,7 +1252,7 @@ TEST: srli a7, a7, 1
             let mut test_list = sample_list.clone();
             test_list.insert(2, 
                 Operation::Macro(MacroInstr::Srr(Reg::G7, Reg::G20, 2)));
-            let label: Cow<'_, str> = Cow::from("TEST3");
+            let label: smartstring::alias::String = "TEST3".into();
             
             translate_macros(&MacroInstr::Srr(Reg::G7, Reg::G20, 2), 
             &mut test_list, 
@@ -1269,7 +1268,7 @@ TEST: srli a7, a7, 1
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
                 Operation::LablInstr(label, Instruction::Addi(Reg::G10, Reg::G20, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 2)),
-                Operation::Macro(MacroInstr::Jal(Reg::G1, "_SRR".to_string())),
+                Operation::Macro(MacroInstr::Jal(Reg::G1, "_SRR".into())),
                 Operation::Instr(Instruction::Addi(Reg::G7, Reg::G10, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
@@ -1285,7 +1284,7 @@ TEST: srli a7, a7, 1
             let mut test_list = sample_list.clone();
             test_list.insert(2, 
                 Operation::Macro(MacroInstr::Slr(Reg::G7, Reg::G20, 2)));
-            let label: Cow<'_, str> = Cow::from("TEST66");
+            let label: smartstring::alias::String = "TEST66".into();
             
             translate_macros(&MacroInstr::Slr(Reg::G7, Reg::G20, 2), 
             &mut test_list, 
@@ -1301,7 +1300,7 @@ TEST: srli a7, a7, 1
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
                 Operation::LablInstr(label, Instruction::Addi(Reg::G10, Reg::G20, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 2)),
-                Operation::Macro(MacroInstr::Jal(Reg::G1, "_SLR".to_string())),
+                Operation::Macro(MacroInstr::Jal(Reg::G1, "_SLR".into())),
                 Operation::Instr(Instruction::Addi(Reg::G7, Reg::G10, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
@@ -1318,11 +1317,11 @@ TEST: srli a7, a7, 1
             let target_label = "0800 444 555 666 - JETZT ANRUFEN UND [INSERT PRODUCT] ZUM PREIS VON EINEM BEKOMMEN! LIMITIERTES ANGEBOT";
             test_list.insert(2, 
                 Operation::Macro(MacroInstr::LaLabl(Reg::G7, 
-                    target_label.to_string())));
-            let label: Cow<'_, str> = Cow::from("TEST80");
+                    target_label.into())));
+            let label: smartstring::alias::String = "TEST80".into();
             
             translate_macros(&MacroInstr::LaLabl(Reg::G7, 
-                target_label.to_string()), 
+                target_label.into()),
             &mut test_list, 
             &mut accumulator, 
             &mut pointer, 
@@ -1334,8 +1333,8 @@ TEST: srli a7, a7, 1
             let cor_vec: Vec<Operation> = Vec::from([
                 Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G7, target_label.to_string(), Part::Upper)),
-                Operation::Macro(MacroInstr::Addi(Reg::G7, Reg::G7, target_label.to_string(), Part::Lower)),
+                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G7, target_label.into(), Part::Upper)),
+                Operation::Macro(MacroInstr::Addi(Reg::G7, Reg::G7, target_label.into(), Part::Lower)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
@@ -1350,7 +1349,7 @@ TEST: srli a7, a7, 1
             let mut test_list = sample_list.clone();
             test_list.insert(2, 
                 Operation::Macro(MacroInstr::CallImm(50)));
-            let label: Cow<'_, str> = Cow::from("TEST80");
+            let label: smartstring::alias::String = "TEST80".into();
             
             translate_macros(&MacroInstr::CallImm(50), 
             &mut test_list, 
@@ -1381,7 +1380,7 @@ TEST: srli a7, a7, 1
             let mut test_list = sample_list.clone();
             test_list.insert(2, 
                 Operation::Macro(MacroInstr::TailImm(50)));
-            let label: Cow<'_, str> = Cow::from("TEST80");
+            let label: smartstring::alias::String = "TEST80".into();
             
             translate_macros(&MacroInstr::TailImm(50), 
             &mut test_list, 
@@ -1412,10 +1411,10 @@ TEST: srli a7, a7, 1
             let mut test_list = sample_list.clone();
             let target_label = "0800 444 555 666";
             test_list.insert(2, 
-                Operation::Macro(MacroInstr::CallLabl(target_label.to_string())));
-            let label: Cow<'_, str> = Cow::from("TEST80");
+                Operation::Macro(MacroInstr::CallLabl(target_label.into())));
+            let label: smartstring::alias::String = "TEST80".into();
             
-            translate_macros(&MacroInstr::CallLabl(target_label.to_string()), 
+            translate_macros(&MacroInstr::CallLabl(target_label.into()),
             &mut test_list, 
             &mut accumulator, 
             &mut pointer, 
@@ -1427,8 +1426,8 @@ TEST: srli a7, a7, 1
             let cor_vec: Vec<Operation> = Vec::from([
                 Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G1, target_label.to_string(), Part::Upper)),
-                Operation::Macro(MacroInstr::Jalr(Reg::G1, Reg::G1, target_label.to_string(), Part::Lower)),
+                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G1, target_label.into(), Part::Upper)),
+                Operation::Macro(MacroInstr::Jalr(Reg::G1, Reg::G1, target_label.into(), Part::Lower)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
@@ -1443,10 +1442,10 @@ TEST: srli a7, a7, 1
             let mut test_list = sample_list.clone();
             let target_label = "0800 444 555 666";
             test_list.insert(2, 
-                Operation::Macro(MacroInstr::TailLabl(target_label.to_string())));
-            let label: Cow<'_, str> = Cow::from("TEST80");
+                Operation::Macro(MacroInstr::TailLabl(target_label.into())));
+            let label: smartstring::alias::String = "TEST80".into();
             
-            translate_macros(&MacroInstr::TailLabl(target_label.to_string()), 
+            translate_macros(&MacroInstr::TailLabl(target_label.into()),
             &mut test_list, 
             &mut accumulator, 
             &mut pointer, 
@@ -1458,8 +1457,8 @@ TEST: srli a7, a7, 1
             let cor_vec: Vec<Operation> = Vec::from([
                 Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G6, target_label.to_string(), Part::Upper)),
-                Operation::Macro(MacroInstr::Jalr(Reg::G0, Reg::G6, target_label.to_string(), Part::Lower)),
+                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G6, target_label.into(), Part::Upper)),
+                Operation::Macro(MacroInstr::Jalr(Reg::G0, Reg::G6, target_label.into(), Part::Lower)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
@@ -1474,7 +1473,7 @@ TEST: srli a7, a7, 1
             let mut test_list = sample_list.clone();
             test_list.insert(2, 
                 Operation::Macro(MacroInstr::Push(Vec::from([Reg::G15, Reg::G16, Reg::G17]))));
-            let label: Cow<'_, str> = Cow::from("TEST80");
+            let label: smartstring::alias::String = "TEST80".into();
             
             translate_macros(&MacroInstr::Push(Vec::from([Reg::G15, Reg::G16, Reg::G17])), 
             &mut test_list, 
@@ -1506,7 +1505,7 @@ TEST: srli a7, a7, 1
             let mut test_list = sample_list.clone();
             test_list.insert(2, 
                 Operation::Macro(MacroInstr::Push(Vec::from([Reg::G15, Reg::G16, Reg::G17]))));
-            let label: Cow<'_, str> = Cow::from("TEST80");
+            let label: smartstring::alias::String = "TEST80".into();
             
             translate_macros(&MacroInstr::Push(Vec::from([Reg::G15, Reg::G16, Reg::G17])), 
             &mut test_list, 
@@ -1538,7 +1537,7 @@ TEST: srli a7, a7, 1
             let mut test_list = sample_list.clone();
             test_list.insert(2, 
                 Operation::Macro(MacroInstr::Pop(Vec::from([Reg::G15, Reg::G16, Reg::G17]))));
-            let label: Cow<'_, str> = Cow::from("TEST80");
+            let label: smartstring::alias::String = "TEST80".into();
             
             translate_macros(&MacroInstr::Pop(Vec::from([Reg::G15, Reg::G16, Reg::G17])), 
             &mut test_list, 
@@ -1593,19 +1592,19 @@ END:                    ; TEST
         let mut symbol_map = LabelRecog::new();
         let mut symbols = LabelRecog::new();
         let mut label = LabelElem::new();
-        label.set_name("START".to_string());
+        label.set_name("START".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(0);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("MUL".to_string());
+        label = LabelElem::new_refd("MUL".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(2);
         let _ = symbols.insert_label(label);
 
-        label = LabelElem::new_refd("END".to_string());
+        label = LabelElem::new_refd("END".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(6);
@@ -1613,13 +1612,13 @@ END:                    ; TEST
         let _ = symbols.insert_label(label);
 
         let correct_vec: Vec<Operation> = vec![
-                                                Operation::LablInstr(Cow::from("START"), Instruction::Addi(Reg::G4, Reg::G0, 16)),
+                                                Operation::LablInstr("START".into(), Instruction::Addi(Reg::G4, Reg::G0, 16)),
                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
-                                                Operation::LablMacro(Cow::from("MUL"), MacroInstr::Beq(Reg::G3, Reg::G4, "END".to_string())),
+                                                Operation::LablMacro("MUL".into(), MacroInstr::Beq(Reg::G3, Reg::G4, "END".into())),
                                                 Operation::from(Instruction::Mul(Reg::G6, Reg::G4, Reg::G3)),
                                                 Operation::from(Instruction::Lui(Reg::G4, 0x16)),
-                                                Operation::from(MacroInstr::Jal(Reg::G0, "MUL".to_string())),
-                                                Operation::Labl(Cow::from("END"))
+                                                Operation::from(MacroInstr::Jal(Reg::G0, "MUL".into())),
+                                                Operation::Labl("END".into())
                                                 ];
 
         assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
@@ -1640,7 +1639,7 @@ TESTING: rep 1000, nop
         let mut symbol_map = LabelRecog::new();
         let mut symbols = LabelRecog::new();
         let mut label = LabelElem::new();
-        label.set_name("TESTING".to_string());
+        label.set_name("TESTING".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(0);
@@ -1648,7 +1647,7 @@ TESTING: rep 1000, nop
 
         let mut correct_vec: Vec<Operation> = vec![];
 
-        correct_vec.push(Operation::LablInstr(Cow::from("TESTING"), Instruction::Addi(Reg::G0, Reg::G0, 0)));
+        correct_vec.push(Operation::LablInstr("TESTING".into(), Instruction::Addi(Reg::G0, Reg::G0, 0)));
 
         for _ in 0..999 {
             correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
@@ -1667,7 +1666,7 @@ TESTING: rep 1000, nop
         let mut symbol_map = LabelRecog::new();
         let mut symbols = LabelRecog::new();
         let mut label = LabelElem::new();
-        label.set_name("TESTING".to_string());
+        label.set_name("TESTING".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(0);
@@ -1680,7 +1679,7 @@ TESTING: rep 50, pop x15
 
         let mut sec_correct_vec: Vec<Operation> = vec![];
 
-        sec_correct_vec.push(Operation::LablInstr(Cow::from("TESTING"), Instruction::Lw(Reg::G15, Reg::G2, 0)));
+        sec_correct_vec.push(Operation::LablInstr("TESTING".into(), Instruction::Lw(Reg::G15, Reg::G2, 0)));
         sec_correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G2, Reg::G2, 4)));
 
         for _ in 0..49 {

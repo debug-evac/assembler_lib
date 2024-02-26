@@ -30,9 +30,9 @@ impl ParseLinkBuilder {
         self.assembly_code.push(code)
     }
 
-    pub fn parse_link<'a>(&'a mut self, sp_init: bool) -> Result<AssemblyCode<'a, Namespaces>, LibraryError> {
+    pub fn parse_link(self, sp_init: bool) -> Result<AssemblyCode<Namespaces>, LibraryError> {
         // Currently builder cannot be destroyed since result borrows from vec of strings
-        if self.assembly_code.len() == 0 {
+        if self.assembly_code.is_empty() {
             return Err(LibraryError::NoCode)
         }
 
@@ -41,17 +41,13 @@ impl ParseLinkBuilder {
 
         {
           for (counter, code) in self.assembly_code.iter().enumerate() {
-              parsed_vector.push(parser::parse(&code, &mut Some(&mut subroutine), counter == 0 && sp_init)?.1);
+              parsed_vector.push(parser::parse(code, &mut Some(&mut subroutine), counter == 0 && sp_init)?.1);
           }
         }
 
-        /*
-        let end = self.assembly_code.len();
-        self.assembly_code.extend(subroutine.get_code());
-
-        for code in &self.assembly_code[end..] {
+        for code in subroutine.get_code() {
             parsed_vector.push(parser::parse(&code, &mut None, false)?.1)
-        }*/
+        }
 
         Ok(linker::link(parsed_vector)?)
     }

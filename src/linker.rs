@@ -17,8 +17,8 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use log::debug;
 
-use crate::common::{LabelType, MemData, AssemblyCode};
-use crate::common::{RestrictLabelData, LabelRecog, Operation, LabelElem,
+use crate::common::{AssemblyCode, AssemblyCodeNamespaces, AssemblyCodeRecog, LabelType, MemData};
+use crate::common::{LabelRecog, Operation, LabelElem,
     errors::LinkError
 };
 
@@ -107,8 +107,6 @@ impl Namespaces {
     }
 }
 
-impl RestrictLabelData for Namespaces {}
-
 impl Display for Namespaces {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Namespace {{\nglobals: {:?},\nnamespaces: [{}", self.global_namespace, self.namespaces[0])?;
@@ -125,8 +123,8 @@ impl Default for Namespaces {
     }
 }
 
-pub fn link(mut parsed_instr: Vec<AssemblyCode<LabelRecog>>) -> Result<AssemblyCode<Namespaces>, LinkError> {
-    let mut new_assembly = AssemblyCode::new(Namespaces::new());
+pub fn link(mut parsed_instr: Vec<AssemblyCodeRecog>) -> Result<AssemblyCodeNamespaces, LinkError> {
+    let mut new_assembly: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
     let mut text_offset: usize = 0;
     let mut data_offset: usize = 0;
 
@@ -181,9 +179,9 @@ mod tests {
 
     #[test]
     fn test_correct_link() {
-        let mut parsed_vector: Vec<AssemblyCode<LabelRecog>> = vec![];
+        let mut parsed_vector: Vec<AssemblyCodeRecog> = vec![];
 
-        let mut assembly_code_one = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code_one: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec_one = assembly_code_one.get_text_refmut();
         operation_vec_one.push(Operation::LablMacro("SEHR_SCHOEN".into(), MacroInstr::Jal(Reg::G1, "END".into())));
@@ -216,7 +214,7 @@ mod tests {
 
         parsed_vector.push(assembly_code_one);
 
-        let mut assembly_code_two = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code_two: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec_two = assembly_code_two.get_text_refmut();
 
@@ -250,7 +248,7 @@ mod tests {
 
         // ####################################################################
 
-        let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code_ver: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         label_recog_ver2.add_offset(2, LabelType::Address);
 
@@ -282,9 +280,9 @@ mod tests {
 
     #[test]
     fn test_multiple_defined_global() {
-        let mut parsed_vector: Vec<AssemblyCode<LabelRecog>> = vec![];
+        let mut parsed_vector: Vec<AssemblyCodeRecog> = vec![];
 
-        let mut assembly_code_one = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code_one: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec_one = assembly_code_one.get_text_refmut();
         operation_vec_one.push(Operation::LablInstr("SEHR_SCHOEN".into(), Instruction::Add(Reg::G0, Reg::G0, Reg::G1)));
@@ -310,7 +308,7 @@ mod tests {
 
         parsed_vector.push(assembly_code_one);
 
-        let mut assembly_code_two = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code_two: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec_two = assembly_code_two.get_text_refmut();
 
@@ -352,9 +350,9 @@ mod tests {
 
     #[test]
     fn test_no_defined_labels() {
-        let mut parsed_vector: Vec<AssemblyCode<LabelRecog>> = vec![];
+        let mut parsed_vector: Vec<AssemblyCodeRecog> = vec![];
 
-        let mut assembly_code_one = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code_one: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec_one = assembly_code_one.get_text_refmut();
         operation_vec_one.push(Operation::Instr(Instruction::Add(Reg::G0, Reg::G1, Reg::G12)));
@@ -371,7 +369,7 @@ mod tests {
 
         parsed_vector.push(assembly_code_one);
 
-        let mut assembly_code_two = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code_two: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec_two = assembly_code_two.get_text_refmut();
 
@@ -396,7 +394,7 @@ mod tests {
 
         label_recog_ver2.add_offset(3, LabelType::Address);
 
-        let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code_ver: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let namespace_ver = assembly_code_ver.get_labels_refmut();
 
@@ -430,7 +428,7 @@ mod tests {
 
     #[test]
     fn test_single_link() {
-        let mut assembly_code = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec = assembly_code.get_text_refmut();
         operation_vec.push(Operation::Instr(Instruction::Add(Reg::G0, Reg::G1, Reg::G12)));
@@ -451,7 +449,7 @@ mod tests {
             Sub $3, $15, $15
         */
 
-        let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code_ver: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
         let _ = assembly_code_ver.get_labels_refmut().insert_recog(LabelRecog::new());
 
         let operation_vec_ver = assembly_code_ver.get_text_refmut();

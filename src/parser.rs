@@ -77,8 +77,8 @@ fn parse_multiline_comments(input: &str) -> IResult<&str, bool> {
     Ok((rest, false))
 }
 
-pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sp_init: bool) -> IResult<&'a str, AssemblyCode<LabelRecog>> {
-    let mut assembly = AssemblyCode::new(LabelRecog::new());
+pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sp_init: bool) -> IResult<&'a str, AssemblyCodeRecog> {
+    let mut assembly: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
     let (mut rest, parsed) = tuple((parse_multiline_comments, opt(parse_data_segment_id), parse_multiline_comments))(input)?;
     if parsed.1.is_some() {

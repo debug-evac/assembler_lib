@@ -126,12 +126,19 @@ impl std::fmt::Display for TranslatorError {
 pub enum LibraryError {
     NoCode,
     ParserError(String),
-    LinkerError(LinkError)
+    LinkerError(LinkError),
+    OptimizerError(OptimizerError),
 }
 
 impl From<LinkError> for LibraryError {
     fn from(value: LinkError) -> Self {
         LibraryError::LinkerError(value)
+    }
+}
+
+impl From<OptimizerError> for LibraryError {
+    fn from(value: OptimizerError) -> Self {
+        LibraryError::OptimizerError(value)
     }
 }
 
@@ -147,6 +154,7 @@ impl std::fmt::Display for LibraryError {
             LibraryError::NoCode => write!(f, "No code has been specified!"),
             LibraryError::ParserError(nom_err) => write!(f, "{nom_err}"),
             LibraryError::LinkerError(link_err) => write!(f, "{link_err}"),
+            LibraryError::OptimizerError(opt_err) => write!(f, "{opt_err}"),
         }
     }
 }
@@ -157,6 +165,7 @@ impl ExitErrorCode for LibraryError {
             LibraryError::NoCode => 1,
             LibraryError::ParserError(_) => 65,
             LibraryError::LinkerError(link_err) => link_err.get_err_code(),
+            LibraryError::OptimizerError(opt_err) => opt_err.get_err_code(),
         }
     }
 }

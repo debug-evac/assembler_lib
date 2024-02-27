@@ -16,6 +16,9 @@ pub mod errors;
 use std::collections::HashMap;
 use std::fmt::Display;
 
+use crate::linker::Namespaces;
+use crate::parser::Subroutines;
+
 use self::errors::CommonError;
 
 pub type Imm = i32; // always less than 32
@@ -847,47 +850,89 @@ impl Default for LabelRecog {
     }
 }
 
-pub trait RestrictLabelData {}
+pub trait AssemblyCode {
+    type Labels;
 
-impl RestrictLabelData for LabelRecog {}
+    fn new(labels: Self::Labels) -> Self;
+    fn get_labels_refmut(&mut self) -> &mut Self::Labels;
+    fn get_data_refmut(&mut self) -> &mut Vec<MemData>;
+    fn get_text_refmut(&mut self) -> &mut Vec<Operation>;
+    fn get_all_refmut(&mut self) -> (&mut Self::Labels, &mut Vec<Operation>, &mut Vec<MemData>);
+}
 
-#[derive(Debug, PartialEq)]
-pub struct AssemblyCode<T: RestrictLabelData> {
-    labels: T,
+pub struct AssemblyCodeRecog {
+    labels: LabelRecog,
     data: Vec<MemData>,
-    text: Vec<Operation>
+    text: Vec<Operation>,
+    subroutine: Subroutines
 }
 
-impl <T: RestrictLabelData> AssemblyCode<T> {
-    pub fn new(labels: T) -> Self {
-        AssemblyCode { labels, data: vec![], text: vec![] }
-    }
-
-    pub fn get_labels_refmut(&mut self) -> &mut T {
-        &mut self.labels
-    }
-
-    #[allow(dead_code)]
-    pub fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
-        &mut self.data
-    }
-
-    pub fn get_text_refmut(&mut self) -> &mut Vec<Operation> {
-        &mut self.text
-    }
-
-    pub fn get_all_refmut(&mut self) -> (&mut T, &mut Vec<Operation>, &mut Vec<MemData>) {
-        (&mut self.labels, &mut self.text, &mut self.data)
-    }
-}
-
-impl AssemblyCode<LabelRecog> {
+impl AssemblyCodeRecog {
     pub fn set_text(&mut self, other: Vec<Operation>) {
         self.text = other
     }
 
     pub fn set_data(&mut self, other: Vec<MemData>) {
         self.data = other
+    }
+
+    pub fn get_subroutine_refmut(&mut self) -> &mut Subroutines {
+        &mut self.subroutine
+    }
+}
+
+impl AssemblyCode for AssemblyCodeRecog {
+    type Labels = LabelRecog;
+
+    fn new(labels: Self::Labels) -> Self {
+        AssemblyCodeRecog { labels, data: vec![], text: vec![], subroutine: Subroutines::new() }
+    }
+
+    fn get_labels_refmut(&mut self) -> &mut Self::Labels {
+        &mut self.labels
+    }
+
+    fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
+        &mut self.data
+    }
+
+    fn get_text_refmut(&mut self) -> &mut Vec<Operation> {
+        &mut self.text
+    }
+
+    fn get_all_refmut(&mut self) -> (&mut Self::Labels, &mut Vec<Operation>, &mut Vec<MemData>) {
+        (&mut self.labels, &mut self.text, &mut self.data)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct AssemblyCodeNamespaces {
+    labels: Namespaces,
+    data: Vec<MemData>,
+    text: Vec<Operation>
+}
+
+impl AssemblyCode for AssemblyCodeNamespaces {
+    type Labels = Namespaces;
+
+    fn new(labels: Self::Labels) -> Self {
+        AssemblyCodeNamespaces { labels, data: vec![], text: vec![] }
+    }
+
+    fn get_labels_refmut(&mut self) -> &mut Self::Labels {
+        &mut self.labels
+    }
+
+    fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
+        &mut self.data
+    }
+
+    fn get_text_refmut(&mut self) -> &mut Vec<Operation> {
+        &mut self.text
+    }
+
+    fn get_all_refmut(&mut self) -> (&mut Self::Labels, &mut Vec<Operation>, &mut Vec<MemData>) {
+        (&mut self.labels, &mut self.text, &mut self.data)
     }
 }
 

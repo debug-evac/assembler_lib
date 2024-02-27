@@ -8,37 +8,48 @@
 
 mod parser;
 mod linker;
-pub mod optimizer;
+mod optimizer;
 pub mod translator;
 pub mod common;
 
 use crate::common::errors::LibraryError;
-use crate::common::AssemblyCode;
-use crate::linker::Namespaces;
 
+use common::TranslatableCode;
 use indicatif::ProgressBar;
 
 #[derive(Default)]
 pub struct ParseLinkBuilder<'a> {
     assembly_code: Vec<String>,
-    progbar: Option<&'a ProgressBar>
+    sp_init: bool,
+    no_nop_insert: bool,
+    progbar: Option<&'a ProgressBar>,
 }
 
 impl <'a> ParseLinkBuilder<'a> {
     pub fn new() -> Self {
-        ParseLinkBuilder { assembly_code: vec![], progbar: None }
+        ParseLinkBuilder { assembly_code: vec![], sp_init: false, no_nop_insert: false, progbar: None }
     }
 
-    pub fn set_prog(&mut self, progbar: &'a ProgressBar) {
-        self.progbar = Some(progbar)
+    pub fn progbar(mut self, progbar: &'a ProgressBar) -> Self {
+        self.progbar = Some(progbar);
+        self
     }
 
     pub fn add_code(&mut self, code: String) {
         self.assembly_code.push(code)
     }
 
-    pub fn parse_link(self, sp_init: bool) -> Result<AssemblyCode<Namespaces>, LibraryError> {
-        // Currently builder cannot be destroyed since result borrows from vec of strings
+    pub fn sp_init(mut self, sp_init: bool) -> Self {
+        self.sp_init = sp_init;
+        self
+    }
+
+    pub fn no_nop_insert(mut self, no_nop_insert: bool) -> Self {
+        self.no_nop_insert = no_nop_insert;
+        self
+    }
+
+    pub fn parse_link_optimize(self) -> Result<TranslatableCode, LibraryError> {
         if self.assembly_code.is_empty() {
             return Err(LibraryError::NoCode)
         }
@@ -46,10 +57,8 @@ impl <'a> ParseLinkBuilder<'a> {
         let mut parsed_vector = Vec::with_capacity(self.assembly_code.len());
         let mut subroutine = parser::Subroutines::new();
 
-        {
-          for (counter, code) in self.assembly_code.iter().enumerate() {
-              parsed_vector.push(parser::parse(code, &mut Some(&mut subroutine), counter == 0 && sp_init)?.1);
-          }
+        for (counter, code) in self.assembly_code.iter().enumerate() {
+            parsed_vector.push(parser::parse(code, &mut Some(&mut subroutine), counter == 0 && self.sp_init)?.1);
         }
 
         for code in subroutine.get_code() {
@@ -61,6 +70,13 @@ impl <'a> ParseLinkBuilder<'a> {
             progbar.set_message("Linking...");
         };
 
-        Ok(linker::link(parsed_vector)?)
+        let unoptimized = linker::link(parsed_vector)?;
+
+        if let Some(progbar) = self.progbar {
+            progbar.inc(1);
+            progbar.set_message("Optimizing...");
+        };
+
+        Ok(optimizer::optimize(unoptimized, self.no_nop_insert)?)
     }
 }

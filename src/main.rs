@@ -9,7 +9,6 @@
 use assembler_lib::{
     common::errors::ExitErrorCode,
     ParseLinkBuilder,
-    optimizer,
     translator
 };
 
@@ -164,8 +163,10 @@ fn main() {
     progbar.set_prefix("Assembling");
     progbar.set_message("Reading assembly files...");
 
-    let mut builder = ParseLinkBuilder::new();
-    builder.set_prog(&progbar);
+    let mut builder = ParseLinkBuilder::new()
+                                                .progbar(&progbar)
+                                                .sp_init(matches.get_flag("sp_init"))
+                                                .no_nop_insert(matches.get_flag("nop_insert"));
 
     for file in vals {
         match fs::read_to_string(file.as_path()) {
@@ -180,26 +181,11 @@ fn main() {
     progbar.inc(1);
     progbar.set_message("Parsing...");
 
-    let sp_init = matches.get_flag("sp_init");
-
-    let linked_vector = match builder.parse_link(sp_init) {
+    let translatable_code = match builder.parse_link_optimize() {
         Ok(data) => data,
         Err(msg) => {
             error!("{msg}");
             std::process::exit(msg.get_err_code())
-        }
-    };
-
-    progbar.inc(1);
-    progbar.set_message("Optimizing...");
-
-    let no_nop_insert = matches.get_flag("nop_insert");
-
-    let translatable_code = match optimizer::optimize(linked_vector, no_nop_insert) {
-        Ok(instr_list) => instr_list,
-        Err(e) => {
-            error!("{e}");
-            std::process::exit(e.get_err_code())
         }
     };
 

@@ -24,7 +24,7 @@ use std::collections::VecDeque;
 use log::debug;
 
 use crate::{
-    common::{errors::OptimizerError, ByteData, DWordData, HalfData, Instruction, LabelType, MacroInstr, MemData, Operation, Part, Reg, TranslatableCode, WordData, AssemblyCode
+    common::{errors::OptimizerError, AssemblyCode, AssemblyCodeNamespaces, ByteData, DWordData, HalfData, Instruction, LabelType, MacroInstr, MemData, Operation, Part, Reg, TranslatableCode, WordData
     },
     linker::Namespaces,
 };
@@ -447,7 +447,7 @@ fn cond_add_acc_label(namespaces: &mut Namespaces, accumulator: i128, label: &sm
     Ok(())
 }
 
-fn nop_insertion(code: &mut AssemblyCode<Namespaces>) -> Result<(), OptimizerError> {
+fn nop_insertion(code: &mut AssemblyCodeNamespaces) -> Result<(), OptimizerError> {
     
     let mut working_set: LimitedQueue = LimitedQueue::new_sized(3);
     
@@ -578,10 +578,10 @@ fn nop_insertion(code: &mut AssemblyCode<Namespaces>) -> Result<(), OptimizerErr
     Ok(())
 }
 
-impl TryFrom<AssemblyCode<Namespaces>> for TranslatableCode {
+impl TryFrom<AssemblyCodeNamespaces> for TranslatableCode {
     type Error = OptimizerError;
 
-    fn try_from(mut code: AssemblyCode<Namespaces>) -> Result<Self, Self::Error> {
+    fn try_from(mut code: AssemblyCodeNamespaces) -> Result<Self, Self::Error> {
         let mut namespace: usize = 0;
 
         let (labels, operations, data) = code.get_all_refmut();
@@ -701,7 +701,7 @@ impl TryFrom<AssemblyCode<Namespaces>> for TranslatableCode {
     }
 }
 
-pub fn optimize(mut code: AssemblyCode<Namespaces>, no_nop_insert: bool) -> Result<TranslatableCode, OptimizerError> {
+pub fn optimize(mut code: AssemblyCodeNamespaces, no_nop_insert: bool) -> Result<TranslatableCode, OptimizerError> {
     if !no_nop_insert {
         nop_insertion(&mut code)?;
     } else {
@@ -809,7 +809,7 @@ mod tests {
 
     #[test]
     fn test_simple_nop_insertion() {
-        let mut assembly_code = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let namespace = assembly_code.get_labels_refmut();
         let _ = namespace.insert_recog(LabelRecog::new());
@@ -827,7 +827,7 @@ mod tests {
 
         // ##################################################################################
 
-        let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code_ver: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let namespace_ver = assembly_code_ver.get_labels_refmut();
         let _ = namespace_ver.insert_recog(LabelRecog::new());
@@ -866,7 +866,7 @@ mod tests {
 
     #[test]
     fn test_complex_nop_insertion() {
-        let mut assembly_code = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let mut label_recog_1 = LabelRecog::new();
         let mut label_recog_2 = LabelRecog::new();
@@ -912,7 +912,7 @@ mod tests {
 
         // ##################################################################################
 
-        let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code_ver: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let mut label_recog_ver1 = LabelRecog::new();
         let mut label_recog_ver2 = LabelRecog::new();
@@ -996,7 +996,7 @@ mod tests {
 
     #[test]
     fn test_label_substitution() {
-        let mut assembly_code = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let namespace_ver = assembly_code.get_labels_refmut();
         let mut label_recog_ver = LabelRecog::new();
@@ -1087,12 +1087,12 @@ mod tests {
 
         translatable_code_ver.get_text_refmut().extend(instruction_ver);
 
-        assert_eq!(<AssemblyCode<Namespaces> as TryInto<TranslatableCode>>::try_into(assembly_code).unwrap(), translatable_code_ver);
+        assert_eq!(<AssemblyCodeNamespaces as TryInto<TranslatableCode>>::try_into(assembly_code).unwrap(), translatable_code_ver);
     }
 
     #[test]
     fn test_optimize() {
-        let mut assembly_code = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let namespace_ver = assembly_code.get_labels_refmut();
         let mut label_recog_ver = LabelRecog::new();

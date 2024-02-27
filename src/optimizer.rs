@@ -21,14 +21,12 @@
 // another flag).
 
 use std::collections::VecDeque;
-use std::borrow::Cow;
 use log::debug;
 
 use crate::{
-    common::{errors::OptimizerError, ByteData, DWordData, HalfData, Instruction, LabelType, MacroInstr, MemData, Operation, Part, Reg, TranslatableCode, WordData
+    common::{errors::OptimizerError, AssemblyCode, AssemblyCodeNamespaces, ByteData, DWordData, HalfData, Instruction, LabelType, MacroInstr, MemData, Operation, Part, Reg, TranslatableCode, WordData
     },
     linker::Namespaces,
-    AssemblyCode
 };
 
 #[derive(Clone)]
@@ -139,7 +137,7 @@ impl LimitedQueue {
     }
 }
 
-impl From<&Operation<'_>> for RegActType {
+impl From<&Operation> for RegActType {
     fn from(item: &Operation) -> RegActType {
         match item {
             Operation::LablInstr(_, instr) | Operation::Instr(instr) => {
@@ -414,7 +412,7 @@ impl MacroInstr {
     }
 }
 
-fn translate_label(current_line: i128, label: String, namespaces: &mut Namespaces, current_space: usize) -> Result<i32, OptimizerError> {
+fn translate_label(current_line: i128, label: smartstring::alias::String, namespaces: &mut Namespaces, current_space: usize) -> Result<i32, OptimizerError> {
     if let Some(label_elem) = namespaces.get_label(label.clone(), Some(current_space)) {
         // should always work
         if *label_elem.get_type() == LabelType::Address {
@@ -429,19 +427,19 @@ fn translate_label(current_line: i128, label: String, namespaces: &mut Namespace
     Err(OptimizerError::LabelNonExistent(label))
 }
 
-fn cond_add_acc_label(namespaces: &mut Namespaces, accumulator: i128, label: Cow<str>, space: usize) -> Result<(), OptimizerError> {
+fn cond_add_acc_label(namespaces: &mut Namespaces, accumulator: i128, label: &smartstring::alias::String, space: usize) -> Result<(), OptimizerError> {
     if accumulator != 0 {
         match label.strip_prefix('.') {
             Some(labell) => {
-                match namespaces.get_label(labell.to_string(), Some(space)) {
+                match namespaces.get_label(labell.into(), Some(space)) {
                     Some(lablel) => lablel.add_def(accumulator),
-                    None => return Err(OptimizerError::LabelNonExistent(label.to_string())),
+                    None => return Err(OptimizerError::LabelNonExistent(label.clone())),
                 }
             },
             None => {
-                match namespaces.get_label(label.to_string(), Some(space)) {
+                match namespaces.get_label(label.clone(), Some(space)) {
                     Some(lablel) => lablel.add_def(accumulator),
-                    None => return Err(OptimizerError::LabelNonExistent(label.to_string())),
+                    None => return Err(OptimizerError::LabelNonExistent(label.clone())),
                 }
             }
         }
@@ -449,7 +447,7 @@ fn cond_add_acc_label(namespaces: &mut Namespaces, accumulator: i128, label: Cow
     Ok(())
 }
 
-fn nop_insertion(code: &mut AssemblyCode<Namespaces>) -> Result<(), OptimizerError> {
+fn nop_insertion(code: &mut AssemblyCodeNamespaces) -> Result<(), OptimizerError> {
     
     let mut working_set: LimitedQueue = LimitedQueue::new_sized(3);
     
@@ -479,7 +477,7 @@ fn nop_insertion(code: &mut AssemblyCode<Namespaces>) -> Result<(), OptimizerErr
                             pointer += (instr_num - 1) as usize;
                             accumulator += (instr_num - 1) as i128;
                         }
-                        cond_add_acc_label(code.get_labels_refmut(), accumulator, std::borrow::Cow::Borrowed(label), space)?;
+                        cond_add_acc_label(code.get_labels_refmut(), accumulator, label, space)?;
                         match instr {
                             Instruction::Beq(_, _, _) |
                             Instruction::Bne(_, _, _) |
@@ -504,7 +502,7 @@ fn nop_insertion(code: &mut AssemblyCode<Namespaces>) -> Result<(), OptimizerErr
                             pointer += (instr_num - 1) as usize;
                             accumulator += (instr_num - 1) as i128;
                         }
-                        cond_add_acc_label(code.get_labels_refmut(), accumulator, std::borrow::Cow::Borrowed(label), space)?;
+                        cond_add_acc_label(code.get_labels_refmut(), accumulator, label, space)?;
                         match instr {
                             MacroInstr::Beq(_, _, _) |
                             MacroInstr::Bne(_, _, _) |
@@ -518,7 +516,7 @@ fn nop_insertion(code: &mut AssemblyCode<Namespaces>) -> Result<(), OptimizerErr
                         }
                     },
                     Operation::Labl(label) => {
-                        cond_add_acc_label(code.get_labels_refmut(), accumulator, std::borrow::Cow::Borrowed(label), space)?;
+                        cond_add_acc_label(code.get_labels_refmut(), accumulator, label, space)?;
                     },
                     Operation::Instr(instr) => {
                         let reg_dep = RegActType::from(&opera);
@@ -580,10 +578,10 @@ fn nop_insertion(code: &mut AssemblyCode<Namespaces>) -> Result<(), OptimizerErr
     Ok(())
 }
 
-impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
+impl TryFrom<AssemblyCodeNamespaces> for TranslatableCode {
     type Error = OptimizerError;
 
-    fn try_from(mut code: AssemblyCode<Namespaces>) -> Result<Self, Self::Error> {
+    fn try_from(mut code: AssemblyCodeNamespaces) -> Result<Self, Self::Error> {
         let mut namespace: usize = 0;
 
         let (labels, operations, data) = code.get_all_refmut();
@@ -703,7 +701,7 @@ impl <'a> TryFrom<AssemblyCode<'a, Namespaces>> for TranslatableCode {
     }
 }
 
-pub fn optimize(mut code: AssemblyCode<Namespaces>, no_nop_insert: bool) -> Result<TranslatableCode, OptimizerError> {
+pub fn optimize(mut code: AssemblyCodeNamespaces, no_nop_insert: bool) -> Result<TranslatableCode, OptimizerError> {
     if !no_nop_insert {
         nop_insertion(&mut code)?;
     } else {
@@ -811,7 +809,7 @@ mod tests {
 
     #[test]
     fn test_simple_nop_insertion() {
-        let mut assembly_code = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let namespace = assembly_code.get_labels_refmut();
         let _ = namespace.insert_recog(LabelRecog::new());
@@ -829,7 +827,7 @@ mod tests {
 
         // ##################################################################################
 
-        let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code_ver: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let namespace_ver = assembly_code_ver.get_labels_refmut();
         let _ = namespace_ver.insert_recog(LabelRecog::new());
@@ -868,13 +866,13 @@ mod tests {
 
     #[test]
     fn test_complex_nop_insertion() {
-        let mut assembly_code = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let mut label_recog_1 = LabelRecog::new();
         let mut label_recog_2 = LabelRecog::new();
         let namespace = assembly_code.get_labels_refmut();
 
-        let mut label = LabelElem::new_refd("START".to_string());
+        let mut label = LabelElem::new_refd("START".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(5);
@@ -882,7 +880,7 @@ mod tests {
 
         let _ = namespace.insert_recog(label_recog_1);
 
-        label = LabelElem::new_refd("END".to_string());
+        label = LabelElem::new_refd("END".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(3);
@@ -898,29 +896,29 @@ mod tests {
         operation_vec.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
         operation_vec.push(Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G2)));
         operation_vec.push(Operation::Instr(Instruction::Add(Reg::G15, Reg::G1, Reg::G12)));
-        operation_vec.push(Operation::Macro(MacroInstr::Jal(Reg::G0, "END".to_string())));
-        operation_vec.push(Operation::LablInstr(Cow::from("START"), Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
+        operation_vec.push(Operation::Macro(MacroInstr::Jal(Reg::G0, "END".into())));
+        operation_vec.push(Operation::LablInstr("START".into(), Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
         operation_vec.push(Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G15)));
         operation_vec.push(Operation::Namespace(1));
         operation_vec.push(Operation::Instr(Instruction::Add(Reg::G0, Reg::G1, Reg::G12)));
         operation_vec.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
         operation_vec.push(Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G2)));
-        operation_vec.push(Operation::LablInstr(Cow::from("END"), Instruction::Add(Reg::G15, Reg::G1, Reg::G12)));
+        operation_vec.push(Operation::LablInstr("END".into(), Instruction::Add(Reg::G15, Reg::G1, Reg::G12)));
         operation_vec.push(Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)));
         operation_vec.push(Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G15)));
-        operation_vec.push(Operation::Macro(MacroInstr::Jal(Reg::G0, "START".to_string())));
+        operation_vec.push(Operation::Macro(MacroInstr::Jal(Reg::G0, "START".into())));
 
         let _ = nop_insertion(&mut assembly_code);
 
         // ##################################################################################
 
-        let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code_ver: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let mut label_recog_ver1 = LabelRecog::new();
         let mut label_recog_ver2 = LabelRecog::new();
         let namespace_ver = assembly_code_ver.get_labels_refmut();
 
-        let mut label = LabelElem::new_refd("START".to_string());
+        let mut label = LabelElem::new_refd("START".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(5);
@@ -928,7 +926,7 @@ mod tests {
 
         let _ = namespace_ver.insert_recog(label_recog_ver1);
 
-        label = LabelElem::new_refd("END".to_string());
+        label = LabelElem::new_refd("END".into());
         label.set_type(LabelType::Address);
         label.set_scope(true);
         label.set_def(3);
@@ -939,8 +937,8 @@ mod tests {
         let _ = namespace_ver.insert_recog(label_recog_ver2);
 
         #[cfg(feature = "raw_nop")] {
-            let _ = cond_add_acc_label(assembly_code_ver.get_labels_refmut(), 3, Cow::from("START"), 0);
-            let _ = cond_add_acc_label(assembly_code_ver.get_labels_refmut(), 6, Cow::from("END"), 0);
+            let _ = cond_add_acc_label(assembly_code_ver.get_labels_refmut(), 3, &"START".into(), 0);
+            let _ = cond_add_acc_label(assembly_code_ver.get_labels_refmut(), 6, &"END".into(), 0);
         }
 
         #[cfg(feature = "raw_nop")]
@@ -953,8 +951,8 @@ mod tests {
             Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)),
             Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G2)),
             Operation::Instr(Instruction::Add(Reg::G15, Reg::G1, Reg::G12)),
-            Operation::Macro(MacroInstr::Jal(Reg::G0, "END".to_string())),
-            Operation::LablInstr(Cow::from("START"), Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
+            Operation::Macro(MacroInstr::Jal(Reg::G0, "END".into())),
+            Operation::LablInstr("START".into(), Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
             Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G15)),
             Operation::Namespace(1),
             Operation::Instr(Instruction::Add(Reg::G0, Reg::G1, Reg::G12)),
@@ -963,12 +961,12 @@ mod tests {
             Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)),
             Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)),
             Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G2)),
-            Operation::LablInstr(Cow::from("END"), Instruction::Add(Reg::G15, Reg::G1, Reg::G12)),
+            Operation::LablInstr("END".into(), Instruction::Add(Reg::G15, Reg::G1, Reg::G12)),
             Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
             Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)),
             Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)),
             Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G15)),
-            Operation::Macro(MacroInstr::Jal(Reg::G0, "START".to_string())),
+            Operation::Macro(MacroInstr::Jal(Reg::G0, "START".into())),
         ]);
 
         #[cfg(not(feature = "raw_nop"))]
@@ -978,17 +976,17 @@ mod tests {
             Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
             Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G2)),
             Operation::Instr(Instruction::Add(Reg::G15, Reg::G1, Reg::G12)),
-            Operation::Macro(MacroInstr::Jal(Reg::G0, "END".to_string())),
-            Operation::LablInstr(Cow::from("START"), Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
+            Operation::Macro(MacroInstr::Jal(Reg::G0, "END".into())),
+            Operation::LablInstr("START".into(), Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
             Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G15)),
             Operation::Namespace(1),
             Operation::Instr(Instruction::Add(Reg::G0, Reg::G1, Reg::G12)),
             Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
             Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G2)),
-            Operation::LablInstr(Cow::from("END"), Instruction::Add(Reg::G15, Reg::G1, Reg::G12)),
+            Operation::LablInstr("END".into(), Instruction::Add(Reg::G15, Reg::G1, Reg::G12)),
             Operation::Instr(Instruction::Or(Reg::G2, Reg::G12, Reg::G12)),
             Operation::Instr(Instruction::Sub(Reg::G2, Reg::G12, Reg::G15)),
-            Operation::Macro(MacroInstr::Jal(Reg::G0, "START".to_string())),
+            Operation::Macro(MacroInstr::Jal(Reg::G0, "START".into())),
         ]);
 
         assembly_code_ver.get_text_refmut().extend(operation_vec_ver);
@@ -998,27 +996,27 @@ mod tests {
 
     #[test]
     fn test_label_substitution() {
-        let mut assembly_code = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let namespace_ver = assembly_code.get_labels_refmut();
         let mut label_recog_ver = LabelRecog::new();
 
-        let mut label = LabelElem::new_refd("_GTLOOP".to_string());
+        let mut label = LabelElem::new_refd("_GTLOOP".into());
         label.set_type(LabelType::Address);
         label.set_def(7);
         let _ = label_recog_ver.insert_label(label);
 
-        let mut label = LabelElem::new_refd("_GTSHIFT".to_string());
+        let mut label = LabelElem::new_refd("_GTSHIFT".into());
         label.set_type(LabelType::Address);
         label.set_def(12);
         let _ = label_recog_ver.insert_label(label);
 
-        let mut label = LabelElem::new_refd("_LTLOOP".to_string());
+        let mut label = LabelElem::new_refd("_LTLOOP".into());
         label.set_type(LabelType::Address);
         label.set_def(15);
         let _ = label_recog_ver.insert_label(label);
 
-        let mut label = LabelElem::new_refd("_LTSHIFT".to_string());
+        let mut label = LabelElem::new_refd("_LTSHIFT".into());
         label.set_type(LabelType::Address);
         label.set_def(20);
         let _ = label_recog_ver.insert_label(label);
@@ -1034,25 +1032,25 @@ mod tests {
         operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)));
         operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0)));
 
-        operation_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G12, Reg::G13, "_LTLOOP".to_string())));
-        operation_vec.push(Operation::LablInstr(Cow::from("_GTLOOP"), Instruction::And(Reg::G14, Reg::G16, Reg::G13)));
-        operation_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G14, Reg::G0, "_GTSHIFT".to_string())));
+        operation_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G12, Reg::G13, "_LTLOOP".into())));
+        operation_vec.push(Operation::LablInstr("_GTLOOP".into(), Instruction::And(Reg::G14, Reg::G16, Reg::G13)));
+        operation_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G14, Reg::G0, "_GTSHIFT".into())));
         operation_vec.push(Operation::Instr(Instruction::Sll(Reg::G15, Reg::G12, Reg::G17)));
         operation_vec.push(Operation::Instr(Instruction::Add(Reg::G10, Reg::G10, Reg::G15)));
         operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G17, Reg::G17, 1)));
 
-        operation_vec.push(Operation::LablInstr(Cow::from("_GTSHIFT"), Instruction::Slli(Reg::G16, Reg::G16, 1)));
-        operation_vec.push(Operation::Macro(MacroInstr::Bge(Reg::G13, Reg::G16, "_GTLOOP".to_string())));
+        operation_vec.push(Operation::LablInstr("_GTSHIFT".into(), Instruction::Slli(Reg::G16, Reg::G16, 1)));
+        operation_vec.push(Operation::Macro(MacroInstr::Bge(Reg::G13, Reg::G16, "_GTLOOP".into())));
         operation_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
-        operation_vec.push(Operation::LablInstr(Cow::from("_LTLOOP"), Instruction::And(Reg::G14, Reg::G16, Reg::G12)));
-        operation_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G14, Reg::G0, "_LTSHIFT".to_string())));
+        operation_vec.push(Operation::LablInstr("_LTLOOP".into(), Instruction::And(Reg::G14, Reg::G16, Reg::G12)));
+        operation_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G14, Reg::G0, "_LTSHIFT".into())));
         operation_vec.push(Operation::Instr(Instruction::Sll(Reg::G15, Reg::G13, Reg::G17)));
         operation_vec.push(Operation::Instr(Instruction::Add(Reg::G10, Reg::G10, Reg::G15)));
         operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G17, Reg::G17, 1)));
 
-        operation_vec.push(Operation::LablInstr(Cow::from("_LTSHIFT"), Instruction::Slli(Reg::G16, Reg::G16, 1)));
-        operation_vec.push(Operation::Macro(MacroInstr::Bge(Reg::G12, Reg::G16, "_LTLOOP".to_string())));
+        operation_vec.push(Operation::LablInstr("_LTSHIFT".into(), Instruction::Slli(Reg::G16, Reg::G16, 1)));
+        operation_vec.push(Operation::Macro(MacroInstr::Bge(Reg::G12, Reg::G16, "_LTLOOP".into())));
         operation_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
         let mut translatable_code_ver = TranslatableCode::new();
@@ -1089,37 +1087,37 @@ mod tests {
 
         translatable_code_ver.get_text_refmut().extend(instruction_ver);
 
-        assert_eq!(<AssemblyCode<'_, Namespaces> as TryInto<TranslatableCode>>::try_into(assembly_code).unwrap(), translatable_code_ver);
+        assert_eq!(<AssemblyCodeNamespaces as TryInto<TranslatableCode>>::try_into(assembly_code).unwrap(), translatable_code_ver);
     }
 
     #[test]
     fn test_optimize() {
-        let mut assembly_code = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let namespace_ver = assembly_code.get_labels_refmut();
         let mut label_recog_ver = LabelRecog::new();
 
-        let mut label = LabelElem::new_refd("_JUMP2".to_string());
+        let mut label = LabelElem::new_refd("_JUMP2".into());
         label.set_type(LabelType::Address);
         label.set_def(7);
         let _ = label_recog_ver.insert_label(label);
 
-        let mut label = LabelElem::new_refd("_JUMP".to_string());
+        let mut label = LabelElem::new_refd("_JUMP".into());
         label.set_type(LabelType::Address);
         label.set_def(9);
         let _ = label_recog_ver.insert_label(label);
 
-        let mut label = LabelElem::new_refd("_GTDIVLOOP".to_string());
+        let mut label = LabelElem::new_refd("_GTDIVLOOP".into());
         label.set_type(LabelType::Address);
         label.set_def(10);
         let _ = label_recog_ver.insert_label(label);
 
-        let mut label = LabelElem::new_refd("_LTDIVLOOP".to_string());
+        let mut label = LabelElem::new_refd("_LTDIVLOOP".into());
         label.set_type(LabelType::Address);
         label.set_def(20);
         let _ = label_recog_ver.insert_label(label);
 
-        let mut label = LabelElem::new_refd("_Vergleich".to_string());
+        let mut label = LabelElem::new_refd("_Vergleich".into());
         label.set_type(LabelType::Address);
         label.set_def(30);
         let _ = label_recog_ver.insert_label(label);
@@ -1134,26 +1132,26 @@ mod tests {
         operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)));
         operation_vec.push(Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0)));
 
-        operation_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G13, "_JUMP".to_string())));
+        operation_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G13, "_JUMP".into())));
         operation_vec.push(Operation::Instr(Instruction::Slli(Reg::G13, Reg::G13, 1)));
-        operation_vec.push(Operation::LablInstr(Cow::from("_JUMP2"), Instruction::Sub(Reg::G12, Reg::G12, Reg::G13)));
+        operation_vec.push(Operation::LablInstr("_JUMP2".into(), Instruction::Sub(Reg::G12, Reg::G12, Reg::G13)));
         operation_vec.push(Operation::Instr(Instruction::Add(Reg::G10, Reg::G10, Reg::G17)));
-        operation_vec.push(Operation::LablMacro(Cow::from("_JUMP"), MacroInstr::Blt(Reg::G12, Reg::G13, "_LTDIVLOOP".to_string()))); // 9
+        operation_vec.push(Operation::LablMacro("_JUMP".into(), MacroInstr::Blt(Reg::G12, Reg::G13, "_LTDIVLOOP".into()))); // 9
 
-        operation_vec.push(Operation::LablInstr(Cow::from("_GTDIVLOOP"), Instruction::Slli(Reg::G13, Reg::G13, 1)));
+        operation_vec.push(Operation::LablInstr("_GTDIVLOOP".into(), Instruction::Slli(Reg::G13, Reg::G13, 1)));
         operation_vec.push(Operation::Instr(Instruction::Slli(Reg::G17, Reg::G17, 1)));
-        operation_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G13, Reg::G12, "_GTDIVLOOP".to_string())));
+        operation_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G13, Reg::G12, "_GTDIVLOOP".into())));
         operation_vec.push(Operation::Instr(Instruction::Srli(Reg::G13, Reg::G13, 1)));
         operation_vec.push(Operation::Instr(Instruction::Srli(Reg::G17, Reg::G17, 1)));
         operation_vec.push(Operation::Instr(Instruction::Sub(Reg::G12, Reg::G12, Reg::G13)));
         operation_vec.push(Operation::Instr(Instruction::Add(Reg::G10, Reg::G10, Reg::G17)));
-        operation_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G0, "_JUMP".to_string()))); // 17
-        operation_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G0, Reg::G0, "_Vergleich".to_string()))); // 18
+        operation_vec.push(Operation::Macro(MacroInstr::Bne(Reg::G12, Reg::G0, "_JUMP".into()))); // 17
+        operation_vec.push(Operation::Macro(MacroInstr::Beq(Reg::G0, Reg::G0, "_Vergleich".into()))); // 18
         operation_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
-        operation_vec.push(Operation::LablInstr(Cow::from("_LTDIVLOOP"), Instruction::Srli(Reg::G13, Reg::G13, 1)));
+        operation_vec.push(Operation::LablInstr("_LTDIVLOOP".into(), Instruction::Srli(Reg::G13, Reg::G13, 1)));
         operation_vec.push(Operation::Instr(Instruction::Srli(Reg::G17, Reg::G17, 1)));
-        operation_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G12, Reg::G13, "_LTDIVLOOP".to_string())));
+        operation_vec.push(Operation::Macro(MacroInstr::Blt(Reg::G12, Reg::G13, "_LTDIVLOOP".into())));
         operation_vec.push(Operation::Instr(Instruction::Slli(Reg::G13, Reg::G13, 1)));
         operation_vec.push(Operation::Instr(Instruction::Slli(Reg::G17, Reg::G17, 1)));
         operation_vec.push(Operation::Instr(Instruction::Beq(Reg::G12, Reg::G13, 8)));
@@ -1161,7 +1159,7 @@ mod tests {
         operation_vec.push(Operation::Instr(Instruction::Srli(Reg::G17, Reg::G17, 1)));
         operation_vec.push(Operation::Instr(Instruction::Sub(Reg::G12, Reg::G12, Reg::G13)));
         operation_vec.push(Operation::Instr(Instruction::Add(Reg::G10, Reg::G10, Reg::G17)));
-        operation_vec.push(Operation::LablMacro(Cow::from("_Vergleich"), MacroInstr::Bne(Reg::G12, Reg::G0, "_JUMP".to_string()))); // 30
+        operation_vec.push(Operation::LablMacro("_Vergleich".into(), MacroInstr::Bne(Reg::G12, Reg::G0, "_JUMP".into()))); // 30
         operation_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
         let mut translatable_code = TranslatableCode::new();
@@ -1275,8 +1273,8 @@ mod tests {
         let mut namespace = Namespaces::new();
 
         let mut lr = LabelRecog::new();
-        lr.crt_def_ref(&"GLOBAL".to_string(), true, LabelType::Address, 0);
-        lr.crt_def_ref(&"LOCAL".to_string(), false, LabelType::Address, 1);
+        lr.crt_def_ref(&"GLOBAL".into(), true, LabelType::Address, 0);
+        lr.crt_def_ref(&"LOCAL".into(), false, LabelType::Address, 1);
 
         let mut instructions = Vec::from([
             Instruction::Addi(Reg::G0, Reg::G0, 0),
@@ -1287,8 +1285,8 @@ mod tests {
 
         {
             let test_addi_macros = [
-                (MacroInstr::Addi(Reg::G0, Reg::G0, "LOCAL".to_string(), Part::Lower), Instruction::Addi(Reg::G0, Reg::G0, -4)),
-                (MacroInstr::Addi(Reg::G0, Reg::G0, "GLOBAL".to_string(), Part::Lower), Instruction::Addi(Reg::G0, Reg::G0, -8))
+                (MacroInstr::Addi(Reg::G0, Reg::G0, "LOCAL".into(), Part::Lower), Instruction::Addi(Reg::G0, Reg::G0, -4)),
+                (MacroInstr::Addi(Reg::G0, Reg::G0, "GLOBAL".into(), Part::Lower), Instruction::Addi(Reg::G0, Reg::G0, -8))
             ];
 
             instructions.push(Instruction::Auipc(Reg::G0, 0));
@@ -1322,10 +1320,10 @@ mod tests {
 
         let mut test_macros: Vec<(MacroInstr, Instruction)> = vec![];
 
-        test_macros.push((MacroInstr::Lui(Reg::G21, "GLOBAL".to_string(), Part::None), Instruction::Lui(Reg::G21, -8)));
-        test_macros.push((MacroInstr::Slli(Reg::G30, Reg::G19, "LOCAL".to_string()), Instruction::Slli(Reg::G30, Reg::G19, -4)));
-        test_macros.push((MacroInstr::Srli(Reg::G5, Reg::G20, "GLOBAL".to_string()), Instruction::Srli(Reg::G5, Reg::G20, -8)));
-        test_macros.push((MacroInstr::Srai(Reg::G7, Reg::G15, "LOCAL".to_string()), Instruction::Srai(Reg::G7, Reg::G15, -4)));
+        test_macros.push((MacroInstr::Lui(Reg::G21, "GLOBAL".into(), Part::None), Instruction::Lui(Reg::G21, -8)));
+        test_macros.push((MacroInstr::Slli(Reg::G30, Reg::G19, "LOCAL".into()), Instruction::Slli(Reg::G30, Reg::G19, -4)));
+        test_macros.push((MacroInstr::Srli(Reg::G5, Reg::G20, "GLOBAL".into()), Instruction::Srli(Reg::G5, Reg::G20, -8)));
+        test_macros.push((MacroInstr::Srai(Reg::G7, Reg::G15, "LOCAL".into()), Instruction::Srai(Reg::G7, Reg::G15, -4)));
 
         for (test, corr) in test_macros {
             let _ = test.translate(&mut namespace, &cs, &mut instructions);

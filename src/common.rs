@@ -14,8 +14,10 @@
 pub mod errors;
 
 use std::collections::HashMap;
-use std::borrow::Cow;
 use std::fmt::Display;
+
+use crate::linker::Namespaces;
+use crate::parser::Subroutines;
 
 use self::errors::CommonError;
 
@@ -156,49 +158,49 @@ pub enum Part {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MacroInstr {
-    Beq(Reg, Reg, String),
-    Bne(Reg, Reg, String),
-    Blt(Reg, Reg, String),
-    Bltu(Reg, Reg, String),
-    Bge(Reg, Reg, String),
-    Bgeu(Reg, Reg, String),
+    Beq(Reg, Reg, smartstring::alias::String),
+    Bne(Reg, Reg, smartstring::alias::String),
+    Blt(Reg, Reg, smartstring::alias::String),
+    Bltu(Reg, Reg, smartstring::alias::String),
+    Bge(Reg, Reg, smartstring::alias::String),
+    Bgeu(Reg, Reg, smartstring::alias::String),
 
-    Jal(Reg, String),
-    Jalr(Reg, Reg, String, Part),
+    Jal(Reg, smartstring::alias::String),
+    Jalr(Reg, Reg, smartstring::alias::String, Part),
 
-    Lui(Reg, String, Part),
-    Auipc(Reg, String, Part),
+    Lui(Reg, smartstring::alias::String, Part),
+    Auipc(Reg, smartstring::alias::String, Part),
 
-    Slli(Reg, Reg, String),
-    Srli(Reg, Reg, String),
-    Srai(Reg, Reg, String),
+    Slli(Reg, Reg, smartstring::alias::String),
+    Srli(Reg, Reg, smartstring::alias::String),
+    Srai(Reg, Reg, smartstring::alias::String),
     
-    Lb(Reg, Reg, String, Part), //Load byte
-    Lh(Reg, Reg, String, Part), //Load half
-    Lw(Reg, Reg, String, Part), //Load word
+    Lb(Reg, Reg, smartstring::alias::String, Part), //Load byte
+    Lh(Reg, Reg, smartstring::alias::String, Part), //Load half
+    Lw(Reg, Reg, smartstring::alias::String, Part), //Load word
     
-    Lbu(Reg, Reg, String),
-    Lhu(Reg, Reg, String),
+    Lbu(Reg, Reg, smartstring::alias::String),
+    Lhu(Reg, Reg, smartstring::alias::String),
     
-    Sb(Reg, Reg, String, Part), //Store byte
-    Sh(Reg, Reg, String, Part), //Store half
-    Sw(Reg, Reg, String, Part), //Store word
+    Sb(Reg, Reg, smartstring::alias::String, Part), //Store byte
+    Sh(Reg, Reg, smartstring::alias::String, Part), //Store half
+    Sw(Reg, Reg, smartstring::alias::String, Part), //Store word
 
-    Addi(Reg, Reg, String, Part),
+    Addi(Reg, Reg, smartstring::alias::String, Part),
 
     Srr(Reg, Reg, Imm),
     Slr(Reg, Reg, Imm),
 
     LiImm(Reg, Imm),
-    LiLabl(Reg, String),
+    LiLabl(Reg, smartstring::alias::String),
     LaImm(Reg, Imm),
-    LaLabl(Reg, String),
+    LaLabl(Reg, smartstring::alias::String),
 
     CallImm(Imm),
     TailImm(Imm),
 
-    CallLabl(String),
-    TailLabl(String),
+    CallLabl(smartstring::alias::String),
+    TailLabl(smartstring::alias::String),
 
     Push(Vec<Reg>),
     Pop(Vec<Reg>),
@@ -426,16 +428,16 @@ impl Display for Instruction {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Operation<'a> {
+pub enum Operation {
     Namespace(usize),
     Instr(Instruction),
     Macro(MacroInstr),
-    LablMacro(Cow<'a, str>, MacroInstr),
-    LablInstr(Cow<'a, str>, Instruction),
-    Labl(Cow<'a, str>)
+    LablMacro(smartstring::alias::String, MacroInstr),
+    LablInstr(smartstring::alias::String, Instruction),
+    Labl(smartstring::alias::String)
 }
 
-impl <'a> Display for Operation<'a> {
+impl Display for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Operation::Namespace(space) => write!(f, "Namespace({space})"),
@@ -451,7 +453,7 @@ impl <'a> Display for Operation<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ByteData {
     Byte(i16),
-    String(String)
+    String(smartstring::alias::String)
 }
 
 impl From<i32> for ByteData {
@@ -460,8 +462,8 @@ impl From<i32> for ByteData {
     }
 }
 
-impl From<String> for ByteData {
-    fn from(value: String) -> Self {
+impl From<smartstring::alias::String> for ByteData {
+    fn from(value: smartstring::alias::String) -> Self {
         ByteData::String(value)
     }
 }
@@ -478,7 +480,7 @@ impl Display for ByteData {
 #[derive(Clone, Debug, PartialEq)]
 pub enum HalfData {
     Half(i32),
-    String(String)
+    String(smartstring::alias::String)
 }
 
 impl From<i32> for HalfData {
@@ -487,8 +489,8 @@ impl From<i32> for HalfData {
     }
 }
 
-impl From<String> for HalfData {
-    fn from(value: String) -> Self {
+impl From<smartstring::alias::String> for HalfData {
+    fn from(value: smartstring::alias::String) -> Self {
         HalfData::String(value)
     }
 }
@@ -505,7 +507,7 @@ impl Display for HalfData {
 #[derive(Clone, Debug, PartialEq)]
 pub enum WordData {
     Word(i64),
-    String(String)
+    String(smartstring::alias::String)
 }
 
 impl From<i128> for WordData {
@@ -514,8 +516,8 @@ impl From<i128> for WordData {
     }
 }
 
-impl From<String> for WordData {
-    fn from(value: String) -> Self {
+impl From<smartstring::alias::String> for WordData {
+    fn from(value: smartstring::alias::String) -> Self {
         WordData::String(value)
     }
 }
@@ -532,7 +534,7 @@ impl Display for WordData {
 #[derive(Clone, Debug, PartialEq)]
 pub enum DWordData {
     DWord(i128),
-    String(String)
+    String(smartstring::alias::String)
 }
 
 impl From<i128> for DWordData {
@@ -541,8 +543,8 @@ impl From<i128> for DWordData {
     }
 }
 
-impl From<String> for DWordData {
-    fn from(value: String) -> Self {
+impl From<smartstring::alias::String> for DWordData {
+    fn from(value: smartstring::alias::String) -> Self {
         DWordData::String(value)
     }
 }
@@ -611,7 +613,7 @@ pub enum LabelType {
 #[derive(Debug, Clone, PartialEq)]
 // Scope for locality: true for global; false for local
 pub struct LabelElem {
-    name: String,
+    name: smartstring::alias::String,
     definition: i128,
     ltype: LabelType,
     scope: bool,
@@ -620,7 +622,7 @@ pub struct LabelElem {
 
 impl LabelElem {
     pub fn new() -> LabelElem {
-        let name = String::new();
+        let name = smartstring::alias::String::new();
         let definition: i128 = 0;
         let ltype = LabelType::Uninit;
         let scope = false;
@@ -636,14 +638,14 @@ impl LabelElem {
     }
 
     #[allow(dead_code)]
-    pub fn new_def(name: String, definition: i128) -> LabelElem {
+    pub fn new_def(name: smartstring::alias::String, definition: i128) -> LabelElem {
         let mut elem = LabelElem::new();
         elem.set_name(name);
         elem.set_def(definition);
         elem
     }
 
-    pub fn new_refd(name: String) -> LabelElem {
+    pub fn new_refd(name: smartstring::alias::String) -> LabelElem {
         let mut elem = LabelElem::new();
         elem.set_name(name);
         elem.set_refd();
@@ -669,11 +671,11 @@ impl LabelElem {
         Ok("Labels combined!")
     }
 
-    pub fn set_name(&mut self, name: String) {
+    pub fn set_name(&mut self, name: smartstring::alias::String) {
         self.name = name;
     }
 
-    pub fn get_name(&self) -> &String {
+    pub fn get_name(&self) -> &smartstring::alias::String {
         &self.name
     }
 
@@ -711,16 +713,22 @@ impl LabelElem {
     }
 }
 
+impl Default for LabelElem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct LabelRecog {
-    label_map: HashMap<String, usize>,
+    label_map: HashMap<smartstring::alias::String, usize>,
     label_list: Vec<LabelElem>,
 }
 
 impl LabelRecog {
     pub fn new() -> LabelRecog {
         let label_list: Vec<LabelElem> = vec![];
-        let label_map: HashMap<String, usize> = HashMap::new();
+        let label_map: HashMap<smartstring::alias::String, usize> = HashMap::new();
 
         LabelRecog {
             label_list,
@@ -739,14 +747,14 @@ impl LabelRecog {
         }
     }
 
-    pub fn get_label(&mut self, label_str: &String) -> Option<&mut LabelElem> {
+    pub fn get_label(&mut self, label_str: &smartstring::alias::String) -> Option<&mut LabelElem> {
         match self.label_map.get(label_str) {
             Some(val) => self.label_list.get_mut(*val),
             None => None,
         }
     }
 
-    pub fn crt_or_def_label(&mut self, label_str: &String, scope: bool, ltype: LabelType, definition: i128) -> Result<(), CommonError> {
+    pub fn crt_or_def_label(&mut self, label_str: &smartstring::alias::String, scope: bool, ltype: LabelType, definition: i128) -> Result<(), CommonError> {
         match self.get_label(label_str) {
             Some(label) => {
                 if *label.get_type() != LabelType::Uninit {
@@ -770,7 +778,7 @@ impl LabelRecog {
 
     // Creates a label, if it does not exist already with the name label_str, scope and the reference.
     // Returns true, if there is already a definition, else false.
-    pub fn crt_or_ref_label(&mut self, label_str: &String) {
+    pub fn crt_or_ref_label(&mut self, label_str: &smartstring::alias::String) {
         match self.get_label(label_str) {
             Some(label) => label.set_refd(),
             None => {
@@ -781,7 +789,7 @@ impl LabelRecog {
         }
     }
 
-    pub fn crt_def_ref(&mut self, label_str: &String, scope: bool, ltype: LabelType, definition: i128) {
+    pub fn crt_def_ref(&mut self, label_str: &smartstring::alias::String, scope: bool, ltype: LabelType, definition: i128) {
         if self.get_label(label_str).is_none() {
             let mut label = LabelElem::new();
             label.set_name(label_str.clone());
@@ -793,7 +801,7 @@ impl LabelRecog {
         }
     }
 
-    pub fn set_refd_label(&mut self, label_str: &String) {
+    pub fn set_refd_label(&mut self, label_str: &smartstring::alias::String) {
         if let Some(label) = self.get_label(label_str) {
             label.set_refd();
         }
@@ -836,47 +844,95 @@ impl Display for LabelRecog {
     }
 }
 
-pub trait RestrictLabelData {}
+impl Default for LabelRecog {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
-impl RestrictLabelData for LabelRecog {}
+pub trait AssemblyCode {
+    type Labels;
 
-#[derive(Debug, PartialEq)]
-pub struct AssemblyCode<'a, T: RestrictLabelData> {
-    labels: T,
+    fn new(labels: Self::Labels) -> Self;
+    fn get_labels_refmut(&mut self) -> &mut Self::Labels;
+    fn get_data_refmut(&mut self) -> &mut Vec<MemData>;
+    fn get_text_refmut(&mut self) -> &mut Vec<Operation>;
+    fn get_all_refmut(&mut self) -> (&mut Self::Labels, &mut Vec<Operation>, &mut Vec<MemData>);
+}
+
+pub struct AssemblyCodeRecog {
+    labels: LabelRecog,
     data: Vec<MemData>,
-    text: Vec<Operation<'a>>
+    text: Vec<Operation>,
+    subroutine: Subroutines
 }
 
-impl <'a, T: RestrictLabelData> AssemblyCode<'a, T> {
-    pub fn new(labels: T) -> Self {
-        AssemblyCode { labels, data: vec![], text: vec![] }
-    }
-
-    pub fn get_labels_refmut(&mut self) -> &mut T {
-        &mut self.labels
-    }
-
-    #[allow(dead_code)]
-    pub fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
-        &mut self.data
-    }
-
-    pub fn get_text_refmut(&mut self) -> &mut Vec<Operation<'a>> {
-        &mut self.text
-    }
-
-    pub fn get_all_refmut(&mut self) -> (&mut T, &mut Vec<Operation<'a>>, &mut Vec<MemData>) {
-        (&mut self.labels, &mut self.text, &mut self.data)
-    }
-}
-
-impl <'a> AssemblyCode<'a, LabelRecog> {
-    pub fn set_text(&mut self, other: Vec<Operation<'a>>) {
+impl AssemblyCodeRecog {
+    pub fn set_text(&mut self, other: Vec<Operation>) {
         self.text = other
     }
 
     pub fn set_data(&mut self, other: Vec<MemData>) {
         self.data = other
+    }
+
+    pub fn get_subroutine_refmut(&mut self) -> &mut Subroutines {
+        &mut self.subroutine
+    }
+}
+
+impl AssemblyCode for AssemblyCodeRecog {
+    type Labels = LabelRecog;
+
+    fn new(labels: Self::Labels) -> Self {
+        AssemblyCodeRecog { labels, data: vec![], text: vec![], subroutine: Subroutines::new() }
+    }
+
+    fn get_labels_refmut(&mut self) -> &mut Self::Labels {
+        &mut self.labels
+    }
+
+    fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
+        &mut self.data
+    }
+
+    fn get_text_refmut(&mut self) -> &mut Vec<Operation> {
+        &mut self.text
+    }
+
+    fn get_all_refmut(&mut self) -> (&mut Self::Labels, &mut Vec<Operation>, &mut Vec<MemData>) {
+        (&mut self.labels, &mut self.text, &mut self.data)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct AssemblyCodeNamespaces {
+    labels: Namespaces,
+    data: Vec<MemData>,
+    text: Vec<Operation>
+}
+
+impl AssemblyCode for AssemblyCodeNamespaces {
+    type Labels = Namespaces;
+
+    fn new(labels: Self::Labels) -> Self {
+        AssemblyCodeNamespaces { labels, data: vec![], text: vec![] }
+    }
+
+    fn get_labels_refmut(&mut self) -> &mut Self::Labels {
+        &mut self.labels
+    }
+
+    fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
+        &mut self.data
+    }
+
+    fn get_text_refmut(&mut self) -> &mut Vec<Operation> {
+        &mut self.text
+    }
+
+    fn get_all_refmut(&mut self) -> (&mut Self::Labels, &mut Vec<Operation>, &mut Vec<MemData>) {
+        (&mut self.labels, &mut self.text, &mut self.data)
     }
 }
 
@@ -907,5 +963,11 @@ impl TranslatableCode {
 
     pub fn get_all_ref(&self) -> (&Vec<Instruction>, &Vec<MemData>) {
         (&self.text, &self.data)
+    }
+}
+
+impl Default for TranslatableCode {
+    fn default() -> Self {
+        Self::new()
     }
 }

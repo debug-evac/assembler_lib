@@ -6,11 +6,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-mod parser;
-mod linker;
-mod optimizer;
-mod translator;
-mod common;
+use assembler_lib::{
+    common::errors::ExitErrorCode,
+    ParseLinkBuilder,
+    translator
+};
 
 use clap::{
     builder::ArgPredicate,
@@ -23,15 +23,12 @@ use clap::{
 };
 use indicatif_log_bridge::LogWrapper;
 use log::{log_enabled, error};
-use parser::Subroutines;
 use std::{
     fs,
     path::PathBuf,
 };
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use console::Term;
-
-use crate::common::{LabelRecog, AssemblyCode, errors::ExitErrorCode};
 
 fn cli_interface() -> ArgMatches {
     #[allow(non_upper_case_globals)]
@@ -144,9 +141,6 @@ fn main() {
     .unwrap()
     .collect();
 
-    let mut parsed_vector: Vec<AssemblyCode<LabelRecog>> = vec![];
-    let mut string_vector: Vec<String> = vec![];
-
     let progbar;
 
     if !log_enabled!(log::Level::Info) {
@@ -165,12 +159,18 @@ fn main() {
             .progress_chars("=> "),
         );
     }
+
     progbar.set_prefix("Assembling");
     progbar.set_message("Reading assembly files...");
 
+    let mut builder = ParseLinkBuilder::new()
+                                                .progbar(&progbar)
+                                                .sp_init(matches.get_flag("sp_init"))
+                                                .no_nop_insert(matches.get_flag("nop_insert"));
+
     for file in vals {
         match fs::read_to_string(file.as_path()) {
-            Ok(val) => string_vector.push(val),
+            Ok(val) => builder.add_code(val),
             Err(msg) => {
                 error!("Could not read '{}': {}", file.as_path().to_string_lossy(), msg);
                 std::process::exit(66)
@@ -181,48 +181,11 @@ fn main() {
     progbar.inc(1);
     progbar.set_message("Parsing...");
 
-    let mut subroutines = Subroutines::new();
-    let sp_init = matches.get_flag("sp_init");
-
-    for (counter, val) in string_vector.iter().enumerate() {
-        match parser::parse(val, &mut Some(&mut subroutines), counter == 0 && sp_init) {
-            Ok(val) => parsed_vector.push(val.1),
-            Err(e) => {
-                error!("{e}");
-                std::process::exit(65)
-            },
-        }
-    }
-
-    let sub_code = subroutines.get_code();
-    for code in sub_code.as_slice() {
-        let val = parser::parse(code, &mut None, false);
-        if let Ok(res) = val {
-            parsed_vector.push(res.1)
-        }
-    }
-
-    progbar.inc(1);
-    progbar.set_message("Linking...");
-
-    let linked_vector = match linker::link(parsed_vector) {
-        Ok(linked) => linked,
-        Err(e) => {
-            error!("{e}");
-            std::process::exit(e.get_err_code())
-        },
-    };
-
-    progbar.inc(1);
-    progbar.set_message("Optimizing...");
-
-    let no_nop_insert = matches.get_flag("nop_insert");
-
-    let translatable_code = match optimizer::optimize(linked_vector, no_nop_insert) {
-        Ok(instr_list) => instr_list,
-        Err(e) => {
-            error!("{e}");
-            std::process::exit(e.get_err_code())
+    let translatable_code = match builder.parse_link_optimize() {
+        Ok(data) => data,
+        Err(msg) => {
+            error!("{msg}");
+            std::process::exit(msg.get_err_code())
         }
     };
 

@@ -31,7 +31,7 @@ use super::{
 #[derive(Clone, Debug, PartialEq)]
 enum Directive {
     Data(MemData),
-    EqvLabel(String, i128)
+    EqvLabel(smartstring::alias::String, i128)
 }
 
 impl From<MemData> for Directive {
@@ -55,7 +55,7 @@ fn parse_byte(input: &str) -> IResult<&str, MemData> {
             parse_seper,
             alt((
                 map(parse_imm, |imm| imm.into()),
-                map(parse_label_name, |label| ByteData::String(label.to_string()))
+                map(parse_label_name, |label| ByteData::String(label.into()))
             ))
         ),
         |data| MemData::Bytes(data, false)
@@ -68,7 +68,7 @@ fn parse_half(input: &str) -> IResult<&str, MemData> {
             parse_seper,
             alt((
                 map(parse_imm, |imm| imm.into()),
-                map(parse_label_name, |label| HalfData::String(label.to_string()))
+                map(parse_label_name, |label| HalfData::String(label.into()))
             ))
         ),
         MemData::Halfs
@@ -81,7 +81,7 @@ fn parse_word(input: &str) -> IResult<&str, MemData> {
             parse_seper,
             alt((
                 map(parse_bigimm, |imm| imm.into()),
-                map(parse_label_name, |label| WordData::String(label.to_string()))
+                map(parse_label_name, |label| WordData::String(label.into()))
             ))
         ),
         MemData::Words
@@ -94,7 +94,7 @@ fn parse_dword(input: &str) -> IResult<&str, MemData> {
             parse_seper,
             alt((
                 map(parse_bigimm, |imm| imm.into()),
-                map(parse_label_name, |label| DWordData::String(label.to_string()))
+                map(parse_label_name, |label| DWordData::String(label.into()))
             ))
         ),
         MemData::DWords
@@ -107,7 +107,7 @@ fn parse_eqv(input: &str) -> IResult<&str, Directive> {
             parse_label_name, 
             parse_seper, 
             parse_bigimm),
-        |(label, def)| Directive::EqvLabel(label.to_string(), def)
+        |(label, def)| Directive::EqvLabel(label.into(), def)
     )(input)
 }
 
@@ -381,11 +381,11 @@ mod tests {
         ]), false))));
         assert_eq!(parse_byte("16, ligma, 201"), Ok(("", MemData::Bytes(Vec::from([
             ByteData::Byte(16), 
-            ByteData::String("ligma".to_string()), 
+            ByteData::String("ligma".into()),
             ByteData::Byte(201)
         ]), false))));
         assert_ne!(parse_byte(".awldldaw"), Ok(("", MemData::Bytes(Vec::from([
-            ByteData::String(".awldldaw".to_string())
+            ByteData::String(".awldldaw".into())
         ]), false))));
     }
 
@@ -399,11 +399,11 @@ mod tests {
         ])))));
         assert_eq!(parse_half("16, ligma, 201"), Ok(("", MemData::Halfs(Vec::from([
             HalfData::Half(16), 
-            HalfData::String("ligma".to_string()), 
+            HalfData::String("ligma".into()),
             HalfData::Half(201)
         ])))));
         assert_ne!(parse_half(".awldldaw"), Ok(("", MemData::Halfs(Vec::from([
-            HalfData::String(".awldldaw".to_string())
+            HalfData::String(".awldldaw".into())
         ])))));
     }
 
@@ -417,11 +417,11 @@ mod tests {
         ])))));
         assert_eq!(parse_word("16, ligma, 201"), Ok(("", MemData::Words(Vec::from([
             WordData::Word(16), 
-            WordData::String("ligma".to_string()), 
+            WordData::String("ligma".into()),
             WordData::Word(201)
         ])))));
         assert_ne!(parse_word(".awldldaw"), Ok(("", MemData::Words(Vec::from([
-            WordData::String(".awldldaw".to_string())
+            WordData::String(".awldldaw".into())
         ])))));
     }
 
@@ -435,19 +435,19 @@ mod tests {
         ])))));
         assert_eq!(parse_dword("16, ligma, 201"), Ok(("", MemData::DWords(Vec::from([
             DWordData::DWord(16), 
-            DWordData::String("ligma".to_string()), 
+            DWordData::String("ligma".into()),
             DWordData::DWord(201)
         ])))));
         assert_ne!(parse_dword(".awldldaw"), Ok(("", MemData::DWords(Vec::from([
-            DWordData::String(".awldldaw".to_string())
+            DWordData::String(".awldldaw".into())
         ])))));
     }
 
     #[test]
     fn test_parse_eqv() {
-        assert_eq!(parse_eqv("test, 120"), Ok(("", Directive::EqvLabel("test".to_string(), 120))));
-        assert_eq!(parse_eqv("testing,0b10"), Ok(("", Directive::EqvLabel("testing".to_string(), 2))));
-        assert_ne!(parse_eqv("test"), Ok(("", Directive::EqvLabel("test".to_string(), 0))));
+        assert_eq!(parse_eqv("test, 120"), Ok(("", Directive::EqvLabel("test".into(), 120))));
+        assert_eq!(parse_eqv("testing,0b10"), Ok(("", Directive::EqvLabel("testing".into(), 2))));
+        assert_ne!(parse_eqv("test"), Ok(("", Directive::EqvLabel("test".into(), 0))));
     }
 
     #[test]
@@ -512,7 +512,7 @@ mod tests {
         ])).into())));
 
         assert_eq!(parse_directive(".word       lolgetit,12002, 5195"), Ok(("", MemData::Words(Vec::from([
-            WordData::String("lolgetit".to_string()),
+            WordData::String("lolgetit".into()),
             WordData::Word(12002),
             WordData::Word(5195)
         ])).into())));
@@ -566,7 +566,7 @@ mod tests {
         );
 
         assert_eq!(parse_directive(".eqv  test,1505"),
-            Ok(("", Directive::EqvLabel("test".to_string(), 1505)))
+            Ok(("", Directive::EqvLabel("test".into(), 1505)))
         );
     }
 
@@ -593,7 +593,7 @@ mod tests {
         assert_eq!(parse_line("label:\n.half    105, testing, 120"),
                    Ok(("", (Some("label"), Some(MemData::Halfs(Vec::from([
                         HalfData::Half(105),
-                        HalfData::String("testing".to_string()),
+                        HalfData::String("testing".into()),
                         HalfData::Half(120)
                    ])).into())))));
         assert_eq!(parse_line("label:\n.ascii \"SToP\""),
@@ -619,7 +619,7 @@ NeedSomeSpaceGotIt:                     ; 26
         let mut symbol_map = LabelRecog::new();
 
         let mut symbols = LabelRecog::new();
-        let mut label = LabelElem::new_refd("HelloKitty".to_string());
+        let mut label = LabelElem::new_refd("HelloKitty".into());
         label.set_type(LabelType::Data);
         label.set_scope(true);
         label.set_refd();
@@ -627,14 +627,14 @@ NeedSomeSpaceGotIt:                     ; 26
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new();
-        label.set_name("VeryGood".to_string());
+        label.set_name("VeryGood".into());
         label.set_type(LabelType::Data);
         label.set_scope(true);
         label.set_def(12);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new();
-        label.set_name("NeedSomeSpaceGotIt".to_string());
+        label.set_name("NeedSomeSpaceGotIt".into());
         label.set_type(LabelType::Data);
         label.set_scope(true);
         label.set_def(24);
@@ -646,7 +646,7 @@ NeedSomeSpaceGotIt:                     ; 26
                                                     ByteData::Byte(0), ByteData::Byte('!' as i16)
                                                 ]), true),
                                                 MemData::Bytes(Vec::from([
-                                                    ByteData::Byte(10), ByteData::Byte(10), ByteData::String("HelloKitty".to_string()), ByteData::Byte(0),
+                                                    ByteData::Byte(10), ByteData::Byte(10), ByteData::String("HelloKitty".into()), ByteData::Byte(0),
                                                     ByteData::Byte(0), ByteData::Byte(0)
                                                 ]), false),
                                                 MemData::Words(Vec::from([

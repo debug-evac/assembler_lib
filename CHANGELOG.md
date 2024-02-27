@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Rust library
+  - You can now use this crate in rust to work with assembly files!
 - New documentation
   - This can be found in the directory 'man' of the git repo
 - Last instructions of RV32I for debugging & RARS compatibility
@@ -30,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Internal representation of some data structures
+  - No changes in behavior
 - 8 bit word width for MIF format being deprecated
   - It will not be deprecated!
 - Information presentation in debugging log level

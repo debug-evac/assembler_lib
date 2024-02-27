@@ -17,22 +17,21 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use log::debug;
 
-use crate::common::{LabelType, MemData};
-use crate::AssemblyCode;
-use crate::common::{RestrictLabelData, LabelRecog, Operation, LabelElem,
+use crate::common::{AssemblyCode, AssemblyCodeNamespaces, AssemblyCodeRecog, LabelType, MemData};
+use crate::common::{LabelRecog, Operation, LabelElem,
     errors::LinkError
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Namespaces {
-    global_definitions: HashMap<String, usize>,
+    global_definitions: HashMap<smartstring::alias::String, usize>,
     global_namespace: Vec<LabelElem>,
     namespaces: Vec<LabelRecog>,
 }
 
 impl Namespaces {
     pub fn new() -> Namespaces {
-        let global_definitions: HashMap<String, usize> = HashMap::new();
+        let global_definitions: HashMap<smartstring::alias::String, usize> = HashMap::new();
         let global_namespace: Vec<LabelElem> = vec![];
         let namespaces: Vec<LabelRecog> = vec![];
 
@@ -84,7 +83,7 @@ impl Namespaces {
         self.global_namespace.clone()
     }
 
-    pub fn get_label(&mut self, label: String, space: Option<usize>) -> Option<&mut LabelElem> {
+    pub fn get_label(&mut self, label: smartstring::alias::String, space: Option<usize>) -> Option<&mut LabelElem> {
         match self.global_definitions.get(&label) {
             Some(pos) => {
                 let labelel = self.global_namespace.get_mut(*pos)?;
@@ -108,8 +107,6 @@ impl Namespaces {
     }
 }
 
-impl RestrictLabelData for Namespaces {}
-
 impl Display for Namespaces {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Namespace {{\nglobals: {:?},\nnamespaces: [{}", self.global_namespace, self.namespaces[0])?;
@@ -120,8 +117,14 @@ impl Display for Namespaces {
     }
 }
 
-pub fn link(mut parsed_instr: Vec<AssemblyCode<LabelRecog>>) -> Result<AssemblyCode<Namespaces>, LinkError> {
-    let mut new_assembly = AssemblyCode::new(Namespaces::new());
+impl Default for Namespaces {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub fn link(mut parsed_instr: Vec<AssemblyCodeRecog>) -> Result<AssemblyCodeNamespaces, LinkError> {
+    let mut new_assembly: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
     let mut text_offset: usize = 0;
     let mut data_offset: usize = 0;
 
@@ -170,32 +173,31 @@ pub fn link(mut parsed_instr: Vec<AssemblyCode<LabelRecog>>) -> Result<AssemblyC
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::borrow::Cow;
     use crate::common::{Instruction, Reg, MacroInstr,
         errors::{LinkError, CommonError},
     };
 
     #[test]
     fn test_correct_link() {
-        let mut parsed_vector: Vec<AssemblyCode<LabelRecog>> = vec![];
+        let mut parsed_vector: Vec<AssemblyCodeRecog> = vec![];
 
-        let mut assembly_code_one = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code_one: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec_one = assembly_code_one.get_text_refmut();
-        operation_vec_one.push(Operation::LablMacro(Cow::from("SEHR_SCHOEN"), MacroInstr::Jal(Reg::G1, "END".to_string())));
-        operation_vec_one.push(Operation::Labl(Cow::from("END")));
+        operation_vec_one.push(Operation::LablMacro("SEHR_SCHOEN".into(), MacroInstr::Jal(Reg::G1, "END".into())));
+        operation_vec_one.push(Operation::Labl("END".into()));
 
         let label_recog_ver1;
 
         {
             let label_recog_one = assembly_code_one.get_labels_refmut();
 
-            let mut label = LabelElem::new_refd("SEHR_SCHOEN".to_string());
+            let mut label = LabelElem::new_refd("SEHR_SCHOEN".into());
             label.set_scope(true);
             label.set_def(0);
             let _ = label_recog_one.insert_label(label);
 
-            label = LabelElem::new_refd("END".to_string());
+            label = LabelElem::new_refd("END".into());
             label.set_scope(false);
             label.set_def(1);
             let _ = label_recog_one.insert_label(label);
@@ -212,23 +214,23 @@ mod tests {
 
         parsed_vector.push(assembly_code_one);
 
-        let mut assembly_code_two = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code_two: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec_two = assembly_code_two.get_text_refmut();
 
-        operation_vec_two.push(Operation::Macro(MacroInstr::Jal(Reg::G1, "SEHR_SCHOEN".to_string())));
-        operation_vec_two.push(Operation::Labl(Cow::from("END")));
+        operation_vec_two.push(Operation::Macro(MacroInstr::Jal(Reg::G1, "SEHR_SCHOEN".into())));
+        operation_vec_two.push(Operation::Labl("END".into()));
 
         let mut label_recog_ver2;
 
         {
             let label_recog_two = assembly_code_two.get_labels_refmut();
 
-            let mut label = LabelElem::new_refd("SEHR_SCHOEN".to_string());
+            let mut label = LabelElem::new_refd("SEHR_SCHOEN".into());
             label.set_scope(true);
             let _ = label_recog_two.insert_label(label);
 
-            label = LabelElem::new_def("END".to_string(), 1);
+            label = LabelElem::new_def("END".into(), 1);
             label.set_scope(false);
             let _ = label_recog_two.insert_label(label);
 
@@ -246,7 +248,7 @@ mod tests {
 
         // ####################################################################
 
-        let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code_ver: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         label_recog_ver2.add_offset(2, LabelType::Address);
 
@@ -267,23 +269,23 @@ mod tests {
         let operation_vec_ver = assembly_code_ver.get_text_refmut();
 
         operation_vec_ver.push(Operation::Namespace(0));
-        operation_vec_ver.push(Operation::LablMacro(Cow::from("SEHR_SCHOEN"), MacroInstr::Jal(Reg::G1, "END".to_string())));
-        operation_vec_ver.push(Operation::Labl(Cow::from("END")));
+        operation_vec_ver.push(Operation::LablMacro("SEHR_SCHOEN".into(), MacroInstr::Jal(Reg::G1, "END".into())));
+        operation_vec_ver.push(Operation::Labl("END".into()));
         operation_vec_ver.push(Operation::Namespace(1));
-        operation_vec_ver.push(Operation::Macro(MacroInstr::Jal(Reg::G1, "SEHR_SCHOEN".to_string())));
-        operation_vec_ver.push(Operation::Labl(Cow::from("END")));
+        operation_vec_ver.push(Operation::Macro(MacroInstr::Jal(Reg::G1, "SEHR_SCHOEN".into())));
+        operation_vec_ver.push(Operation::Labl("END".into()));
 
         assert_eq!(assembly_code_ver, link(parsed_vector).unwrap())
     }
 
     #[test]
     fn test_multiple_defined_global() {
-        let mut parsed_vector: Vec<AssemblyCode<LabelRecog>> = vec![];
+        let mut parsed_vector: Vec<AssemblyCodeRecog> = vec![];
 
-        let mut assembly_code_one = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code_one: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec_one = assembly_code_one.get_text_refmut();
-        operation_vec_one.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::Add(Reg::G0, Reg::G0, Reg::G1)));
+        operation_vec_one.push(Operation::LablInstr("SEHR_SCHOEN".into(), Instruction::Add(Reg::G0, Reg::G0, Reg::G1)));
         operation_vec_one.push(Operation::Instr(Instruction::Lb(Reg::G11, Reg::G12, 56)));
         operation_vec_one.push(Operation::Instr(Instruction::Addi(Reg::G1, Reg::G11, 0)));
 
@@ -291,7 +293,7 @@ mod tests {
 
         let mut label = LabelElem::new();
 
-        label.set_name("SEHR_SCHOEN".to_string());
+        label.set_name("SEHR_SCHOEN".into());
         label.set_scope(true);
         label.set_def(0);
         let _ = label_recog_one.insert_label(label);
@@ -306,16 +308,16 @@ mod tests {
 
         parsed_vector.push(assembly_code_one);
 
-        let mut assembly_code_two = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code_two: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec_two = assembly_code_two.get_text_refmut();
 
-        operation_vec_two.push(Operation::LablInstr(Cow::from("SEHR_SCHOEN"), Instruction::Sub(Reg::G0, Reg::G0, Reg::G0)));
-        operation_vec_two.push(Operation::Macro(MacroInstr::Jal(Reg::G1, "SEHR_SCHOEN".to_string())));
+        operation_vec_two.push(Operation::LablInstr("SEHR_SCHOEN".into(), Instruction::Sub(Reg::G0, Reg::G0, Reg::G0)));
+        operation_vec_two.push(Operation::Macro(MacroInstr::Jal(Reg::G1, "SEHR_SCHOEN".into())));
 
         let label_recog_two = assembly_code_two.get_labels_refmut();
 
-        label = LabelElem::new_refd("SEHR_SCHOEN".to_string());
+        label = LabelElem::new_refd("SEHR_SCHOEN".into());
         label.set_scope(true);
         label.set_def(0);
         let _ = label_recog_two.insert_label(label.clone());
@@ -348,9 +350,9 @@ mod tests {
 
     #[test]
     fn test_no_defined_labels() {
-        let mut parsed_vector: Vec<AssemblyCode<LabelRecog>> = vec![];
+        let mut parsed_vector: Vec<AssemblyCodeRecog> = vec![];
 
-        let mut assembly_code_one = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code_one: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec_one = assembly_code_one.get_text_refmut();
         operation_vec_one.push(Operation::Instr(Instruction::Add(Reg::G0, Reg::G1, Reg::G12)));
@@ -367,7 +369,7 @@ mod tests {
 
         parsed_vector.push(assembly_code_one);
 
-        let mut assembly_code_two = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code_two: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec_two = assembly_code_two.get_text_refmut();
 
@@ -392,7 +394,7 @@ mod tests {
 
         label_recog_ver2.add_offset(3, LabelType::Address);
 
-        let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code_ver: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
 
         let namespace_ver = assembly_code_ver.get_labels_refmut();
 
@@ -426,7 +428,7 @@ mod tests {
 
     #[test]
     fn test_single_link() {
-        let mut assembly_code = AssemblyCode::new(LabelRecog::new());
+        let mut assembly_code: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
 
         let operation_vec = assembly_code.get_text_refmut();
         operation_vec.push(Operation::Instr(Instruction::Add(Reg::G0, Reg::G1, Reg::G12)));
@@ -447,7 +449,7 @@ mod tests {
             Sub $3, $15, $15
         */
 
-        let mut assembly_code_ver = AssemblyCode::new(Namespaces::new());
+        let mut assembly_code_ver: AssemblyCodeNamespaces = AssemblyCode::new(Namespaces::new());
         let _ = assembly_code_ver.get_labels_refmut().insert_recog(LabelRecog::new());
 
         let operation_vec_ver = assembly_code_ver.get_text_refmut();

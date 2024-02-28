@@ -10,7 +10,10 @@ tasks:
       - cargo release {{.CLI_ARGS}}
       - sleep 1
       - git push
+      - cargo clean
       - task: build-binaries
+      - cargo clean
+      - task: build-python-packages
       - task: create-release-git
       - for: ['main', 'stable']
         task: checkout-and-merge
@@ -44,6 +47,13 @@ tasks:
         sh: grep -Pzo "(?s)\[{{.VERSION}}\].*?(?=## \[|\[)" CHANGELOG.md | tr '\0' '\n'
       FILE_ARGS:
         sh: find . -maxdepth 2 -name 'assembler-*' -printf '--asset="target/%f" '
+
+  build-python-packages:
+    aliases: [pb]
+    cmds:
+      - .venv/bin/python3 -m maturin publish --profile release --target x86_64-unknown-linux-gnu --zig --features "python_lib" -r mafiasi-gitea
+      - .venv/bin/python3 -m maturin publish --profile release --target aarch64-apple-darwin --zig --features "python_lib" -r mafiasi-gitea --no-sdist
+      - PYO3_CROSS_LIB_DIR=./python-win .venv/bin/python3 -m maturin publish --profile release --target x86_64-pc-windows-gnu --features "python_lib" -r mafiasi-gitea --no-sdist
 
   build-binaries:
     aliases: [bb]

@@ -97,6 +97,7 @@ pub enum TranslatorError {
     DepthNotFit(usize, usize),
     UndefinedWidth(u8),
     IOError(std::io::Error),
+    UndefinedFormat(String)
 }
 
 impl ExitErrorCode for TranslatorError {
@@ -105,6 +106,7 @@ impl ExitErrorCode for TranslatorError {
             TranslatorError::DepthNotFit(_, _) => 65,
             TranslatorError::UndefinedWidth(_) => 64,
             TranslatorError::IOError(_) => 73, // or 74 or 1
+            TranslatorError::UndefinedFormat(_) => 64, 
         }
     }
 }
@@ -121,6 +123,7 @@ impl std::fmt::Display for TranslatorError {
             TranslatorError::DepthNotFit(got, req) => write!(f, "Not enough addresses! {got} < {req}"),
             TranslatorError::UndefinedWidth(width) => write!(f, "Width {width} is not defined. Try using 8 or 32!"),
             TranslatorError::IOError(e) => write!(f, "{}", e),
+            TranslatorError::UndefinedFormat(format) => write!(f, "Format '{format}' is not defined. Try one of [\"mif\", \"raw\", \"debug\"]."),
         }
     }
 }

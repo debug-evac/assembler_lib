@@ -9,6 +9,9 @@
 //
 // This module defines errors that are used across the modules.
 
+use pyo3::PyErr;
+use pyo3::exceptions::PyRuntimeError;
+
 use crate::common::LabelElem;
 use crate::common::MacroInstr;
 
@@ -122,6 +125,12 @@ impl std::fmt::Display for TranslatorError {
     }
 }
 
+impl std::convert::From<TranslatorError> for PyErr {
+    fn from(err: TranslatorError) -> PyErr {
+        PyRuntimeError::new_err(err.to_string())
+    }
+}
+
 #[derive(Debug)]
 pub enum LibraryError {
     NoCode,
@@ -167,5 +176,11 @@ impl ExitErrorCode for LibraryError {
             LibraryError::LinkerError(link_err) => link_err.get_err_code(),
             LibraryError::OptimizerError(opt_err) => opt_err.get_err_code(),
         }
+    }
+}
+
+impl std::convert::From<LibraryError> for PyErr {
+    fn from(err: LibraryError) -> PyErr {
+        PyRuntimeError::new_err(err.to_string())
     }
 }

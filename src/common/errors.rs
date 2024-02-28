@@ -9,8 +9,8 @@
 //
 // This module defines errors that are used across the modules.
 
-use pyo3::PyErr;
-use pyo3::exceptions::PyRuntimeError;
+#[cfg(feature = "python_lib")]
+use pyo3::{PyErr, exceptions::PyRuntimeError};
 
 use crate::common::LabelElem;
 use crate::common::MacroInstr;
@@ -128,6 +128,7 @@ impl std::fmt::Display for TranslatorError {
     }
 }
 
+#[cfg(feature = "python_lib")]
 impl std::convert::From<TranslatorError> for PyErr {
     fn from(err: TranslatorError) -> PyErr {
         PyRuntimeError::new_err(err.to_string())
@@ -182,6 +183,7 @@ impl ExitErrorCode for LibraryError {
     }
 }
 
+#[cfg(feature = "python_lib")]
 impl std::convert::From<LibraryError> for PyErr {
     fn from(err: LibraryError) -> PyErr {
         PyRuntimeError::new_err(err.to_string())

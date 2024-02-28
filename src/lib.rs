@@ -17,7 +17,9 @@ use crate::common::errors::LibraryError;
 use common::TranslatableCode;
 use indicatif::ProgressBar;
 
+#[cfg(feature = "python_lib")]
 use std::path::PathBuf;
+#[cfg(feature = "python_lib")]
 use pyo3::{exceptions::PyRuntimeError, prelude::*};
 
 #[derive(Default)]
@@ -84,6 +86,7 @@ impl <'a> ParseLinkBuilder<'a> {
     }
 }
 
+#[cfg(feature = "python_lib")]
 /// Assembles the `assembly_code` to files of `format`.
 ///
 /// # Arguments
@@ -139,6 +142,7 @@ fn assemble(
     Ok(())
 }
 
+#[cfg(feature = "python_lib")]
 /// Convenience function that reads Assembly Code from files and then assembles them.
 /// Uses `assemble` internally. See `assemble` function for details.
 ///
@@ -185,6 +189,7 @@ fn assemble_paths(
     )
 }
 
+#[cfg(feature = "python_lib")]
 #[pymodule]
 fn assembler_lib(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(assemble, m)?)?;

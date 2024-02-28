@@ -36,7 +36,7 @@ console = { version = "0.15", default-features = false }
 log = "0.4.20"
 env_logger = "0.11.0"
 smartstring = "1.0.1"
-pyo3 = { version = "0.19.0", features = ["abi3-py38"], optional = true }
+pyo3 = { version = "0.19.0", features = ["extension-module", "abi3-py38"], optional = true }
 
 [dev-dependencies]
 assert_cmd = "2.0.12"

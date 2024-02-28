@@ -16,6 +16,9 @@
 /man/*.[1-9]
 /man/*.[1-9].html
 
+# Ignore python libraries for windows
+python-win/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 .pytest_cache/
@@ -39,7 +42,6 @@ parts/
 sdist/
 var/
 include/
-man/
 venv/
 *.egg-info/
 .installed.cfg

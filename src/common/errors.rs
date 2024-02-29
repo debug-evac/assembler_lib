@@ -169,3 +169,32 @@ impl ExitErrorCode for LibraryError {
         }
     }
 }
+
+pub enum ParserError {
+    NoTextSection,
+    CommonError(CommonError)
+}
+
+impl ParserError {
+    pub fn get_nom_err_text(&self) -> &'static str {
+        match self {
+            ParserError::NoTextSection => "Specified .data section without .text section!",
+            ParserError::CommonError(_) => "Label is already defined!",
+        }
+    }
+}
+
+impl From<CommonError> for ParserError {
+    fn from(value: CommonError) -> Self {
+        ParserError::CommonError(value)
+    }
+}
+
+impl std::fmt::Display for ParserError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParserError::NoTextSection => write!(f, "Specified .data section without .text section!"),
+            ParserError::CommonError(com_err) => write!(f, "{com_err}"),
+        }
+    }
+}

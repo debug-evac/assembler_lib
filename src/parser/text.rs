@@ -18,7 +18,7 @@ use nom::{
         separated_pair
     }
 };
-use std::cmp::Ordering;
+use std::{any::Any, cmp::Ordering};
 use std::collections::BTreeMap;
 use log::{debug, error, log_enabled};
 
@@ -29,6 +29,8 @@ use crate::parser::{
     }, Subroutines
 };
 use crate::common::*;
+
+use self::errors::ParserError;
 
 use super::parse_multiline_comments;
 
@@ -345,18 +347,18 @@ fn handle_multiline_immediate(
             }
             *pointer += 1;
             return true
-        } else {
-            let mut mask: i32 = 4096;
-            for _ in 12..32 {
-                let is_unset = *imm & mask == 0;
-                if is_unset {
-                    *imm |= mask;
-                    break;
-                }
-                mask <<= 1;
-            }
-            return false
         }
+
+        let mut mask: i32 = 4096;
+        for _ in 12..32 {
+            let is_unset = *imm & mask == 0;
+            if is_unset {
+                *imm |= mask;
+                break;
+            }
+            mask <<= 1;
+        }
+        return false
     }
     
     if imm.leading_zeros() >= 19 {
@@ -737,6 +739,189 @@ fn expand_instrs(symbol_map: &mut LabelRecog, instr_list: &mut Vec<Operation>) {
     }
 }
 
+#[derive(Debug, PartialEq)]
+struct NoData {}
+#[derive(Debug, PartialEq)]
+struct LabelDef {
+    label: smartstring::alias::String
+}
+#[derive(Debug, PartialEq)]
+struct OperationData {
+    op: Operation
+}
+#[derive(Debug, PartialEq)]
+struct LabelOperationData {
+    label: smartstring::alias::String, 
+    op: Operation
+}
+
+trait LineHandle {
+    fn as_any(&self) -> &dyn Any;
+    fn handle(&mut self,
+        instr_counter: &mut usize,
+        instr_list: &mut Vec<Operation>,
+        subroutines: &mut Option<&mut Subroutines>,
+        symbol_map: &mut LabelRecog,
+        abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>) -> Result<(), ParserError>;
+}
+
+impl From<(Option<&str>, Option<Operation>)> for Box<dyn LineHandle> {
+    fn from(value: (Option<&str>, Option<Operation>)) -> Self {
+        match value {
+            (Some(labl), Some(op)) => Box::from(LabelOperationData { label: labl.into(), op }),
+            (None, Some(op)) => Box::from(OperationData { op }),
+            (Some(labl), None) => Box::from(LabelDef { label: labl.into() }),
+            (None, None) => Box::from(NoData {}),
+        }
+    }
+}
+
+impl LineHandle for OperationData {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn handle(&mut self,
+        instr_counter: &mut usize,
+        instr_list: &mut Vec<Operation>,
+        subroutines: &mut Option<&mut Subroutines>,
+        symbol_map: &mut LabelRecog,
+        abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>
+    ) -> Result<(), ParserError> {
+        todo!()
+    }
+}
+
+impl LineHandle for LabelDef {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn handle(&mut self,
+        instr_counter: &mut usize,
+        instr_list: &mut Vec<Operation>,
+        subroutines: &mut Option<&mut Subroutines>,
+        symbol_map: &mut LabelRecog,
+        abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>
+    ) -> Result<(), ParserError> {
+        todo!()
+    }
+}
+
+impl LineHandle for LabelOperationData {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn handle(&mut self, 
+        instr_counter: &mut usize,
+        instr_list: &mut Vec<Operation>,
+        subroutines: &mut Option<&mut Subroutines>,
+        symbol_map: &mut LabelRecog,
+        abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>
+    ) -> Result<(), ParserError> {
+        let label = &self.label;
+        let instr = &mut self.op;
+        
+        debug!("({instr_counter}) - Parsed label '{label}' and instruction '{instr}'");
+        handle_label_defs(&label, symbol_map, LabelType::Address, *instr_counter)?;
+
+        match instr {
+            Operation::Macro(macro_in) => {
+                handle_label_refs(macro_in, subroutines, symbol_map);
+                *instr = Operation::LablMacro(label.clone(), macro_in.to_owned());
+            },
+            Operation::Instr(instr_in) => {
+                match instr_in {
+                    Instruction::Beq(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
+                            instr_list, symbol_map, imm) {
+                            *instr = Operation::LablMacro(label.clone(),
+                            MacroInstr::Beq(reg1.clone(), reg2.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Bne(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, 
+                            abs_to_label_queue, instr_list, symbol_map, imm) {
+                            *instr = Operation::LablMacro(label.clone(),
+                            MacroInstr::Bne(reg1.clone(), reg2.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Blt(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
+                            instr_list, symbol_map, imm) {
+                            *instr = Operation::LablMacro(label.clone(),
+                            MacroInstr::Blt(reg1.clone(), reg2.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Bltu(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
+                            instr_list, symbol_map, imm) {
+                            *instr = Operation::LablMacro(label.clone(),
+                            MacroInstr::Bltu(reg1.clone(), reg2.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Bge(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
+                            instr_list, symbol_map, imm) {
+                            *instr = Operation::LablMacro(label.clone(),
+                            MacroInstr::Bge(reg1.clone(), reg2.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Bgeu(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
+                            instr_list, symbol_map, imm) {
+                            *instr = Operation::LablMacro(label.clone(),
+                            MacroInstr::Bgeu(reg1.clone(), reg2.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Jal(reg, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
+                            instr_list, symbol_map, imm) {
+                            *instr = Operation::LablMacro(label.clone(),
+                            MacroInstr::Jal(reg.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Jalr(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
+                            instr_list, symbol_map, imm) {
+                            *instr = Operation::LablMacro(label.clone(),
+                            MacroInstr::Jalr(reg1.clone(), reg2.clone(), jump_label, Part::None));
+                        }
+                    },
+                    _ => *instr = Operation::LablInstr(label.clone(), instr_in.to_owned()),
+                };
+            }
+            _ => (),
+        }
+
+        if let Some(list) = abs_to_label_queue.remove(&(*instr_counter + 1)) {
+            symbol_map.set_refd_label(&(label.clone().into()));
+            handle_instr_substitution(instr_list, &list, &label);
+        };
+
+        *instr_counter += 1;
+        instr_list.push(instr.to_owned());
+        Ok(())
+    }
+}
+
+impl LineHandle for NoData {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn handle(&mut self,
+        instr_counter: &mut usize,
+        instr_list: &mut Vec<Operation>,
+        subroutines: &mut Option<&mut Subroutines>,
+        symbol_map: &mut LabelRecog,
+        abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>
+    ) -> Result<(), ParserError> {
+        todo!()
+    }
+}
+
 pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, sp_init: bool) -> IResult<&'a str, Vec<Operation>> {
     let mut instr_list: Vec<Operation> = vec![];
 
@@ -754,18 +939,11 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
     let privileged = subroutines.is_none();
 
     loop {
-        let res = match privileged {
-            true => parse_line_priv(rest),
-            false => parse_line(rest),
+        let (rest_line, mut parsed) = match privileged {
+            true => parse_line_priv(rest)?,
+            false => parse_line(rest)?,
         };
-
-        let mut parsed = match res {
-            Ok(line) => {
-                rest = line.0;
-                line.1
-            },
-            Err(e) => return Err(e),
-        };
+        rest = rest_line;
 
         match &mut parsed {
             (Some(label), Some(instr)) => {

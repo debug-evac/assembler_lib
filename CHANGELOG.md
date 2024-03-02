@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - It will not be deprecated!
 - Information presentation in debugging log level
   - the information should be more concise
+- panic behavior
+  - A proper error is now thrown on edge cases, where panics or `std::process::exit` has been used before
 
 ### Deprecated
 

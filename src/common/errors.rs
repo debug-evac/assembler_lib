@@ -9,6 +9,8 @@
 //
 // This module defines errors that are used across the modules.
 
+use std::num::TryFromIntError;
+
 use crate::common::LabelElem;
 use crate::common::MacroInstr;
 
@@ -23,6 +25,7 @@ pub enum CommonError {
     LabelsNameNotEqual(LabelElem, LabelElem),
     MultipleGlobalDefined(LabelElem),
     LabelAlreadyDefined(LabelElem),
+    TooManyInstructions(TryFromIntError)
 }
 
 impl std::fmt::Display for CommonError {
@@ -31,7 +34,14 @@ impl std::fmt::Display for CommonError {
             CommonError::LabelsNameNotEqual(labelel_a, labelel_b) => write!(f, "Cannot compare different label names '{}' and '{}'", labelel_a.get_name(), labelel_b.get_name()),
             CommonError::MultipleGlobalDefined(labelel) => write!(f, "Global label '{}' defined multiple times!", labelel.get_name()),
             CommonError::LabelAlreadyDefined(labelel) => write!(f, "Label '{}' already defined!", labelel.get_name()),
+            CommonError::TooManyInstructions(std_err) => write!(f, "{std_err}"),
         }
+    }
+}
+
+impl From<TryFromIntError> for CommonError {
+    fn from(value: TryFromIntError) -> Self {
+        CommonError::TooManyInstructions(value)
     }
 }
 
@@ -71,7 +81,8 @@ impl ExitErrorCode for LinkError {
 #[derive(Debug)]
 pub enum OptimizerError {
     LabelNonExistent(smartstring::alias::String),
-    LabelSubNotRequiredFor(MacroInstr)
+    LabelSubNotRequiredFor(MacroInstr),
+    LabelTooFar(TryFromIntError)
 }
 
 impl std::fmt::Display for OptimizerError {
@@ -79,7 +90,14 @@ impl std::fmt::Display for OptimizerError {
         match self {
             OptimizerError::LabelNonExistent(label) => write!(f, "Label '{}' is not existent!", label),
             OptimizerError::LabelSubNotRequiredFor(macro_in) => write!(f, "Label substitution not required for Macro '{:?}'", macro_in),
+            OptimizerError::LabelTooFar(std_err) => write!(f, "{std_err}"),
         }
+    }
+}
+
+impl From<TryFromIntError> for OptimizerError {
+    fn from(value: TryFromIntError) -> Self {
+        OptimizerError::LabelTooFar(value)
     }
 }
 

@@ -59,7 +59,7 @@ fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType,
             (label.into(), true)
         },
     };
-    symbol_map.crt_or_def_label(&label_string, scope, ltype, instr_counter.try_into().unwrap())?;
+    symbol_map.crt_or_def_label(&label_string, scope, ltype, instr_counter.try_into()?)?;
     Ok(())
 }
 

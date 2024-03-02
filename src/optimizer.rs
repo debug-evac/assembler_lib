@@ -416,12 +416,13 @@ fn translate_label(current_line: i128, label: smartstring::alias::String, namesp
     if let Some(label_elem) = namespaces.get_label(label.clone(), Some(current_space)) {
         // should always work
         if *label_elem.get_type() == LabelType::Address {
-            return Ok(<i128 as TryInto<i32>>::try_into((*label_elem.get_def() * 4) - (current_line * 4)).unwrap());
-        } else if *label_elem.get_type() == LabelType::Data {
+            return Ok(<i128 as TryInto<i32>>::try_into((*label_elem.get_def() * 4) - (current_line * 4))?);
+        }
+        if *label_elem.get_type() == LabelType::Data {
             #[cfg(feature = "raw_nop")]
-            return Ok(<i128 as TryInto<i32>>::try_into(*label_elem.get_def() - 16).unwrap());
+            return Ok(<i128 as TryInto<i32>>::try_into(*label_elem.get_def() - 16)?);
             #[cfg(not(feature = "raw_nop"))]
-            return Ok(<i128 as TryInto<i32>>::try_into(*label_elem.get_def() - 4).unwrap());
+            return Ok(<i128 as TryInto<i32>>::try_into(*label_elem.get_def() - 4)?);
         }
     }
     Err(OptimizerError::LabelNonExistent(label))

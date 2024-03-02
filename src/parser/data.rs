@@ -10,7 +10,14 @@ use std::{any::Any, fmt::Display};
 
 use log::{debug, error};
 use nom::{
-    branch::alt, bytes::complete::{is_not, tag}, character::complete::{digit1, space1}, combinator::{fail, map, opt, success}, error::context, multi::separated_list1, sequence::{delimited, pair, separated_pair}, IResult
+    branch::alt,
+    bytes::complete::{is_not, tag},
+    character::complete::{digit1, space1},
+    combinator::{fail, map, map_res, opt, success, into},
+    error::context,
+    multi::separated_list1,
+    sequence::{delimited, pair, separated_pair},
+    IResult
 };
 
 use super::{
@@ -138,13 +145,13 @@ fn parse_directive(input: &str) -> IResult<&str, Directive> {
         separated_pair(tag(".half"), space1, map(parse_half, Directive::Data)),
         separated_pair(tag(".word"), space1, map(parse_word, Directive::Data)),
         separated_pair(tag(".dword"), space1, map(parse_dword, Directive::Data)),
-        separated_pair(tag(".space"), space1, map(
+        separated_pair(tag(".space"), space1, map_res(
             digit1, |num| {
                 let mut vec_data = vec![];
-                for _ in 0..str::parse(num).unwrap() {
+                for _ in 0..str::parse(num)? {
                     vec_data.push(ByteData::Byte(0));
                 }
-                MemData::Bytes(vec_data, true).into()
+                Ok::<Directive, <usize as core::str::FromStr>::Err>(MemData::Bytes(vec_data, true).into())
             }
         )),
         separated_pair(tag(".ascii"), space1, map(
@@ -178,7 +185,8 @@ fn parse_line(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
     if early {
         return Ok((rest, Box::from(NoData { })))
     }
-    let (rest, parsed) = alt((
+    into(
+        alt((
         separated_pair(
             map(parse_label_definition, Some),
             parse_multiline_comments,
@@ -198,8 +206,7 @@ fn parse_line(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
                 Some
             )
         ),
-    ))(rest)?;
-    Ok((rest, parsed.into()))
+    )))(rest)
 }
 
 fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usize {
@@ -646,7 +653,7 @@ mod tests {
         ])).into() });
         assert_equ_line!("label:\n.ascii \"SToP\"", "", LabelDirectiveData { label: "label".into(), directive: MemData::Bytes(Vec::from([
             ByteData::Byte('P' as i16), ByteData::Byte('o' as i16), ByteData::Byte('T' as i16), ByteData::Byte('S' as i16)
-       ]), true).into() });
+        ]), true).into() });
         Ok(())
     }
 

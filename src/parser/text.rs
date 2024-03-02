@@ -12,11 +12,14 @@ use nom::{
     combinator::{
         map,
         success,
+        fail,
+        into
     },
     sequence::{
         pair,
         separated_pair
-    }
+    },
+    error::context
 };
 use std::{any::Any, cmp::Ordering};
 use std::collections::BTreeMap;
@@ -91,13 +94,13 @@ impl From<MacroInstr> for Operation {
     }
 }
 
-#[allow(clippy::type_complexity)]
-fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
+fn parse_line(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
     let (rest, early) = parse_multiline_comments(input)?;
     if early {
-        return Ok((rest, (None, None)))
+        return Ok((rest, Box::from(NoData {})))
     }
-    alt((
+    into(
+        alt((
         separated_pair(
             map(parse_label_definition, Some),
             parse_multiline_comments,
@@ -117,16 +120,16 @@ fn parse_line(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
                 Some
             )
         ),
-    ))(rest)
+    )))(rest)
 }
 
-#[allow(clippy::type_complexity)]
-fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation>)> {
+fn parse_line_priv(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
     let (rest, early) = parse_multiline_comments(input)?;
     if early {
-        return Ok((rest, (None, None)))
+        return Ok((rest, Box::from(NoData {})))
     }
-    alt((
+    into(
+        alt((
         separated_pair(
             map(parse_label_definition_priv, Some),
             parse_multiline_comments,
@@ -146,7 +149,7 @@ fn parse_line_priv(input: &str) -> IResult<&str, (Option<&str>, Option<Operation
                 Some
             )
         ),
-    ))(rest)
+    )))(rest)
 }
 
 fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog) {
@@ -762,7 +765,8 @@ trait LineHandle {
         instr_list: &mut Vec<Operation>,
         subroutines: &mut Option<&mut Subroutines>,
         symbol_map: &mut LabelRecog,
-        abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>) -> Result<(), ParserError>;
+        abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>
+    ) -> Result<(), ParserError>;
 }
 
 impl From<(Option<&str>, Option<Operation>)> for Box<dyn LineHandle> {
@@ -788,7 +792,81 @@ impl LineHandle for OperationData {
         symbol_map: &mut LabelRecog,
         abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>
     ) -> Result<(), ParserError> {
-        todo!()
+        let instr = &mut self.op;
+
+        debug!("({instr_counter}) - Parsed instruction '{instr}'");
+        match instr {
+            Operation::Macro(macro_in) => handle_label_refs(macro_in, subroutines, symbol_map),
+            Operation::Instr(instr_in) => {
+                match instr_in {
+                    Instruction::Beq(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
+                                instr_list, symbol_map, imm) {
+                            *instr = Operation::Macro(MacroInstr::Beq(reg1.clone(), reg2.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Bne(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
+                                instr_list, symbol_map, imm) {
+                            *instr = Operation::Macro(MacroInstr::Bne(reg1.clone(), reg2.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Blt(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
+                                instr_list, symbol_map, imm) {
+                            *instr = Operation::Macro(MacroInstr::Blt(reg1.clone(), reg2.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Bltu(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
+                                instr_list, symbol_map, imm) {
+                            *instr = Operation::Macro(MacroInstr::Bltu(reg1.clone(), reg2.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Bge(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
+                                instr_list, symbol_map, imm) {
+                            *instr = Operation::Macro(MacroInstr::Bge(reg1.clone(), reg2.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Bgeu(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
+                                instr_list, symbol_map, imm) {
+                            *instr = Operation::Macro(MacroInstr::Bgeu(reg1.clone(), reg2.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Jal(reg, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
+                                instr_list, symbol_map, imm) {
+                            *instr = Operation::Macro(MacroInstr::Jal(reg.clone(), jump_label));
+                        }
+                    },
+                    Instruction::Jalr(reg1, reg2, imm) => {
+                        if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
+                                instr_list, symbol_map, imm) {
+                            *instr = Operation::Macro(MacroInstr::Jalr(reg1.clone(), reg2.clone(), jump_label, Part::None));
+                        }
+                    },
+                    _ => (),
+                };
+            }
+            _ => (),
+        }
+
+        if let Some(list) = abs_to_label_queue.remove(&(*instr_counter + 1)) {
+            let jump_label = smartstring::alias::String::from("__") + instr_counter.to_string().as_str();
+            symbol_map.crt_def_ref(&jump_label, false, LabelType::Address, *instr_counter as i128);
+            handle_instr_substitution(instr_list, &list, &jump_label);
+            match &instr {
+                Operation::Instr(instr_in) => *instr = Operation::LablInstr(jump_label, instr_in.to_owned()),
+                Operation::Macro(macro_in) => *instr = Operation::LablMacro(jump_label, macro_in.to_owned()),
+                _ => unreachable!()
+            }
+        };
+
+        *instr_counter += 1;
+        instr_list.push(instr.to_owned());
+        Ok(())
     }
 }
 
@@ -800,11 +878,22 @@ impl LineHandle for LabelDef {
     fn handle(&mut self,
         instr_counter: &mut usize,
         instr_list: &mut Vec<Operation>,
-        subroutines: &mut Option<&mut Subroutines>,
+        _subroutines: &mut Option<&mut Subroutines>,
         symbol_map: &mut LabelRecog,
         abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>
     ) -> Result<(), ParserError> {
-        todo!()
+        let label = &self.label;
+
+        debug!("({instr_counter}) - Parsed label '{label}'");
+        handle_label_defs(label, symbol_map, LabelType::Address, *instr_counter)?;
+        if let Some(list) = abs_to_label_queue.remove(&(*instr_counter + 1)) {
+            symbol_map.set_refd_label(label);
+            handle_instr_substitution(instr_list, &list, label)
+        };
+
+        *instr_counter += 1;
+        instr_list.push(Operation::Labl(label.clone()));
+        Ok(())
     }
 }
 
@@ -824,7 +913,7 @@ impl LineHandle for LabelOperationData {
         let instr = &mut self.op;
         
         debug!("({instr_counter}) - Parsed label '{label}' and instruction '{instr}'");
-        handle_label_defs(&label, symbol_map, LabelType::Address, *instr_counter)?;
+        handle_label_defs(label, symbol_map, LabelType::Address, *instr_counter)?;
 
         match instr {
             Operation::Macro(macro_in) => {
@@ -896,8 +985,8 @@ impl LineHandle for LabelOperationData {
         }
 
         if let Some(list) = abs_to_label_queue.remove(&(*instr_counter + 1)) {
-            symbol_map.set_refd_label(&(label.clone().into()));
-            handle_instr_substitution(instr_list, &list, &label);
+            symbol_map.set_refd_label(&(label.clone()));
+            handle_instr_substitution(instr_list, &list, label);
         };
 
         *instr_counter += 1;
@@ -913,12 +1002,13 @@ impl LineHandle for NoData {
 
     fn handle(&mut self,
         instr_counter: &mut usize,
-        instr_list: &mut Vec<Operation>,
-        subroutines: &mut Option<&mut Subroutines>,
-        symbol_map: &mut LabelRecog,
-        abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>
+        _instr_list: &mut Vec<Operation>,
+        _subroutines: &mut Option<&mut Subroutines>,
+        _symbol_map: &mut LabelRecog,
+        _abs_to_label_queue: &mut BTreeMap<usize, Vec<usize>>
     ) -> Result<(), ParserError> {
-        todo!()
+        debug!("({instr_counter}) - Parsed nothing!");
+        Ok(())
     }
 }
 
@@ -945,179 +1035,9 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
         };
         rest = rest_line;
 
-        match &mut parsed {
-            (Some(label), Some(instr)) => {
-                debug!("({instr_counter}) - Parsed label '{label}' and instruction '{instr}'");
-                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Address, instr_counter) {
-                    error!("{e}");
-                    std::process::exit(1)
-                };
-
-                match instr {
-                    Operation::Macro(macro_in) => {
-                        handle_label_refs(macro_in, subroutines, symbol_map);
-                        *instr = Operation::LablMacro(smartstring::alias::String::from(*label), macro_in.to_owned());
-                    },
-                    Operation::Instr(instr_in) => {
-                        match instr_in {
-                            Instruction::Beq(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
-                                    MacroInstr::Beq(reg1.clone(), reg2.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Bne(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, 
-                                    &mut abs_to_label_queue, &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
-                                    MacroInstr::Bne(reg1.clone(), reg2.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Blt(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
-                                    MacroInstr::Blt(reg1.clone(), reg2.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Bltu(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
-                                    MacroInstr::Bltu(reg1.clone(), reg2.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Bge(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
-                                    MacroInstr::Bge(reg1.clone(), reg2.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Bgeu(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
-                                    MacroInstr::Bgeu(reg1.clone(), reg2.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Jal(reg, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
-                                    MacroInstr::Jal(reg.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Jalr(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::LablMacro(smartstring::alias::String::from(*label),
-                                    MacroInstr::Jalr(reg1.clone(), reg2.clone(), jump_label, Part::None));
-                                }
-                            },
-                            _ => *instr = Operation::LablInstr(smartstring::alias::String::from(*label), instr_in.to_owned()),
-                        };
-                    }
-                    _ => (),
-                }
-
-                if let Some(list) = abs_to_label_queue.remove(&(instr_counter + 1)) {
-                    symbol_map.set_refd_label(&((*label).into()));
-                    handle_instr_substitution(&mut instr_list, &list, label);
-                };
-
-                instr_counter += 1;
-                instr_list.push(instr.to_owned());
-            },
-            (None, Some(instr)) => {
-                debug!("({instr_counter}) - Parsed instruction '{instr}'");
-                match instr {
-                    Operation::Macro(macro_in) => handle_label_refs(macro_in, subroutines, symbol_map),
-                    Operation::Instr(instr_in) => {
-                        match instr_in {
-                            Instruction::Beq(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue,
-                                     &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Beq(reg1.clone(), reg2.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Bne(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Bne(reg1.clone(), reg2.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Blt(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Blt(reg1.clone(), reg2.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Bltu(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Bltu(reg1.clone(), reg2.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Bge(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Bge(reg1.clone(), reg2.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Bgeu(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Bgeu(reg1.clone(), reg2.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Jal(reg, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Jal(reg.clone(), jump_label));
-                                }
-                            },
-                            Instruction::Jalr(reg1, reg2, imm) => {
-                                if let Some(jump_label) = handle_abs_addr_label_conv(instr_counter, &mut abs_to_label_queue, 
-                                    &mut instr_list, symbol_map, imm) {
-                                    *instr = Operation::Macro(MacroInstr::Jalr(reg1.clone(), reg2.clone(), jump_label, Part::None));
-                                }
-                            },
-                            _ => (),
-                        };
-                    }
-                    _ => (),
-                }
-                
-                if let Some(list) = abs_to_label_queue.remove(&(instr_counter + 1)) {
-                    let jump_label = smartstring::alias::String::from("__") + instr_counter.to_string().as_str();
-                    symbol_map.crt_def_ref(&jump_label, false, LabelType::Address, instr_counter as i128);
-                    handle_instr_substitution(&mut instr_list, &list, &jump_label);
-                    match &instr {
-                        Operation::Instr(instr_in) => *instr = Operation::LablInstr(jump_label, instr_in.to_owned()),
-                        Operation::Macro(macro_in) => *instr = Operation::LablMacro(jump_label, macro_in.to_owned()),
-                        _ => unreachable!()
-                    }
-                };
-
-                instr_counter += 1;
-                instr_list.push(instr.to_owned());
-            },
-            (Some(label), None) => {
-                debug!("({instr_counter}) - Parsed label '{label}'");
-                if let Err(e) = handle_label_defs(label, symbol_map, LabelType::Address, instr_counter) {
-                    error!("{e}");
-                    std::process::exit(1)
-                };
-                if let Some(list) = abs_to_label_queue.remove(&(instr_counter + 1)) {
-                    symbol_map.set_refd_label(&((*label).into()));
-                    handle_instr_substitution(&mut instr_list, &list, label)
-                };
-                instr_counter += 1;
-                instr_list.push(Operation::Labl(smartstring::alias::String::from(*label)));
-            },
-            (None, None) => debug!("({instr_counter}) - Parsed nothing!"),
+        if let Err(e) = parsed.handle(&mut instr_counter, &mut instr_list, subroutines, symbol_map, &mut abs_to_label_queue) {
+            error!("{e}");
+            return context(e.get_nom_err_text(), fail)(rest)
         }
 
         if rest.trim().is_empty() {
@@ -1152,32 +1072,48 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_parse_line() {
-        assert_eq!(parse_line("label: add x1, x5, x6"),
-                   Ok(("", (Some("label"), Some(Instruction::Add(Reg::G1, Reg::G5, Reg::G6).into())))));
-        assert_eq!(parse_line("\ntest:\n\nsub x6, x5, x11"),
-                   Ok(("", (Some("test"), Some(Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into())))));
-        assert_eq!(parse_line("\n\n\nreturn:\n"),
-                   Ok(("\n", (Some("return"), None))));
-        assert_eq!(parse_line("mv x15, x12\naddi x12, x10, 0x05"),
-                   Ok(("\naddi x12, x10, 0x05", (None, Some(Instruction::Addi(Reg::G15, Reg::G12, 0).into())))));
-        assert_eq!(parse_line("label:\ndiv x14, x13, x10"),
-                   Ok(("", (Some("label"), Some(Instruction::Div(Reg::G14, Reg::G13, Reg::G10).into())))));
+    macro_rules! assert_equ_line {
+        ($pars_line:literal, $rest:literal, $struct:ident { $( $field:ident: $val:expr ),*}) => {
+            let (rest, parsed) = parse_line($pars_line)?;
+            assert_eq!(rest, $rest);
+            assert_eq!(parsed.as_any().downcast_ref::<$struct>().unwrap(), &$struct { $( $field: $val ),* });
+        };
     }
 
     #[test]
-    fn test_parse_line_privileged() {
-        assert_eq!(parse_line_priv("_label: add x1, x5, x6"),
-                    Ok(("", (Some("_label"), Some(Instruction::Add(Reg::G1, Reg::G5, Reg::G6).into())))));
-        assert_eq!(parse_line_priv("\n_test:\n\nsub x6, x5, x11"),
-                    Ok(("", (Some("_test"), Some(Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into())))));
-        assert_eq!(parse_line_priv("\n\n\n_return:\n"),
-                    Ok(("\n", (Some("_return"), None))));
-        assert_eq!(parse_line_priv("mv x15, x12\naddi x12, x10, 0x05"),
-                    Ok(("\naddi x12, x10, 0x05", (None, Some(Instruction::Addi(Reg::G15, Reg::G12, 0).into())))));
-        assert_eq!(parse_line_priv("_label:\ndiv x14, x13, x10"),
-                    Ok(("", (Some("_label"), Some(Instruction::Div(Reg::G14, Reg::G13, Reg::G10).into())))));
+    fn test_parse_line() -> Result<(), Box<dyn std::error::Error>> {
+        assert_equ_line!("label: add x1, x5, x6", "",
+                         LabelOperationData { label: "label".into(), op: Instruction::Add(Reg::G1, Reg::G5, Reg::G6).into() });
+        assert_equ_line!("\ntest:\n\nsub x6, x5, x11", "",
+                         LabelOperationData { label: "test".into(), op: Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into() });
+        assert_equ_line!("\n\n\nreturn:\n", "\n", LabelDef { label: "return".into() });
+        assert_equ_line!("mv x15, x12\naddi x12, x10, 0x05", "\naddi x12, x10, 0x05",
+                         OperationData { op: Instruction::Addi(Reg::G15, Reg::G12, 0).into() });
+        assert_equ_line!("label:\ndiv x14, x13, x10", "",
+                         LabelOperationData { label: "label".into(), op: Instruction::Div(Reg::G14, Reg::G13, Reg::G10).into() });
+        Ok(())
+    }
+
+    macro_rules! assert_equ_line_priv {
+        ($pars_line:literal, $rest:literal, $struct:ident { $( $field:ident: $val:expr ),*}) => {
+            let (rest, parsed) = parse_line_priv($pars_line)?;
+            assert_eq!(rest, $rest);
+            assert_eq!(parsed.as_any().downcast_ref::<$struct>().unwrap(), &$struct { $( $field: $val ),* });
+        };
+    }
+
+    #[test]
+    fn test_parse_line_privileged() -> Result<(), Box<dyn std::error::Error>> {
+        assert_equ_line_priv!("_label: add x1, x5, x6", "",
+                         LabelOperationData { label: "_label".into(), op: Instruction::Add(Reg::G1, Reg::G5, Reg::G6).into() });
+        assert_equ_line_priv!("\n_test:\n\nsub x6, x5, x11", "",
+                         LabelOperationData { label: "_test".into(), op: Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into() });
+        assert_equ_line_priv!("\n\n\n_return:\n", "\n", LabelDef { label: "_return".into() });
+        assert_equ_line_priv!("mv x15, x12\naddi x12, x10, 0x05", "\naddi x12, x10, 0x05",
+                         OperationData { op: Instruction::Addi(Reg::G15, Reg::G12, 0).into() });
+        assert_equ_line_priv!("_label:\ndiv x14, x13, x10", "",
+                         LabelOperationData { label: "_label".into(), op: Instruction::Div(Reg::G14, Reg::G13, Reg::G10).into() });
+        Ok(())
     }
 
     #[test]

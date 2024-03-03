@@ -5,23 +5,20 @@ It uses a modified MIPS assembly syntax and features labels, macros, automatic n
 
 ## Features
 
-- Support for all instructions of the RV32I and RV32M extensions
-- Support for some macros for easier programming, especially:
-  - Stack operations (push, pop)
-  - Load address (la), load immediate (li), call, tail & mv
-- Simple linker to link multiple input assembly files
-  - Global and local (file scope) labels
-- Rudimentary optimizer for automatic insertions of nop instructions when data hazards are expected
-- Rudimentary user output (wip)
-- Support for assembler directives that are used to store constants in memory
-
-## Planned Features
-
-- Improvement of error reporting (currently very bare bones)
-- Better internal code documentation
-- Disassembler-Mode (planned for release 2.0.0 or a minor release of 2.0.0)
-- Separate debugger or simulator
-- Python module for easier integration into the compiler
+- [x] Support for all instructions of the RV32I and RV32M extensions
+- [x] Support for some macros for easier programming, especially:
+  - [x] Stack operations (push, pop)
+  - [x] Load address (la), load immediate (li), call, tail & mv
+- [x] Simple linker to link multiple input assembly files
+  - [x] Global and local (file scope) labels
+- [x] Rudimentary optimizer for automatic insertions of nop instructions when data hazards are expected
+- [x] Rudimentary user output (wip)
+- [x] Support for assembler directives that are used to store constants in memory
+- [x] Python module for easier integration into the compiler
+- [ ] Improvement of error reporting (currently very bare bones)
+- [ ] Better internal code documentation
+- [ ] Disassembler-Mode (planned for release 2.0.0 or a minor release of 2.0.0)
+- [ ] Separate debugger or simulator
 
 ## Out of scope
 
@@ -54,6 +51,20 @@ Note: You cannot install a particular version with this method. If you need to u
 This method is not recommended as you have to manage updates and paths yourself. Head to the [releases](https://git.mafiasi.de/Prj-MR/Assembler/releases/latest) page and download the binary for your operating system. If there is no binary for your operating system, either open an issue [here](https://git.mafiasi.de/Prj-MR/Assembler/issues) or compile it yourself.
 
 To use the binary, you either have it in the directory you are in (not ideal) or put it in the path that your system is using. You may need to look up how to put the binary in the path of your system.
+
+### Python Module
+
+Since release 1.3.0, a python module is provided which contains the functionality of this assembler. For installation, `pip` is required.
+
+You can use the following command to install this as a python module:
+
+```sh
+pip install --index-url https://{username}:{password}@git.mafiasi.de/api/packages/Prj-MR/pypi/simple --no-deps assembler_lib
+```
+
+For more information on installation, see [here](https://docs.gitea.com/next/usage/packages/pypi/).
+
+You can find information on how to use this module in the CHANGELOG.md.
 
 ### From Source 
 

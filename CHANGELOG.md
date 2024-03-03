@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Python library
+  - You can now use this library in python to work with assembly files!
+  - There are two functions at your disposal:
+    - `assemble(assembly_code, sp_init=true, no_nop_insert=false, format="mif", outpath=Path("a.mif"), comment=false, depth=1024, width=8)` which takes assembly code as a list of strings.
+    - `assemble_paths(assembly_paths, sp_init=true, no_nop_insert=false, format="mif", outpath=Path("a.mif"), comment=false, depth=1024, width=8)` which first reads in assembly code from the `assembly_paths` list of paths and then calls `assemble` on it.
 - Rust library
   - You can now use this crate in rust to work with assembly files!
 - New documentation

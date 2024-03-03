@@ -347,7 +347,7 @@ pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode,
             info!("{}", emit_debug_translate_instruction(instr, mach_instr));
          }
       }
-      _ => unreachable!(),
+      _ => return Err(TranslatorError::UndefinedFormat(format.to_string())),
    }
    Ok(())
 }

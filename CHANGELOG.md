@@ -21,9 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rust library
   - You can now use this crate in rust to work with assembly files!
 - New documentation
-  - This can be found in the directory 'man' of the git repo
+  - This can be found in the directory "man" of the git repo
 - Last instructions of RV32I for debugging & RARS compatibility
-  - `ecall` - System call (should not be used, we don't have an OS)
+  - `ecall` - System call (should not be used, we do not have an OS)
   - `ebreak` - Breaking point for debugging purposes (should be used in debugger only)
 - Automatic stack pointer initialization!
   - Stack pointer is automatically initialized to 4096 bytes
@@ -53,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 
 - Documentation in the gitea wiki
-  - New documentation is in the 'man' directory and readme of the git repo
+  - New documentation is in the "man" directory and readme of the git repo
 
 ### Fixed
 

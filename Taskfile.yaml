@@ -12,7 +12,6 @@ tasks:
       - git push
       - cargo clean
       - task: build-binaries
-      - cargo clean
       - task: build-python-packages
       - task: create-release-git
       - for: ['main', 'stable']
@@ -46,7 +45,7 @@ tasks:
       RELEASE_BODY:
         sh: grep -Pzo "(?s)\[{{.VERSION}}\].*?(?=## \[|\[)" CHANGELOG.md | tr '\0' '\n'
       FILE_ARGS:
-        sh: find . -maxdepth 2 -name 'assembler-*' -printf '--asset="target/%f" '
+        sh: find . -maxdepth 2 -name 'assembler-*-*' -printf '--asset="target/%f" '
 
   build-python-packages:
     aliases: [pb]

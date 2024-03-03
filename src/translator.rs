@@ -213,13 +213,13 @@ impl <T: Translatable + std::fmt::Display> Writable for &Vec<T> {
       if comment {
          for elem in self.iter() {
             let mach_instr = elem.translate().to_le_bytes();
-            writeln!(file, "{counter}\t: {:08b}{sep}{:08b}{sep}{:08b}{sep}{:08b};\t\t-- {elem}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
+            writeln!(file, "{counter}\t: {:08b}{sep}{:08b}{sep}{:08b}{sep}{:08b};\t\t-- {elem}", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3])?;
             counter += added;
          }
       } else {
          for elem in self.iter() {
             let mach_instr = elem.translate().to_le_bytes();
-            writeln!(file, "{counter}\t: {:08b}{sep}{:08b}{sep}{:08b}{sep}{:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]).unwrap();
+            writeln!(file, "{counter}\t: {:08b}{sep}{:08b}{sep}{:08b}{sep}{:08b};", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3])?;
             counter += added;
          }
       }
@@ -347,7 +347,7 @@ pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode,
             info!("{}", emit_debug_translate_instruction(instr, mach_instr));
          }
       }
-      _ => unreachable!(),
+      _ => return Err(TranslatorError::UndefinedFormat(format.to_string())),
    }
    Ok(())
 }

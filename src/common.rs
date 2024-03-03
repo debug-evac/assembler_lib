@@ -860,12 +860,50 @@ pub trait AssemblyCode {
     fn get_all_refmut(&mut self) -> (&mut Self::Labels, &mut Vec<Operation>, &mut Vec<MemData>);
 }
 
-pub struct AssemblyCodeRecog {
-    labels: LabelRecog,
-    data: Vec<MemData>,
-    text: Vec<Operation>,
-    subroutine: Subroutines
+macro_rules! impl_assembly_code {
+    ($([$( $der:ident ),+])? $struct:ident { labels:$ltype:ty, $( $field:ident:$type:ty ),*}) => {
+        $(#[derive($( $der ),+)])?
+        pub struct $struct {
+            labels: $ltype,
+            data: Vec<MemData>,
+            text: Vec<Operation>,
+            $(
+                $field: $type,
+            )*
+        }
+
+        impl AssemblyCode for $struct {
+            type Labels = $ltype;
+        
+            fn new(labels: Self::Labels) -> Self {
+                $struct { labels, data: vec![], text: vec![], $( $field: <$type>::new() )* }
+            }
+        
+            fn get_labels_refmut(&mut self) -> &mut Self::Labels {
+                &mut self.labels
+            }
+        
+            fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
+                &mut self.data
+            }
+        
+            fn get_text_refmut(&mut self) -> &mut Vec<Operation> {
+                &mut self.text
+            }
+        
+            fn get_all_refmut(&mut self) -> (&mut Self::Labels, &mut Vec<Operation>, &mut Vec<MemData>) {
+                (&mut self.labels, &mut self.text, &mut self.data)
+            }
+        }
+    };
 }
+
+impl_assembly_code!(
+    AssemblyCodeRecog { 
+        labels: LabelRecog, 
+        subroutine: Subroutines
+    }
+);
 
 impl AssemblyCodeRecog {
     pub fn set_text(&mut self, other: Vec<Operation>) {
@@ -881,60 +919,12 @@ impl AssemblyCodeRecog {
     }
 }
 
-impl AssemblyCode for AssemblyCodeRecog {
-    type Labels = LabelRecog;
-
-    fn new(labels: Self::Labels) -> Self {
-        AssemblyCodeRecog { labels, data: vec![], text: vec![], subroutine: Subroutines::new() }
+impl_assembly_code!(
+    [Debug, PartialEq]
+    AssemblyCodeNamespaces { 
+        labels: Namespaces,
     }
-
-    fn get_labels_refmut(&mut self) -> &mut Self::Labels {
-        &mut self.labels
-    }
-
-    fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
-        &mut self.data
-    }
-
-    fn get_text_refmut(&mut self) -> &mut Vec<Operation> {
-        &mut self.text
-    }
-
-    fn get_all_refmut(&mut self) -> (&mut Self::Labels, &mut Vec<Operation>, &mut Vec<MemData>) {
-        (&mut self.labels, &mut self.text, &mut self.data)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct AssemblyCodeNamespaces {
-    labels: Namespaces,
-    data: Vec<MemData>,
-    text: Vec<Operation>
-}
-
-impl AssemblyCode for AssemblyCodeNamespaces {
-    type Labels = Namespaces;
-
-    fn new(labels: Self::Labels) -> Self {
-        AssemblyCodeNamespaces { labels, data: vec![], text: vec![] }
-    }
-
-    fn get_labels_refmut(&mut self) -> &mut Self::Labels {
-        &mut self.labels
-    }
-
-    fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
-        &mut self.data
-    }
-
-    fn get_text_refmut(&mut self) -> &mut Vec<Operation> {
-        &mut self.text
-    }
-
-    fn get_all_refmut(&mut self) -> (&mut Self::Labels, &mut Vec<Operation>, &mut Vec<MemData>) {
-        (&mut self.labels, &mut self.text, &mut self.data)
-    }
-}
+);
 
 #[derive(Debug, PartialEq)]
 pub struct TranslatableCode {

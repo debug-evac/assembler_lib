@@ -14,7 +14,7 @@ pub mod common;
 
 use crate::common::errors::LibraryError;
 
-use common::TranslatableCode;
+use common::{AssemblyCodeRecog, TranslatableCode};
 use indicatif::ProgressBar;
 
 #[cfg(feature = "python_lib")]
@@ -54,11 +54,8 @@ impl <'a> ParseLinkBuilder<'a> {
         self
     }
 
-    pub fn parse_link_optimize(self) -> Result<TranslatableCode, LibraryError> {
-        if self.assembly_code.is_empty() {
-            return Err(LibraryError::NoCode)
-        }
-
+    #[inline]
+    fn parse(&self) -> Result<Vec<AssemblyCodeRecog>, LibraryError> {
         let mut parsed_vector = Vec::with_capacity(self.assembly_code.len());
         let mut subroutine = parser::Subroutines::new();
 
@@ -69,6 +66,16 @@ impl <'a> ParseLinkBuilder<'a> {
         for code in subroutine.get_code() {
             parsed_vector.push(parser::parse(&code, &mut None, false)?.1)
         }
+
+        Ok(parsed_vector)
+    }
+
+    pub fn parse_link_optimize(self) -> Result<TranslatableCode, LibraryError> {
+        if self.assembly_code.is_empty() {
+            return Err(LibraryError::NoCode)
+        }
+
+        let parsed_vector = self.parse()?;
 
         if let Some(progbar) = self.progbar {
             progbar.inc(1);

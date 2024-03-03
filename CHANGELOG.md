@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Debug information for data parsing sub step
 - Added more examples
   - `gcd.asm` which calculates the greatest common divisor of two signed numbers
+  - `rng.asm` which generates random numbers with the xoroshiro128++ algorithm and a 128 bit seed
+  - `fakultaet_128bit.asm` which uses 128 bits to store the solution of the faculty
 
 ### Changed
 

@@ -9,6 +9,9 @@
 //
 // This module defines errors that are used across the modules.
 
+#[cfg(feature = "python_lib")]
+use pyo3::{PyErr, exceptions::PyRuntimeError};
+
 use crate::common::LabelElem;
 use crate::common::MacroInstr;
 
@@ -94,6 +97,7 @@ pub enum TranslatorError {
     DepthNotFit(usize, usize),
     UndefinedWidth(u8),
     IOError(std::io::Error),
+    UndefinedFormat(String)
 }
 
 impl ExitErrorCode for TranslatorError {
@@ -102,6 +106,7 @@ impl ExitErrorCode for TranslatorError {
             TranslatorError::DepthNotFit(_, _) => 65,
             TranslatorError::UndefinedWidth(_) => 64,
             TranslatorError::IOError(_) => 73, // or 74 or 1
+            TranslatorError::UndefinedFormat(_) => 64, 
         }
     }
 }
@@ -118,7 +123,15 @@ impl std::fmt::Display for TranslatorError {
             TranslatorError::DepthNotFit(got, req) => write!(f, "Not enough addresses! {got} < {req}"),
             TranslatorError::UndefinedWidth(width) => write!(f, "Width {width} is not defined. Try using 8 or 32!"),
             TranslatorError::IOError(e) => write!(f, "{}", e),
+            TranslatorError::UndefinedFormat(format) => write!(f, "Format '{format}' is not defined. Try one of [\"mif\", \"raw\", \"debug\"]."),
         }
+    }
+}
+
+#[cfg(feature = "python_lib")]
+impl std::convert::From<TranslatorError> for PyErr {
+    fn from(err: TranslatorError) -> PyErr {
+        PyRuntimeError::new_err(err.to_string())
     }
 }
 
@@ -167,5 +180,12 @@ impl ExitErrorCode for LibraryError {
             LibraryError::LinkerError(link_err) => link_err.get_err_code(),
             LibraryError::OptimizerError(opt_err) => opt_err.get_err_code(),
         }
+    }
+}
+
+#[cfg(feature = "python_lib")]
+impl std::convert::From<LibraryError> for PyErr {
+    fn from(err: LibraryError) -> PyErr {
+        PyRuntimeError::new_err(err.to_string())
     }
 }

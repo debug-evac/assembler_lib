@@ -250,11 +250,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Forwarding unit, Multiplication hardware instruction
 
 <!-- next-url -->
-[Unreleased]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.3.0...HEAD
-[1.3.0]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.2.0...1.3.0
-[1.2.0]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.1.2...1.2.0
-[1.1.2]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.1.1...1.1.2
-[1.1.1]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.1.0...1.1.1
-[1.1.0]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.0.1...1.1.0
-[1.0.1]: https://git.mafiasi.de/Prj-MR/Assembler/compare/1.0.0...1.0.1
-[1.0.0]: https://git.mafiasi.de/Prj-MR/Assembler/compare/05d33c7556d2d3d08d2bc21aa930810ab19428c1...1.0.0
+[Unreleased]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.3.0...HEAD
+[1.3.0]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.2.0...1.3.0
+[1.2.0]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.1.2...1.2.0
+[1.1.2]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.1.1...1.1.2
+[1.1.1]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.1.0...1.1.1
+[1.1.0]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.0.1...1.1.0
+[1.0.1]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.0.0...1.0.1
+[1.0.0]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/05d33c7556d2d3d08d2bc21aa930810ab19428c1...1.0.0

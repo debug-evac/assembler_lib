@@ -20,12 +20,9 @@ maintenance = { status = "experimental" }
 
 [dependencies]
 nom = { workspace = true }
-clap = { workspace = true }
 indicatif = { workspace = true }
-indicatif-log-bridge = { workspace = true }
 console = { workspace = true }
 log = { workspace = true }
-env_logger = { workspace = true }
 smartstring = { workspace = true }
 pyo3 = { workspace = true, optional = true }
 

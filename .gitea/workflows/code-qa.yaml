@@ -1,6 +1,6 @@
 on:
   pull_request:
-    branches: [main, dev]
+    branches: [main, stable]
     types: [opened, synchronize, reopened, ready_for_review]
     paths: ['src/**.rs']
 
@@ -13,6 +13,17 @@ jobs:
     if: gitea.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: 'Prj-MR/assembler-crates'
+          ref: 'main'
+          token: ${{ secrets.GT_PAT }}
+          fetch-depth: '0'
+          submodules: true
+      - name: Setup correct branch on submodule
+        run: |
+          git -C ./${{ gitea.event.repository.name }} fetch --depth=1 origin ${{ gitea.head_ref }}
+          branch=$( echo ${{ gitea.head_ref }} | sed 's/refs\/heads\///g' )
+          git -C ./${{ gitea.event.repository.name }} checkout ${branch}
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -21,6 +32,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
+          args: -p ${{ gitea.event.repository.name }}
 
   clippy:
     name: Clippy
@@ -28,6 +40,17 @@ jobs:
     if: gitea.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: 'Prj-MR/assembler-crates'
+          ref: 'main'
+          token: ${{ secrets.GT_PAT }}
+          fetch-depth: '0'
+          submodules: true
+      - name: Setup correct branch on submodule
+        run: |
+          git -C ./${{ gitea.event.repository.name }} fetch --depth=1 origin ${{ gitea.head_ref }}
+          branch=$( echo ${{ gitea.head_ref }} | sed 's/refs\/heads\///g' )
+          git -C ./${{ gitea.event.repository.name }} checkout ${branch}
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -45,6 +68,17 @@ jobs:
     if: gitea.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: 'Prj-MR/assembler-crates'
+          ref: 'main'
+          token: ${{ secrets.GT_PAT }}
+          fetch-depth: '0'
+          submodules: true
+      - name: Setup correct branch on submodule
+        run: |
+          git -C ./${{ gitea.event.repository.name }} fetch --depth=1 origin ${{ gitea.head_ref }}
+          branch=$( echo ${{ gitea.head_ref }} | sed 's/refs\/heads\///g' )
+          git -C ./${{ gitea.event.repository.name }} checkout ${branch}
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -54,7 +88,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --features full_nop
+          args: -p ${{ gitea.event.repository.name }} --features full_nop
         env:
           CARGO_INCREMENTAL: '0'
           RUSTFLAGS: '-Cinstrument-coverage'
@@ -62,8 +96,9 @@ jobs:
           LLVM_PROFILE_FILE: 'report-%p-%m.profraw'
       - name: Install grcov
         run: if [[ ! -e ~/.cargo/bin/grcov ]]; then cargo install grcov; fi
+      # Currently does coverage for all packages
       - name: Run grcov
-        run: grcov . --binary-path target/debug/deps/ -s . -t cobertura --branch --ignore-not-existing --ignore '../**' --ignore '/*' -o coverage.xml
+        run: grcov . --binary-path target/debug/ -s . -t cobertura --branch --ignore-not-existing --ignore '../**' --ignore '/*' -o coverage.xml
       - name: Code Coverage Summary Report
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:

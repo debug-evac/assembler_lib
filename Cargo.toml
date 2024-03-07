@@ -33,10 +33,6 @@ predicates = { workspace = true }
 assert_fs = { workspace = true }
 
 [package.metadata.release]
-sign-commit = true
-sign-tag = true
-registry = "mafiasi-gitea"
-tag-name = "{{prefix}}{{version}}"
 pre-release-replacements = [
   {file="CHANGELOG.md", search="Unreleased", replace="{{version}}"},
   {file="CHANGELOG.md", search="\\.\\.\\.HEAD", replace="...{{tag_name}}", exactly=1},
@@ -44,7 +40,6 @@ pre-release-replacements = [
   {file="CHANGELOG.md", search="<!-- next-header -->", replace="<!-- next-header -->\n\n## [Unreleased] - ReleaseDate", exactly=1},
   {file="CHANGELOG.md", search="<!-- next-url -->", replace="<!-- next-url -->\n[Unreleased]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/{{tag_name}}...HEAD", exactly=1},
 ]
-target = "x86_64-unknown-linux-gnu"
 
 # [package.metadata.binstall.signing]
 # algorithm = "minisign"

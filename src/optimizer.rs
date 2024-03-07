@@ -296,7 +296,11 @@ fn handle_part(lines: &mut i32, part: &Part) {
     }
 }
 
-impl MacroInstr {
+trait Translate {
+    fn translate(&self, namespace: &mut Namespaces, current_space: &usize, instructions: &mut Vec<Instruction>) -> Result<(), OptimizerError>;
+ }
+
+impl Translate for MacroInstr {
     fn translate(&self, namespace: &mut Namespaces, current_space: &usize, instructions: &mut Vec<Instruction>) -> Result<(), OptimizerError> {
         // Do not forget to change the lines function in the parser when changing the amount of lines here! 
         // (TODO: Better method for this)

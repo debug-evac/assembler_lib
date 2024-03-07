@@ -59,11 +59,14 @@ fn funct3(value: u8) -> u32 {
    (value as u32) << 12
 }
 
-impl Instruction {
+trait Translate {
    fn mask(imm: i32, mask: u8) -> i32 {
       imm & (2_i32.pow((mask + 1) as u32) - 1)
    }
+   fn translate_instruction(&self) -> u32;
+}
 
+impl Translate for Instruction {
    fn translate_instruction(&self) -> u32 {
       let mach_instr = match self {
          Instruction::Jal(reg, imm) => jtype_instr(reg, imm),
@@ -355,6 +358,7 @@ pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode,
 #[cfg(test)]
 mod tests {
    use crate::common::{Instruction, Reg};
+   use crate::translator::Translate;
 
    #[test]
    fn test_translate_rtype_instr() {

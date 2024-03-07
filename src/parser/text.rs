@@ -82,18 +82,6 @@ impl std::fmt::Display for LabelInsertError {
     }
 }
 
-impl From<Instruction> for Operation {
-    fn from(item: Instruction) -> Self {
-        Operation::Instr(item)
-    }
-}
-
-impl From<MacroInstr> for Operation {
-    fn from(item: MacroInstr) -> Self {
-        Operation::Macro(item)
-    }
-}
-
 fn parse_line(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
     let (rest, early) = parse_multiline_comments(input)?;
     if early {

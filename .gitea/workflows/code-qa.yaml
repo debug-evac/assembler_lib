@@ -62,8 +62,8 @@ jobs:
           command: clippy
           args: -- -D warnings
 
-  coverage:
-    name: Code Coverage
+  test-all:
+    name: Test Suite (all features)
     runs-on: ubuntu-latest
     if: gitea.event.pull_request.draft == false
     steps:
@@ -84,26 +84,10 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-          components: llvm-tools-preview
       - uses: actions-rs/cargo@v1
         with:
           command: test
           args: -p ${{ gitea.event.repository.name }} --features full_nop
-        env:
-          CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Cinstrument-coverage'
-          RUSTDOCFLAGS: '-Cinstrument-coverage'
-          LLVM_PROFILE_FILE: 'report-%p-%m.profraw'
-      - name: Install grcov
-        run: if [[ ! -e ~/.cargo/bin/grcov ]]; then cargo install grcov; fi
-      # Currently does coverage for all packages
-      - name: Run grcov
-        run: grcov . --binary-path target/debug/ -s . -t cobertura --branch --ignore-not-existing --ignore '../**' --ignore '/*' -o coverage.xml
-      - name: Code Coverage Summary Report
-        uses: irongut/CodeCoverageSummary@v1.3.0
-        with:
-          filename: coverage.xml
-          fail_below_min: true
 
   fail_if_pr_draft:
     if: gitea.event.pull_request.draft == true

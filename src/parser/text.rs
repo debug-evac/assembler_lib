@@ -790,49 +790,49 @@ impl LineHandle for OperationData {
                     Instruction::Beq(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
                                 instr_list, symbol_map, imm) {
-                            *instr = Operation::Macro(MacroInstr::Beq(reg1.clone(), reg2.clone(), jump_label));
+                            *instr = Operation::Macro(MacroInstr::Beq(*reg1, *reg2, jump_label));
                         }
                     },
                     Instruction::Bne(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
                                 instr_list, symbol_map, imm) {
-                            *instr = Operation::Macro(MacroInstr::Bne(reg1.clone(), reg2.clone(), jump_label));
+                            *instr = Operation::Macro(MacroInstr::Bne(*reg1, *reg2, jump_label));
                         }
                     },
                     Instruction::Blt(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
                                 instr_list, symbol_map, imm) {
-                            *instr = Operation::Macro(MacroInstr::Blt(reg1.clone(), reg2.clone(), jump_label));
+                            *instr = Operation::Macro(MacroInstr::Blt(*reg1, *reg2, jump_label));
                         }
                     },
                     Instruction::Bltu(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
                                 instr_list, symbol_map, imm) {
-                            *instr = Operation::Macro(MacroInstr::Bltu(reg1.clone(), reg2.clone(), jump_label));
+                            *instr = Operation::Macro(MacroInstr::Bltu(*reg1, *reg2, jump_label));
                         }
                     },
                     Instruction::Bge(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
                                 instr_list, symbol_map, imm) {
-                            *instr = Operation::Macro(MacroInstr::Bge(reg1.clone(), reg2.clone(), jump_label));
+                            *instr = Operation::Macro(MacroInstr::Bge(*reg1, *reg2, jump_label));
                         }
                     },
                     Instruction::Bgeu(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
                                 instr_list, symbol_map, imm) {
-                            *instr = Operation::Macro(MacroInstr::Bgeu(reg1.clone(), reg2.clone(), jump_label));
+                            *instr = Operation::Macro(MacroInstr::Bgeu(*reg1, *reg2, jump_label));
                         }
                     },
                     Instruction::Jal(reg, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
                                 instr_list, symbol_map, imm) {
-                            *instr = Operation::Macro(MacroInstr::Jal(reg.clone(), jump_label));
+                            *instr = Operation::Macro(MacroInstr::Jal(*reg, jump_label));
                         }
                     },
                     Instruction::Jalr(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue,
                                 instr_list, symbol_map, imm) {
-                            *instr = Operation::Macro(MacroInstr::Jalr(reg1.clone(), reg2.clone(), jump_label, Part::None));
+                            *instr = Operation::Macro(MacroInstr::Jalr(*reg1, *reg2, jump_label, Part::None));
                         }
                     },
                     _ => (),
@@ -914,56 +914,56 @@ impl LineHandle for LabelOperationData {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
                             instr_list, symbol_map, imm) {
                             *instr = Operation::LablMacro(label.clone(),
-                            MacroInstr::Beq(reg1.clone(), reg2.clone(), jump_label));
+                            MacroInstr::Beq(*reg1, *reg2, jump_label));
                         }
                     },
                     Instruction::Bne(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, 
                             abs_to_label_queue, instr_list, symbol_map, imm) {
                             *instr = Operation::LablMacro(label.clone(),
-                            MacroInstr::Bne(reg1.clone(), reg2.clone(), jump_label));
+                            MacroInstr::Bne(*reg1, *reg2, jump_label));
                         }
                     },
                     Instruction::Blt(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
                             instr_list, symbol_map, imm) {
                             *instr = Operation::LablMacro(label.clone(),
-                            MacroInstr::Blt(reg1.clone(), reg2.clone(), jump_label));
+                            MacroInstr::Blt(*reg1, *reg2, jump_label));
                         }
                     },
                     Instruction::Bltu(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
                             instr_list, symbol_map, imm) {
                             *instr = Operation::LablMacro(label.clone(),
-                            MacroInstr::Bltu(reg1.clone(), reg2.clone(), jump_label));
+                            MacroInstr::Bltu(*reg1, *reg2, jump_label));
                         }
                     },
                     Instruction::Bge(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
                             instr_list, symbol_map, imm) {
                             *instr = Operation::LablMacro(label.clone(),
-                            MacroInstr::Bge(reg1.clone(), reg2.clone(), jump_label));
+                            MacroInstr::Bge(*reg1, *reg2, jump_label));
                         }
                     },
                     Instruction::Bgeu(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
                             instr_list, symbol_map, imm) {
                             *instr = Operation::LablMacro(label.clone(),
-                            MacroInstr::Bgeu(reg1.clone(), reg2.clone(), jump_label));
+                            MacroInstr::Bgeu(*reg1, *reg2, jump_label));
                         }
                     },
                     Instruction::Jal(reg, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
                             instr_list, symbol_map, imm) {
                             *instr = Operation::LablMacro(label.clone(),
-                            MacroInstr::Jal(reg.clone(), jump_label));
+                            MacroInstr::Jal(*reg, jump_label));
                         }
                     },
                     Instruction::Jalr(reg1, reg2, imm) => {
                         if let Some(jump_label) = handle_abs_addr_label_conv(*instr_counter, abs_to_label_queue, 
                             instr_list, symbol_map, imm) {
                             *instr = Operation::LablMacro(label.clone(),
-                            MacroInstr::Jalr(reg1.clone(), reg2.clone(), jump_label, Part::None));
+                            MacroInstr::Jalr(*reg1, *reg2, jump_label, Part::None));
                         }
                     },
                     _ => *instr = Operation::LablInstr(label.clone(), instr_in.to_owned()),

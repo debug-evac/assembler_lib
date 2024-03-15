@@ -162,7 +162,7 @@ impl From<&Operation> for RegActType {
                     Instruction::Srl(reg1, reg2, reg3) |
                     Instruction::Sra(reg1, reg2, reg3) |
                     Instruction::Slt(reg1, reg2, reg3) |
-                    Instruction::Sltu(reg1, reg2, reg3) => RegActType::WriteRead2(reg1.clone(), reg2.clone(), reg3.clone()),
+                    Instruction::Sltu(reg1, reg2, reg3) => RegActType::WriteRead2(*reg1, *reg2, *reg3),
 
                     Instruction::Addi(reg1, reg2, _) |
                     Instruction::Xori(reg1, reg2, _) |
@@ -173,28 +173,28 @@ impl From<&Operation> for RegActType {
                     Instruction::Slli(reg1, reg2, _) |
                     Instruction::Srli(reg1, reg2, _) |
                     Instruction::Srai(reg1, reg2, _) |
-                    Instruction::Jalr(reg1, reg2, _) => RegActType::WriteRead(reg1.clone(), reg2.clone()),
+                    Instruction::Jalr(reg1, reg2, _) => RegActType::WriteRead(*reg1, *reg2),
 
                     Instruction::Lb(reg1, reg2, _) |
                     Instruction::Lh(reg1, reg2, _) |
                     Instruction::Lw(reg1, reg2, _) |
                     Instruction::Lbu(reg1, reg2, _) |
-                    Instruction::Lhu(reg1, reg2, _) => RegActType::Load(reg1.clone(), reg2.clone()),
+                    Instruction::Lhu(reg1, reg2, _) => RegActType::Load(*reg1, *reg2),
 
                     Instruction::Sh(reg1, reg2, _) |
                     Instruction::Sb(reg1, reg2, _) |
-                    Instruction::Sw(reg1, reg2, _) => RegActType::Store(reg1.clone(), reg2.clone()),
+                    Instruction::Sw(reg1, reg2, _) => RegActType::Store(*reg1, *reg2),
 
                     Instruction::Beq(reg1, reg2, _) |
                     Instruction::Bne(reg1, reg2, _) |
                     Instruction::Blt(reg1, reg2, _) |
                     Instruction::Bltu(reg1, reg2, _) |
                     Instruction::Bge(reg1, reg2, _) |
-                    Instruction::Bgeu(reg1, reg2, _) => RegActType::Read2(reg1.clone(), reg2.clone()),
+                    Instruction::Bgeu(reg1, reg2, _) => RegActType::Read2(*reg1, *reg2),
 
                     Instruction::Lui(reg, _) |
                     Instruction::Auipc(reg, _) |
-                    Instruction::Jal(reg, _) => RegActType::Write(reg.clone()),
+                    Instruction::Jal(reg, _) => RegActType::Write(*reg),
 
                     Instruction::Ecall |
                     Instruction::Ebreak => RegActType::NA,
@@ -207,27 +207,27 @@ impl From<&Operation> for RegActType {
                     MacroInstr::Blt(reg1, reg2, _) |
                     MacroInstr::Bltu(reg1, reg2, _) |
                     MacroInstr::Bge(reg1, reg2, _) |
-                    MacroInstr::Bgeu(reg1, reg2, _) => RegActType::Read2(reg1.clone(), reg2.clone()),
+                    MacroInstr::Bgeu(reg1, reg2, _) => RegActType::Read2(*reg1, *reg2),
 
                     MacroInstr::Lui(reg, _, _) |
                     MacroInstr::Auipc(reg, _, _) |
-                    MacroInstr::Jal(reg, _) => RegActType::Write(reg.clone()),
+                    MacroInstr::Jal(reg, _) => RegActType::Write(*reg),
 
                     MacroInstr::Addi(reg1, reg2, _, _) |
                     MacroInstr::Slli(reg1, reg2, _) |
                     MacroInstr::Srli(reg1, reg2, _) |
                     MacroInstr::Srai(reg1, reg2, _) |
-                    MacroInstr::Jalr(reg1, reg2, _, _) => RegActType::WriteRead(reg1.clone(), reg2.clone()),
+                    MacroInstr::Jalr(reg1, reg2, _, _) => RegActType::WriteRead(*reg1, *reg2),
 
                     MacroInstr::Lb(reg1, reg2, _, _) |
                     MacroInstr::Lh(reg1, reg2, _, _) |
                     MacroInstr::Lw(reg1, reg2, _, _) |
                     MacroInstr::Lbu(reg1, reg2, _) |
-                    MacroInstr::Lhu(reg1, reg2, _) => RegActType::Load(reg2.clone(), reg1.clone()),
+                    MacroInstr::Lhu(reg1, reg2, _) => RegActType::Load(*reg2, *reg1),
 
                     MacroInstr::Sh(reg1, reg2, _, _) |
                     MacroInstr::Sb(reg1, reg2, _, _) |
-                    MacroInstr::Sw(reg1, reg2, _, _) => RegActType::Store(reg1.clone(), reg2.clone()),
+                    MacroInstr::Sw(reg1, reg2, _, _) => RegActType::Store(*reg1, *reg2),
 
                     _ => unreachable!(),
                 }
@@ -782,7 +782,7 @@ mod tests {
             ]);
     
             for (counter, reg) in reg_act_vec.iter().enumerate() {
-                let nop_inserts = queue.compare_and_insert(reg.clone());
+                let nop_inserts = queue.compare_and_insert(*reg);
                 match counter {
                     0 => assert_eq!(nop_inserts, None),
                     1 => assert_eq!(nop_inserts, Some(0)),

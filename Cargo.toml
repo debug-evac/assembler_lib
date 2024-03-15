@@ -20,7 +20,6 @@ python_lib = ["dep:pyo3"]
 maintenance = { status = "experimental" }
 
 [dependencies]
-asm_core_lib = { workspace = true }
 nom = { workspace = true }
 indicatif = { workspace = true }
 console = { workspace = true }

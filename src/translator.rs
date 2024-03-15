@@ -25,25 +25,25 @@ fn btype_instr(rs1: &Reg, rs2: &Reg, imm: &Imm) -> u32 {
    let l11 = (imm & 0b10_00000_00000i32) >> 11;
    let upper = ((imm & 0b1_11111_00000i32) | u12) << 20;
    let lower = ((imm & 0b11110i32) | l11) << 7;
-   ((upper + lower) as u32) + ((rs2.clone() as u32) << 20) + ((rs1.clone() as u32) << 15) + 0b1100011_u32
+   ((upper + lower) as u32) + ((*rs2 as u32) << 20) + ((*rs1 as u32) << 15) + 0b1100011_u32
 }
 
 fn stype_instr(rs1: &Reg, rs2: &Reg, imm: &Imm) -> u32 {
    let upper =  (imm & 0b11_11111_10000i32) << 20;
    let lower = (imm & 0b1111i32) << 7;
-   ((upper + lower) as u32) + ((rs1.clone() as u32) << 20) + ((rs2.clone() as u32) << 15) + 0b100011_u32
+   ((upper + lower) as u32) + ((*rs1 as u32) << 20) + ((*rs2 as u32) << 15) + 0b100011_u32
 }
 
 fn itype_instr(rd: &Reg, rs1: &Reg, imm: &Imm) -> u32 {
-   ((*imm as u32) << 20) + ((rs1.clone() as u32) << 15) + ((rd.clone() as u32) << 7)
+   ((*imm as u32) << 20) + ((*rs1 as u32) << 15) + ((*rd as u32) << 7)
 }
 
 fn rtype_instr(rd: &Reg, rs1: &Reg, rs2: &Reg) -> u32 {
-   ((rs2.clone() as u32) << 20) + ((rs1.clone() as u32) << 15) + ((rd.clone() as u32) << 7) + 0b0110011_u32
+   ((*rs2 as u32) << 20) + ((*rs1 as u32) << 15) + ((*rd as u32) << 7) + 0b0110011_u32
 }
 
 fn utype_instr(rd: &Reg, imm: &Imm) -> u32 {
-   (((*imm as u32) >> 12) << 12) + ((rd.clone() as u32) << 7)
+   (((*imm as u32) >> 12) << 12) + ((*rd as u32) << 7)
 }
 
 fn jtype_instr(rd: &Reg, imm: &Imm) -> u32 {
@@ -52,7 +52,7 @@ fn jtype_instr(rd: &Reg, imm: &Imm) -> u32 {
    let eleven = (imm & 0b010_00000_00000_i32) >> 3;
    let twenty = imm & 0b01_00000_00000_00000_00000_i32 >> 1;
 
-   (((ten_to_one | nineteen_to_twelve | eleven | twenty) as u32) << 12) + ((rd.clone() as u32) << 7) + 0b1101111_u32
+   (((ten_to_one | nineteen_to_twelve | eleven | twenty) as u32) << 12) + ((*rd as u32) << 7) + 0b1101111_u32
 }
 
 fn funct3(value: u8) -> u32 {

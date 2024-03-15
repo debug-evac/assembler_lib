@@ -12,6 +12,7 @@ use assert_fs::prelude::*;
 use std::process::Command;
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_input_not_existing() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("assembler")?;
 
@@ -24,6 +25,7 @@ fn test_input_not_existing() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_translate_test_file() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
     let input = temp.child("test_assembly_file.asm");
@@ -93,6 +95,7 @@ ret
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_translate_multiple_files() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
     let main_in = temp.child("test_main.asm");
@@ -195,6 +198,7 @@ ret
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_translate_no_nop() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
     let input = temp.child("test_assembly_file.asm");
@@ -246,6 +250,7 @@ ret
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_translate_fail_undef_label() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -264,6 +269,7 @@ ret
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_translate_fail_unknown_instr() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -282,6 +288,7 @@ ret
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_faraway_calls() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -347,6 +354,7 @@ farAway: j farAway
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_mif_format_32() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -399,6 +407,7 @@ rep 3, nop
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_mif_format_8() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -449,6 +458,7 @@ rep 3, nop
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_mif_format_32_cmt() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -505,6 +515,7 @@ rep 3, nop
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_mif_format_8_cmt() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -559,6 +570,7 @@ rep 3, nop
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_debug_format() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -610,6 +622,7 @@ rep 3, nop
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_data_mif() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -714,6 +727,7 @@ GETIT:
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_data_mif8() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -824,6 +838,7 @@ GETIT:
 }
 
 #[test]
+#[ignore = "Requires binary"]
 fn test_data_mif_alignment() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 

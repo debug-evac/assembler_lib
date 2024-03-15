@@ -11,9 +11,21 @@
 // other modules. This module was created since the parser module is 
 // quite big.
 
+mod directives;
+mod instructions;
+mod labels;
+mod macros;
+mod registers;
 pub mod errors;
 
-pub use asm_core_lib::common::*;
+use std::fmt::Display;
+
+//pub use asm_core_lib::common::*;
+pub use self::directives::*;
+pub use self::labels::*;
+pub use self::instructions::*;
+pub use self::macros::*;
+pub use self::registers::*;
 
 use crate::linker::Namespaces;
 use crate::parser::Subroutines;
@@ -93,3 +105,76 @@ impl_assembly_code!(
         labels: Namespaces,
     }
 );
+
+pub type Imm = i32; // always less than 32
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Operation {
+    Namespace(usize),
+    Instr(Instruction),
+    Macro(MacroInstr),
+    LablMacro(smartstring::alias::String, MacroInstr),
+    LablInstr(smartstring::alias::String, Instruction),
+    Labl(smartstring::alias::String)
+}
+
+impl Display for Operation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Operation::Namespace(space) => write!(f, "Namespace({space})"),
+            Operation::Instr(instr) => write!(f, "{instr}"),
+            Operation::Macro(macro_in) => write!(f, "{macro_in}"),
+            Operation::LablMacro(label, macro_in) =>  write!(f, "{label}: {macro_in}"),
+            Operation::LablInstr(label, instr) => write!(f, "{label}: {instr}"),
+            Operation::Labl(label) => write!(f, "{label}:")
+        }
+    }
+}
+
+impl From<Instruction> for Operation {
+    fn from(item: Instruction) -> Self {
+        Operation::Instr(item)
+    }
+}
+
+impl From<MacroInstr> for Operation {
+    fn from(item: MacroInstr) -> Self {
+        Operation::Macro(item)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct TranslatableCode {
+    data: Vec<MemData>,
+    text: Vec<Instruction>
+}
+
+impl TranslatableCode {
+    #[allow(dead_code)]
+    pub fn new() -> Self {
+        TranslatableCode { data: vec![], text: vec![] }
+    }
+
+    pub fn new_with_data(data: Vec<MemData>) -> Self {
+        TranslatableCode { data, text: vec![] }
+    }
+
+    #[allow(dead_code)]
+    pub fn get_data_refmut(&mut self) -> &mut Vec<MemData> {
+        &mut self.data
+    }
+
+    pub fn get_text_refmut(&mut self) -> &mut Vec<Instruction> {
+        &mut self.text
+    }
+
+    pub fn get_all_ref(&self) -> (&Vec<Instruction>, &Vec<MemData>) {
+        (&self.text, &self.data)
+    }
+}
+
+impl Default for TranslatableCode {
+    fn default() -> Self {
+        Self::new()
+    }
+}

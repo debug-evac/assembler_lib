@@ -1,4 +1,4 @@
-# Assembler
+# Assembler Library
 
 This is a library that was programmed within the project "Mikrorechner" in order to assemble and disassemble code for a self-written RISC-V CPU.
 It uses a modified MIPS assembly syntax and features labels, macros, automatic nop insertion, a simple linker, instruction minimization for certain macros and output formatting to raw or mif.

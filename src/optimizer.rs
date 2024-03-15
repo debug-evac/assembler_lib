@@ -782,7 +782,7 @@ mod tests {
             ]);
     
             for (counter, reg) in reg_act_vec.iter().enumerate() {
-                let nop_inserts = queue.compare_and_insert(*reg);
+                let nop_inserts = queue.compare_and_insert(reg.clone());
                 match counter {
                     0 => assert_eq!(nop_inserts, None),
                     1 => assert_eq!(nop_inserts, Some(0)),

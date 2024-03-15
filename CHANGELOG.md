@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Minimally supported rust version (currently 1.71.1)
+
+### Changed
+
+- `asm_core_lib` version from `1.0.0` to `1.0.1`
+- README.md to reflect library separation
+
 ## [1.3.0] - 2024-03-03
 
 ### Added

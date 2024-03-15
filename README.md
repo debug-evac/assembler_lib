@@ -1,6 +1,6 @@
 # Assembler
 
-This Assembler was programmed within the project "Mikrorechner" in order to run assembly code on a self-designed CPU.
+This is a library that was programmed within the project "Mikrorechner" in order to assemble and disassemble code for a self-written RISC-V CPU.
 It uses a modified MIPS assembly syntax and features labels, macros, automatic nop insertion, a simple linker, instruction minimization for certain macros and output formatting to raw or mif.
 
 ## Features
@@ -18,7 +18,6 @@ It uses a modified MIPS assembly syntax and features labels, macros, automatic n
 - [ ] Improvement of error reporting (currently very bare bones)
 - [ ] Better internal code documentation
 - [ ] Disassembler-Mode (planned for release 2.0.0 or a minor release of 2.0.0)
-- [ ] Separate debugger or simulator
 
 ## Out of scope
 
@@ -28,33 +27,13 @@ These features may or may not be implemented.
 
 ## Installation
 
-There are several ways to install the assembler. We recommend using the first method outlined as it is the fastest and safest method available.
+The assembler_lib library can be used in Python or Rust. It also can be compiled to a C library, however steps for that are not outlined here.
 
-### Binary
-
-#### Using `cargo binstall`
-
-[Cargo binstall](https://github.com/cargo-bins/cargo-binstall) is a program to install binaries from Github-like platforms without needing to compile them from source & without manual intervention. It is highly recommended to use this method.
-
-Once installed, you need to run the following:
-
-```
-cargo binstall assembler --git https://git.mafiasi.de/Prj-MR/Assembler --only-signed
-```
-
-Then enter your username & password for Gitea. The installation is done.
-
-Note: You cannot install a particular version with this method. If you need to use a particular version for whatever reason, we recommend compiling from source using the `cargo install` with Cargo registry method.
-
-#### Using bare binaries
-
-This method is not recommended as you have to manage updates and paths yourself. Head to the [releases](https://git.mafiasi.de/Prj-MR/Assembler/releases/latest) page and download the binary for your operating system. If there is no binary for your operating system, either open an issue [here](https://git.mafiasi.de/Prj-MR/Assembler/issues) or compile it yourself.
-
-To use the binary, you either have it in the directory you are in (not ideal) or put it in the path that your system is using. You may need to look up how to put the binary in the path of your system.
+**This crate does not contain the binary! Head over to [assembler repo](https://git.mafiasi.de/Prj-MR/assembler) for the `assembler` binary.**
 
 ### Python Module
 
-Since release 1.3.0, a python module is provided which contains the functionality of this assembler. For installation, `pip` is required.
+Since release 1.3.0, a python module is provided which contains the functionality of this library. For installation, `pip` is required.
 
 You can use the following command to install this as a python module:
 
@@ -66,11 +45,9 @@ For more information on installation, see [here](https://docs.gitea.com/next/usa
 
 You can find information on how to use this module in the CHANGELOG.md.
 
-### From Source 
+### Rust library
 
-If you have or want to compile the assembler from source, then you need to install cargo. See [this](https://www.rust-lang.org/tools/install) for instructions on how to install it. Once installed, you can use either of these methods to build the assembler from source. We recommend using the Cargo registry, which is a bit more involved, however ensures best compatibility and usability. When using `cargo install`, you may need to add the path of the bin directory to the system path variable. Please look up how to do that for your system.
-
-#### Using `cargo install` with Cargo registry
+#### Using `cargo add` with Cargo registry
 
 To use the Cargo registry, you need to create two configuration files. The process is described for Linux. If you are using another operating system, you will need to modify some steps to make them fit.
 
@@ -97,53 +74,15 @@ token = "Bearer {token}"
 
 You need to create a token in Gitea and replace the placeholder with it. You can create a token for Mafiasi Gitea under this URL: [https://git.mafiasi.de/user/settings/applications](https://git.mafiasi.de/user/settings/applications). The token needs to have read/write permission for package. **DO NOT SHARE THE TOKEN WITH OTHERS!**
 
-Once done, you can now use `cargo install assembler --registry mafiasi-gitea`. If you want to install a particular version, use `cargo install assembler@VERSION --registry mafiasi-gitea`, example `cargo install assembler@1.0.0 --registry mafiasi-gitea` for Version 1.0.0.
+Once done, you can now use `cargo add assembler_lib --registry mafiasi-gitea`. If you want to install a particular version, use `cargo add assembler_lib@VERSION --registry mafiasi-gitea`, example `cargo add assembler_lib@1.0.0 --registry mafiasi-gitea` for Version 1.0.0.
 
-To uninstall the assembler, use `cargo uninstall assembler`.
+#### Using `cargo add` with Git
 
-#### Using `cargo install` with Git
-
-This method is highly discouraged. You can clone this repo to your PC by using `git clone https://git.mafiasi.de/Prj-MR/Assembler -b stable`. We do not recommend using any other branch than stable. 
-
-You can then use `cargo install --path .` to compile the assembler from source and install it.
+This method is **highly discouraged**. You can use the following command to add this library with git: `cargo add --git https://git.mafiasi.de/Prj-MR/assembler_lib --tag {VERSION}`. Version is the version that you want to add. You can otherwise use the stable branch with `cargo add --git https://git.mafiasi.de/Prj-MR/assembler_lib --branch stable`. Using the main branch is discouraged.
 
 ## Usage
 
-```
-$ assembler --help
-
-Assembler - 1.2.0
-by Steven Becker <steven.becker@studium.uni-hamburg.de>, Jan Julius <jan.julius@studium.uni-hamburg.de>
-An assembler for a self-written RISC-V based CPU
-
-Usage: assembler [OPTIONS] --input <main asm file> <another asm file>...
-
-Options:
-  -f, --format <format>
-          The format in which the output should be written in [default: mif] [possible values: mif, raw, debug]
-  -i, --input <main asm file> <another asm file>...
-          Input assembly files, use "<PATH>"
-  -o, --output <output bin file>
-          The destination for the output file [default: a.bin]
-      --depth <address count>
-          Depth for MIF format. Does not do anything, if format != mif. [default: 1024]
-      --width <word width in bits>
-          Width for MIF format. Does not do anything, if format != mif. [default: 32] [possible values: 8, 32]
-      --no-nop-insertion
-          Disallow nop insertion
-      --no-sp-init
-          Disallow stack pointer initialization
-  -c, --comment
-          Comment mif with used instructions. Does not do anything, if format != mif.
-  -h, --help
-          Print help
-  -V, --version
-          Print version
-
-Copyright: MPL-2.0 (https://mozilla.org/MPL/2.0/)
-```
-
-For more information, please head to the [man directory of this repo](https://git.mafiasi.de/Prj-MR/Assembler/src/branch/main/man).
+Work-in-Progress.
 
 ## Support
 

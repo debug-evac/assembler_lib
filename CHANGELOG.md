@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [1.3.1] - 2024-03-15
+
 ### Added
 
 - Minimally supported rust version (currently 1.71.1)
@@ -259,7 +261,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Forwarding unit, Multiplication hardware instruction
 
 <!-- next-url -->
-[Unreleased]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.3.0...HEAD
+[Unreleased]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.3.1...HEAD
+[1.3.1]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.3.0...1.3.1
 [1.3.0]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.2.0...1.3.0
 [1.2.0]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.1.2...1.2.0
 [1.1.2]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.1.1...1.1.2

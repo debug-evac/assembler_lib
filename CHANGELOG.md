@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [BREAKING] Removed immediate variants of `la`, `call` and `tail`
   - `la t1, 20`, `call 0x10` and `tail 15` are no longer accepted!
+- [BREAKING] Removed `jal <IMM>` and `j <IMM>`
 - Dependency on `asm_core_lib` crate
   - No API changes
 

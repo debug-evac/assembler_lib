@@ -1099,7 +1099,7 @@ r#" li  x4, 16
     mul x6, x4, x3
     beq x3, x4, 16
     lui x4, 0x16
-    j   -12
+    jal x0, -12
 "#;
         let mut subroutines = Subroutines::new();
 

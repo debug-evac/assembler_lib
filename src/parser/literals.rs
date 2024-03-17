@@ -33,9 +33,6 @@ pub fn parse_text_segment_id(input: &str) -> IResult<&str, &str> {
 }
 
 pub fn parse_label_name(input: &str) -> IResult<&str, &str> {
-    /*recognize(
-        pair(alpha1, alphanumeric0)
-    )(input)*/
     recognize(
         tuple((
             opt(nom::character::complete::char('.')),
@@ -47,11 +44,6 @@ pub fn parse_label_name(input: &str) -> IResult<&str, &str> {
 
 pub fn parse_label_definition(input: &str) -> IResult<&str, &str> {
     let (rest, parsed) = pair(
-        /*recognize(
-            pair(
-                opt(nom::character::complete::char('.')),
-                parse_label_name
-        )),*/
         parse_label_name,
         nom::character::complete::char(':')
     )(input)?;
@@ -61,12 +53,7 @@ pub fn parse_label_definition(input: &str) -> IResult<&str, &str> {
 
 pub fn parse_label_definition_priv(input: &str) -> IResult<&str, &str> {
     let (rest, parsed) = pair(
-        /*recognize(
-            tuple((
-                opt(nom::character::complete::char('.')),
-                nom::character::complete::char('_'),
-                parse_label_name
-        ))),*/
+        // TODO: Combine with parse_label_name via macro
          recognize(
                     tuple((
                         opt(nom::character::complete::char('.')),

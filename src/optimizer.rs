@@ -434,20 +434,10 @@ fn translate_label(current_line: i128, label: smartstring::alias::String, namesp
 
 fn cond_add_acc_label(namespaces: &mut Namespaces, accumulator: i128, label: &smartstring::alias::String, space: usize) -> Result<(), OptimizerError> {
     if accumulator != 0 {
-        /*match label.strip_prefix('.') {
-            Some(labell) => {*/
-                match namespaces.get_label(label.clone(), Some(space)) {
-                    Some(lablel) => lablel.add_def(accumulator),
-                    None => return Err(OptimizerError::LabelNonExistent(label.clone())),
-                }
-            /*},
-            None => {
-                match namespaces.get_label(label.clone(), Some(space)) {
-                    Some(lablel) => lablel.add_def(accumulator),
-                    None => return Err(OptimizerError::LabelNonExistent(label.clone())),
-                }
-            }
-        }*/
+        match namespaces.get_label(label.clone(), Some(space)) {
+            Some(lablel) => lablel.add_def(accumulator),
+            None => return Err(OptimizerError::LabelNonExistent(label.clone())),
+        }
     }
     Ok(())
 }

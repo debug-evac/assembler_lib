@@ -59,7 +59,6 @@ pub enum MacroInstr {
 
     LiImm(Reg, Imm),
     LiLabl(Reg, smartstring::alias::String),
-    //LaImm(Reg, Imm),
     La(Reg, smartstring::alias::String),
 
     Call(smartstring::alias::String),

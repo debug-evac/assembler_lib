@@ -84,7 +84,7 @@ impl Namespaces {
     }
 
     pub fn get_label(&mut self, label: smartstring::alias::String, space: Option<usize>) -> Option<&mut LabelElem> {
-        match self.global_definitions.get(&label) {
+        /*match self.global_definitions.get(&label) {
             Some(pos) => {
                 let labelel = self.global_namespace.get_mut(*pos)?;
                 if *labelel.get_type() == LabelType::Uninit {
@@ -103,6 +103,24 @@ impl Namespaces {
                     Some(labelel)
                 }
             },
+        }*/
+        if label.starts_with('.') {
+            let pos = space?;
+            let recog = self.namespaces.get_mut(pos)?;
+            let labelel = recog.get_label(&label)?;
+            if *labelel.get_type() == LabelType::Uninit {
+                None
+            } else {
+                Some(labelel)
+            }
+        } else {
+            let pos = self.global_definitions.get(&label)?;
+            let labelel = self.global_namespace.get_mut(*pos)?;
+            if *labelel.get_type() == LabelType::Uninit {
+                None
+            } else {
+                Some(labelel)
+            }
         }
     }
 }

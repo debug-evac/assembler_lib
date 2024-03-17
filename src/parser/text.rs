@@ -810,7 +810,6 @@ impl LineHandle for LabelDef {
             handle_instr_substitution(instr_list, &list, label)
         };
 
-        *instr_counter += 1;
         instr_list.push(Operation::Labl(label.clone()));
         Ok(())
     }

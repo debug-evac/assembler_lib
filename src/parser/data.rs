@@ -436,7 +436,7 @@ mod tests {
             ByteData::String("ligma".into()),
             ByteData::Byte(201)
         ]), false))));
-        assert_ne!(parse_byte(".awldldaw"), Ok(("", MemData::Bytes(Vec::from([
+        assert_eq!(parse_byte(".awldldaw"), Ok(("", MemData::Bytes(Vec::from([
             ByteData::String(".awldldaw".into())
         ]), false))));
     }
@@ -454,7 +454,7 @@ mod tests {
             HalfData::String("ligma".into()),
             HalfData::Half(201)
         ])))));
-        assert_ne!(parse_half(".awldldaw"), Ok(("", MemData::Halfs(Vec::from([
+        assert_eq!(parse_half(".awldldaw"), Ok(("", MemData::Halfs(Vec::from([
             HalfData::String(".awldldaw".into())
         ])))));
     }
@@ -472,7 +472,7 @@ mod tests {
             WordData::String("ligma".into()),
             WordData::Word(201)
         ])))));
-        assert_ne!(parse_word(".awldldaw"), Ok(("", MemData::Words(Vec::from([
+        assert_eq!(parse_word(".awldldaw"), Ok(("", MemData::Words(Vec::from([
             WordData::String(".awldldaw".into())
         ])))));
     }
@@ -490,7 +490,7 @@ mod tests {
             DWordData::String("ligma".into()),
             DWordData::DWord(201)
         ])))));
-        assert_ne!(parse_dword(".awldldaw"), Ok(("", MemData::DWords(Vec::from([
+        assert_eq!(parse_dword(".awldldaw"), Ok(("", MemData::DWords(Vec::from([
             DWordData::String(".awldldaw".into())
         ])))));
     }

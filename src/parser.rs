@@ -49,7 +49,7 @@ impl Default for Subroutines {
 }
 
 fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType, instr_counter: usize) -> Result<(), CommonError> {
-    let (label_string, scope) = match label.strip_prefix('.') {
+    /*let (label_string, scope) = match label.strip_prefix('.') {
         Some(label) => {
             // Local label; Track definitions and references!
             (label.into(), false)
@@ -58,8 +58,9 @@ fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType,
             // Global label; Do not track definitions and references!
             (label.into(), true)
         },
-    };
-    symbol_map.crt_or_def_label(&label_string, scope, ltype, instr_counter.try_into()?)?;
+    };*/
+
+    symbol_map.crt_or_def_label(&label.into(), label.starts_with('.'), ltype, instr_counter.try_into()?)?;
     Ok(())
 }
 

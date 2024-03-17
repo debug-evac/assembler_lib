@@ -194,7 +194,7 @@ impl LabelRecog {
             Some(label) => label.set_refd(),
             None => {
                 let mut label = LabelElem::new_refd(label_str.clone());
-                label.set_scope(true);
+                label.set_scope(!label_str.starts_with('.'));
                 let _ = self.insert_label(label);
             },
         }

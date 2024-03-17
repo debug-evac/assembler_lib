@@ -48,19 +48,9 @@ impl Default for Subroutines {
     }
 }
 
+#[inline]
 fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType, instr_counter: usize) -> Result<(), CommonError> {
-    let (label_string, scope) = match label.strip_prefix('.') {
-        Some(label) => {
-            // Local label; Track definitions and references!
-            (label.into(), false)
-        },
-        None => {
-            // Global label; Do not track definitions and references!
-            (label.into(), true)
-        },
-    };
-    symbol_map.crt_or_def_label(&label_string, scope, ltype, instr_counter.try_into()?)?;
-    Ok(())
+    symbol_map.crt_or_def_label(&label.into(), !label.starts_with('.'), ltype, instr_counter.try_into()?)
 }
 
 fn parse_multiline_comments(input: &str) -> IResult<&str, bool> {

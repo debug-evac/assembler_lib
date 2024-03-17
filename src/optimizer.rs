@@ -434,19 +434,9 @@ fn translate_label(current_line: i128, label: smartstring::alias::String, namesp
 
 fn cond_add_acc_label(namespaces: &mut Namespaces, accumulator: i128, label: &smartstring::alias::String, space: usize) -> Result<(), OptimizerError> {
     if accumulator != 0 {
-        match label.strip_prefix('.') {
-            Some(labell) => {
-                match namespaces.get_label(labell.into(), Some(space)) {
-                    Some(lablel) => lablel.add_def(accumulator),
-                    None => return Err(OptimizerError::LabelNonExistent(label.clone())),
-                }
-            },
-            None => {
-                match namespaces.get_label(label.clone(), Some(space)) {
-                    Some(lablel) => lablel.add_def(accumulator),
-                    None => return Err(OptimizerError::LabelNonExistent(label.clone())),
-                }
-            }
+        match namespaces.get_label(label.clone(), Some(space)) {
+            Some(lablel) => lablel.add_def(accumulator),
+            None => return Err(OptimizerError::LabelNonExistent(label.clone())),
         }
     }
     Ok(())
@@ -1279,7 +1269,7 @@ mod tests {
 
         let mut lr = LabelRecog::new();
         lr.crt_def_ref(&"GLOBAL".into(), true, LabelType::Address, 0);
-        lr.crt_def_ref(&"LOCAL".into(), false, LabelType::Address, 1);
+        lr.crt_def_ref(&".LOCAL".into(), false, LabelType::Address, 1);
 
         let mut instructions = Vec::from([
             Instruction::Addi(Reg::G0, Reg::G0, 0),
@@ -1290,7 +1280,7 @@ mod tests {
 
         {
             let test_addi_macros = [
-                (MacroInstr::Addi(Reg::G0, Reg::G0, "LOCAL".into(), Part::Lower), Instruction::Addi(Reg::G0, Reg::G0, -4)),
+                (MacroInstr::Addi(Reg::G0, Reg::G0, ".LOCAL".into(), Part::Lower), Instruction::Addi(Reg::G0, Reg::G0, -4)),
                 (MacroInstr::Addi(Reg::G0, Reg::G0, "GLOBAL".into(), Part::Lower), Instruction::Addi(Reg::G0, Reg::G0, -8))
             ];
 
@@ -1326,9 +1316,9 @@ mod tests {
         let mut test_macros: Vec<(MacroInstr, Instruction)> = vec![];
 
         test_macros.push((MacroInstr::Lui(Reg::G21, "GLOBAL".into(), Part::None), Instruction::Lui(Reg::G21, -8)));
-        test_macros.push((MacroInstr::Slli(Reg::G30, Reg::G19, "LOCAL".into()), Instruction::Slli(Reg::G30, Reg::G19, -4)));
+        test_macros.push((MacroInstr::Slli(Reg::G30, Reg::G19, ".LOCAL".into()), Instruction::Slli(Reg::G30, Reg::G19, -4)));
         test_macros.push((MacroInstr::Srli(Reg::G5, Reg::G20, "GLOBAL".into()), Instruction::Srli(Reg::G5, Reg::G20, -8)));
-        test_macros.push((MacroInstr::Srai(Reg::G7, Reg::G15, "LOCAL".into()), Instruction::Srai(Reg::G7, Reg::G15, -4)));
+        test_macros.push((MacroInstr::Srai(Reg::G7, Reg::G15, ".LOCAL".into()), Instruction::Srai(Reg::G7, Reg::G15, -4)));
 
         for (test, corr) in test_macros {
             let _ = test.translate(&mut namespace, &cs, &mut instructions);

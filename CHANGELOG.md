@@ -19,6 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `lb t1, 4(t2)` instead of `lb t1, t2, 4`
   - You can also use `lb t1, (t2)` which becomes `lb t1, t2, 0`
 - [BREAKING] Renamed internal data structures for `la`, `call` and `tail`
+- [BREAKING] Label references now include scope
+  - References to local labels must be prefixed with a dot **.**
+  - Example:
+    ```
+    .LOCAL:
+      jal .LOCAL
+    ```
+  - This DOES NOT WORK anymore:
+    ```
+    .LOCAL:
+      jal LOCAL
+    ```
 
 ### Removed
 

@@ -32,19 +32,26 @@ pub fn parse_text_segment_id(input: &str) -> IResult<&str, &str> {
     )(input)
 }
 
+macro_rules! label_name {
+    ($($ins:expr)?) => {
+        recognize(
+            tuple((
+                opt(nom::character::complete::char('.')),
+                $($ins,)?
+                alpha1,
+                alphanumeric0
+            )
+        ))
+    };
+}
+
 pub fn parse_label_name(input: &str) -> IResult<&str, &str> {
-    recognize(
-        pair(alpha1, alphanumeric0)
-    )(input)
+    label_name!()(input)
 }
 
 pub fn parse_label_definition(input: &str) -> IResult<&str, &str> {
     let (rest, parsed) = pair(
-        recognize(
-            pair(
-                opt(nom::character::complete::char('.')),
-                parse_label_name
-        )),
+        parse_label_name,
         nom::character::complete::char(':')
     )(input)?;
 
@@ -53,12 +60,7 @@ pub fn parse_label_definition(input: &str) -> IResult<&str, &str> {
 
 pub fn parse_label_definition_priv(input: &str) -> IResult<&str, &str> {
     let (rest, parsed) = pair(
-        recognize(
-            tuple((
-                opt(nom::character::complete::char('.')),
-                nom::character::complete::char('_'),
-                parse_label_name
-        ))),
+        label_name!(nom::character::complete::char('_')),
         nom::character::complete::char(':')
     )(input)?;
 

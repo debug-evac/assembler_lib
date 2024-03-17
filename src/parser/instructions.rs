@@ -220,10 +220,7 @@ impl InstrType {
                     delimited(nom::character::complete::char('('), parse_reg, nom::character::complete::char(')'))))
                 (rest)?;
 
-                let offset = match args.1 {
-                    Some(num) => num,
-                    None => 0,
-                };
+                let offset = args.1.unwrap_or(0);
 
                 Ok((rest, match interop {
                     IntermediateOp::Sb => Instruction::Sb(args.0, args.2, offset),

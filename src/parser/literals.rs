@@ -173,12 +173,15 @@ pub fn parse_imm(input: &str) -> IResult<&str, Imm> {
             from_binary
         )(rest)
     } else {
-        // Decimal
-        map_res(
-            recognize(tuple((opt(tag("-")), digit1))),
-            str::parse
-        )(input)
+        parse_decimal(input)
     }
+}
+
+pub fn parse_decimal(input: &str) -> IResult<&str, Imm> {
+    map_res(
+        recognize(tuple((opt(tag("-")), digit1))),
+        str::parse
+    )(input)
 }
 
 pub fn parse_reg(input: &str) -> IResult<&str, Reg> {

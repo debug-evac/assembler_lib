@@ -7,27 +7,17 @@
  */
 
 use nom::{
-    IResult,
-    bytes::complete::tag,
-    character::complete::{space1, digit1},
-    branch::alt,
-    combinator::{
-        opt,
-        value,
-        recognize,
-        map_res
-    },
-    sequence::{
-        tuple,
-        separated_pair,
-        pair,
-        preceded
-    },
-    multi::separated_list1,
+    branch::alt, bytes::complete::tag, character::complete::{digit1, space1}, combinator::{
+        map_res, opt, recognize, value
+    }, multi::separated_list1, sequence::{
+        delimited, pair, preceded, separated_pair, tuple
+    }, IResult
 };
 
 use crate::parser::literals::{parse_imm, parse_reg, parse_label_name};
 use crate::common::{MacroInstr, Instruction, Operation, Reg, Part};
+
+use super::literals::parse_decimal;
 
 #[derive(Clone)]
 enum InstrType {
@@ -40,7 +30,8 @@ enum InstrType {
     Reg2Labl(IntermediateOp),
     Reg2Imm(IntermediateOp),
     Reg3(IntermediateOp),
-    RegVar(IntermediateOp)
+    RegVar(IntermediateOp),
+    MemOp(IntermediateOp)
 }
 
 impl InstrType {
@@ -172,7 +163,7 @@ impl InstrType {
                     IntermediateOp::Srli => Instruction::Srli(args.0, args.1, args.2).into(),
                     IntermediateOp::Srai => Instruction::Srai(args.0, args.1, args.2).into(),
             
-                    IntermediateOp::Sb => Instruction::Sb(args.0, args.1, args.2).into(),
+                    /*IntermediateOp::Sb => Instruction::Sb(args.0, args.1, args.2).into(),
                     IntermediateOp::Sh => Instruction::Sh(args.0, args.1, args.2).into(),
                     IntermediateOp::Sw => Instruction::Sw(args.0, args.1, args.2).into(),
             
@@ -180,7 +171,7 @@ impl InstrType {
                     IntermediateOp::Lbu => Instruction::Lbu(args.0, args.1, args.2).into(),
                     IntermediateOp::Lh => Instruction::Lh(args.0, args.1, args.2).into(),
                     IntermediateOp::Lhu => Instruction::Lhu(args.0, args.1, args.2).into(),
-                    IntermediateOp::Lw => Instruction::Lw(args.0, args.1, args.2).into(),
+                    IntermediateOp::Lw => Instruction::Lw(args.0, args.1, args.2).into(),*/
             
                     IntermediateOp::Addi => Instruction::Addi(args.0, args.1, args.2).into(),
 
@@ -245,6 +236,32 @@ impl InstrType {
 
                     op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
+            },
+            InstrType::MemOp(interop) => {
+                let (rest, args) = tuple((
+                    parse_reg,
+                    preceded(parse_seper, opt(parse_decimal)),
+                    delimited(nom::character::complete::char('('), parse_reg, nom::character::complete::char(')'))))
+                (rest)?;
+
+                let offset = match args.1 {
+                    Some(num) => num,
+                    None => 0,
+                };
+
+                Ok((rest, match interop {
+                    IntermediateOp::Sb => Instruction::Sb(args.0, args.2, offset),
+                    IntermediateOp::Sh => Instruction::Sh(args.0, args.2, offset),
+                    IntermediateOp::Sw => Instruction::Sw(args.0, args.2, offset),
+            
+                    IntermediateOp::Lb => Instruction::Lb(args.0, args.2, offset),
+                    IntermediateOp::Lbu => Instruction::Lbu(args.0, args.2, offset),
+                    IntermediateOp::Lh => Instruction::Lh(args.0, args.2, offset),
+                    IntermediateOp::Lhu => Instruction::Lhu(args.0, args.2, offset),
+                    IntermediateOp::Lw => Instruction::Lw(args.0, args.2, offset),
+
+                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                }.into()))
             },
         }
     }
@@ -418,15 +435,15 @@ fn parse_inst_1imm2reg_lw(input: &str) -> IResult<&str, Operation> {
         value(InstrType::Reg2Imm(IntermediateOp::Srli), tag("srli")),
         value(InstrType::Reg2Imm(IntermediateOp::Srai), tag("srai")),
 
-        value(InstrType::Reg2Imm(IntermediateOp::Sb), tag("sb")),
-        value(InstrType::Reg2Imm(IntermediateOp::Sh), tag("sh")),
-        value(InstrType::Reg2Imm(IntermediateOp::Sw), tag("sw")),
+        value(InstrType::MemOp(IntermediateOp::Sb), tag("sb")),
+        value(InstrType::MemOp(IntermediateOp::Sh), tag("sh")),
+        value(InstrType::MemOp(IntermediateOp::Sw), tag("sw")),
 
-        value(InstrType::Reg2Imm(IntermediateOp::Lbu), tag("lbu")),
-        value(InstrType::Reg2Imm(IntermediateOp::Lhu), tag("lhu")),
-        value(InstrType::Reg2Imm(IntermediateOp::Lb), tag("lb")),
-        value(InstrType::Reg2Imm(IntermediateOp::Lh), tag("lh")),
-        value(InstrType::Reg2Imm(IntermediateOp::Lw), tag("lw")),
+        value(InstrType::MemOp(IntermediateOp::Lbu), tag("lbu")),
+        value(InstrType::MemOp(IntermediateOp::Lhu), tag("lhu")),
+        value(InstrType::MemOp(IntermediateOp::Lb), tag("lb")),
+        value(InstrType::MemOp(IntermediateOp::Lh), tag("lh")),
+        value(InstrType::MemOp(IntermediateOp::Lw), tag("lw")),
     ))(input)?;
     instr.translate_parse(rest)
 }
@@ -650,7 +667,10 @@ mod tests {
         assert_ne!(parse_inst_1imm2reg_lw("lbu x1, 0xAA"), Ok(("", Instruction::Lbu(Reg::G1, Reg::G0, 0xAA).into())));
         assert_eq!(parse_inst_1imm2reg_lw("blt x1, x4, 5"), Ok(("", Instruction::Blt(Reg::G1, Reg::G4, 5).into())));
         assert_ne!(parse_inst_1imm2reg_lw("lb x1x4,0x6"), Ok(("", Instruction::Lb(Reg::G1, Reg::G4, 6).into())));
-        assert_eq!(parse_inst_1imm2reg_lw("sb x10,x10, 51"), Ok(("", Instruction::Sb(Reg::G10, Reg::G10, 51).into())));
+        assert_eq!(parse_inst_1imm2reg_lw("sb x10,51(x10)"), Ok(("", Instruction::Sb(Reg::G10, Reg::G10, 51).into())));
+        assert_eq!(parse_inst_1imm2reg_lw("lb x10,(x10)"), Ok(("", Instruction::Lb(Reg::G10, Reg::G10, 0).into())));
+        assert_eq!(parse_inst_1imm2reg_lw("lw x10, -1(x10)"), Ok(("", Instruction::Lw(Reg::G10, Reg::G10, -1).into())));
+        assert_ne!(parse_inst_1imm2reg_lw("lw x10,x10)"), Ok(("", Instruction::Lw(Reg::G10, Reg::G10, 0).into())));
         assert_ne!(parse_inst_1imm2reg_lw("bge x6,  x8,5"), Ok(("", Instruction::Bge(Reg::G6, Reg::G8, 5).into())));
 
         assert_eq!(parse_inst_1imm2reg_up("addi x1, x2, 0xAA"), Ok(("", Instruction::Addi(Reg::G1, Reg::G2, 0xAA).into())));

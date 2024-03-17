@@ -59,14 +59,11 @@ pub enum MacroInstr {
 
     LiImm(Reg, Imm),
     LiLabl(Reg, smartstring::alias::String),
-    LaImm(Reg, Imm),
-    LaLabl(Reg, smartstring::alias::String),
+    //LaImm(Reg, Imm),
+    La(Reg, smartstring::alias::String),
 
-    CallImm(Imm),
-    TailImm(Imm),
-
-    CallLabl(smartstring::alias::String),
-    TailLabl(smartstring::alias::String),
+    Call(smartstring::alias::String),
+    Tail(smartstring::alias::String),
 
     Push(Vec<Reg>),
     Pop(Vec<Reg>),
@@ -118,14 +115,10 @@ impl Display for MacroInstr {
 
             MacroInstr::LiImm(reg, imm) => write!(f, "li {reg}, {imm}"),
             MacroInstr::LiLabl(reg, label) => write!(f, "li {reg}, {label}"),
-            MacroInstr::LaImm(reg, imm) => write!(f, "la {reg}, {imm}"),
-            MacroInstr::LaLabl(reg, label) => write!(f, "la {reg}, {label}"),
+            MacroInstr::La(reg, label) => write!(f, "la {reg}, {label}"),
 
-            MacroInstr::CallImm(imm) => write!(f, "call {imm}"),
-            MacroInstr::TailImm(imm) => write!(f, "tail {imm}"),
-
-            MacroInstr::CallLabl(label) => write!(f, "call {label}"),
-            MacroInstr::TailLabl(label) => write!(f, "tail {label}"),
+            MacroInstr::Call(label) => write!(f, "call {label}"),
+            MacroInstr::Tail(label) => write!(f, "tail {label}"),
 
             MacroInstr::Push(vec_regs) => {
                 write!(f, "push {}", vec_regs[0])?;

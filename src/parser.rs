@@ -60,7 +60,7 @@ fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType,
         },
     };*/
 
-    symbol_map.crt_or_def_label(&label.into(), label.starts_with('.'), ltype, instr_counter.try_into()?)?;
+    symbol_map.crt_or_def_label(&label.into(), !label.starts_with('.'), ltype, instr_counter.try_into()?)?;
     Ok(())
 }
 

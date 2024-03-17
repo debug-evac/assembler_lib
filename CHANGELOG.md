@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Data structures from `asm_core_lib` crate
 
+### Changed
+
+- [BREAKING] Syntax of memory operations
+  - `lb t1, 4(t2)` instead of `lb t1, t2, 4`
+  - You can also use `lb t1, (t2)` which becomes `lb t1, t2, 0`
+
 ### Removed
 
 - Dependency on `asm_core_lib` crate

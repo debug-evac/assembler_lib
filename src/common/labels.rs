@@ -50,17 +50,29 @@ impl LabelElem {
 
     #[allow(dead_code)]
     pub fn new_def(name: smartstring::alias::String, definition: i128) -> LabelElem {
-        let mut elem = LabelElem::new();
-        elem.set_name(name);
-        elem.set_def(definition);
-        elem
+        let ltype = LabelType::Uninit;
+        let referenced = false;
+
+        LabelElem {
+            scope: !name.starts_with('.'),
+            name,
+            definition,
+            ltype,
+            referenced 
+        }
     }
 
     pub fn new_refd(name: smartstring::alias::String) -> LabelElem {
-        let mut elem = LabelElem::new();
-        elem.set_name(name);
-        elem.set_refd();
-        elem
+        let definition: i128 = 0;
+        let ltype = LabelType::Uninit;
+
+        LabelElem {
+            scope: !name.starts_with('.'), 
+            name,
+            definition,
+            ltype,
+            referenced: true
+        }
     }
 
     pub fn combine(&mut self, other: &LabelElem) -> Result<&str, CommonError> {

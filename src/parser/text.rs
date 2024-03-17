@@ -172,9 +172,9 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
         MacroInstr::Sh(_, _, labl, _) |
         MacroInstr::Sw(_, _, labl, _) | 
         
-        MacroInstr::CallLabl(labl) |
-        MacroInstr::TailLabl(labl) |
-        MacroInstr::LaLabl(_, labl) => {
+        MacroInstr::Call(labl) |
+        MacroInstr::Tail(labl) |
+        MacroInstr::La(_, labl) => {
             symbol_map.crt_or_ref_label(labl);
         },
         MacroInstr::Srr(_, _, _) => {
@@ -462,30 +462,7 @@ fn translate_macros(
             *pointer += 1;
             *accumulator += 1;
         },
-        MacroInstr::LaImm(reg, imm) => {
-            instr_list.remove(*pointer);
-            let mut imm_used = *imm;
-
-            if handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Addi(reg.to_owned(), Reg::G0, *imm)) {
-                debug!("Expanded '{macro_in}' at {} into '{}'", *pointer - 1, instr_list.last().unwrap());
-                return
-            }
-
-            match label {
-                Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablInstr(labl, Instruction::Auipc(reg.to_owned(), imm_used))),
-                None => instr_list.insert(*pointer, Instruction::Auipc(reg.to_owned(), imm_used).into()),
-            }
-            *pointer += 1;
-            instr_list.insert(*pointer,
-            Instruction::Addi(reg.to_owned(), reg.to_owned(), imm_used).into());
-
-            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
-
-            *pointer += 1;
-            *accumulator += 1;
-        },
-        MacroInstr::LaLabl(reg, targ_labl) => {
+        MacroInstr::La(reg, targ_labl) => {
             instr_list.remove(*pointer);
             match label {
                 Some(labl) => instr_list.insert(*pointer,
@@ -501,53 +478,7 @@ fn translate_macros(
             *pointer += 1;
             *accumulator += 1;
         },
-        MacroInstr::CallImm(imm) => {
-            instr_list.remove(*pointer);
-            let mut imm_used = *imm;
-
-            if handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Jalr(Reg::G1, Reg::G0, *imm)) {
-                debug!("Expanded '{macro_in}' at {} into '{}'", *pointer - 1, instr_list.last().unwrap());
-                return
-            }
-
-            match label {
-                Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablInstr(labl, Instruction::Auipc(Reg::G1, imm_used))),
-                None => instr_list.insert(*pointer, Operation::Instr(Instruction::Auipc(Reg::G1, imm_used)))
-            }
-            *pointer += 1;
-            instr_list.insert(*pointer,
-            Instruction::Jalr(Reg::G1, Reg::G1, imm_used).into());
-
-            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
-
-            *pointer += 1;
-            *accumulator += 1;
-        },
-        MacroInstr::TailImm(imm) => {
-            instr_list.remove(*pointer);
-            let mut imm_used = *imm;
-
-            if handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Jalr(Reg::G0, Reg::G0, *imm)) {
-                debug!("Expanded '{macro_in}' at {} into '{}'", *pointer - 1, instr_list.last().unwrap());
-                return
-            }
-
-            match label {
-                Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablInstr(labl, Instruction::Auipc(Reg::G6, imm_used))),
-                None => instr_list.insert(*pointer, Instruction::Auipc(Reg::G6, imm_used).into())
-            }
-            *pointer += 1;
-            instr_list.insert(*pointer,
-            Instruction::Jalr(Reg::G0, Reg::G6, imm_used).into());
-
-            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
-
-            *pointer += 1;
-            *accumulator += 1;
-        },
-        MacroInstr::CallLabl(targ_labl) => {
+        MacroInstr::Call(targ_labl) => {
             instr_list.remove(*pointer);
             match label {
                 Some(labl) => instr_list.insert(*pointer,
@@ -563,7 +494,7 @@ fn translate_macros(
             *pointer += 1;
             *accumulator += 1;
         },
-        MacroInstr::TailLabl(targ_labl) => {
+        MacroInstr::Tail(targ_labl) => {
             instr_list.remove(*pointer);
             match label {
                 Some(labl) => instr_list.insert(*pointer,
@@ -1168,7 +1099,7 @@ r#" li  x4, 16
     mul x6, x4, x3
     beq x3, x4, 16
     lui x4, 0x16
-    j   -12
+    jal x0, -12
 "#;
         let mut subroutines = Subroutines::new();
 
@@ -1418,11 +1349,11 @@ TEST: srli a7, a7, 1
             let mut test_list = sample_list.clone();
             let target_label = "0800 444 555 666 - JETZT ANRUFEN UND [INSERT PRODUCT] ZUM PREIS VON EINEM BEKOMMEN! LIMITIERTES ANGEBOT";
             test_list.insert(2, 
-                Operation::Macro(MacroInstr::LaLabl(Reg::G7, 
+                Operation::Macro(MacroInstr::La(Reg::G7, 
                     target_label.into())));
             let label: smartstring::alias::String = "TEST80".into();
             
-            translate_macros(&MacroInstr::LaLabl(Reg::G7, 
+            translate_macros(&MacroInstr::La(Reg::G7, 
                 target_label.into()),
             &mut test_list, 
             &mut accumulator, 
@@ -1449,74 +1380,12 @@ TEST: srli a7, a7, 1
 
         {
             let mut test_list = sample_list.clone();
-            test_list.insert(2, 
-                Operation::Macro(MacroInstr::CallImm(50)));
-            let label: smartstring::alias::String = "TEST80".into();
-            
-            translate_macros(&MacroInstr::CallImm(50), 
-            &mut test_list, 
-            &mut accumulator, 
-            &mut pointer, 
-            Some(label.clone()));
-
-            assert_eq!(accumulator, 0);
-            assert_eq!(pointer, 3);
-
-            let cor_vec: Vec<Operation> = Vec::from([
-                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
-                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                //Operation::LablInstr(label, Instruction::Auipc(Reg::G1, 0)),
-                //Operation::Instr(Instruction::Jalr(Reg::G1, Reg::G1, 50)),
-                Operation::LablInstr(label, Instruction::Jalr(Reg::G1, Reg::G0, 50)),
-                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
-                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
-                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
-            ]);
-
-            assert_eq!(test_list, cor_vec);
-        }
-
-        reset_acc_pointer(&mut accumulator, &mut pointer);
-
-        {
-            let mut test_list = sample_list.clone();
-            test_list.insert(2, 
-                Operation::Macro(MacroInstr::TailImm(50)));
-            let label: smartstring::alias::String = "TEST80".into();
-            
-            translate_macros(&MacroInstr::TailImm(50), 
-            &mut test_list, 
-            &mut accumulator, 
-            &mut pointer, 
-            Some(label.clone()));
-
-            assert_eq!(accumulator, 0);
-            assert_eq!(pointer, 3);
-
-            let cor_vec: Vec<Operation> = Vec::from([
-                Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
-                Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                //Operation::LablInstr(label, Instruction::Auipc(Reg::G6, 0)),
-                //Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G6, 50)),
-                Operation::LablInstr(label, Instruction::Jalr(Reg::G0, Reg::G0, 50)),
-                Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
-                Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
-                Operation::Instr(Instruction::Addi(Reg::G11, Reg::G0, 0))
-            ]);
-
-            assert_eq!(test_list, cor_vec);
-        }
-
-        reset_acc_pointer(&mut accumulator, &mut pointer);
-
-        {
-            let mut test_list = sample_list.clone();
             let target_label = "0800 444 555 666";
             test_list.insert(2, 
-                Operation::Macro(MacroInstr::CallLabl(target_label.into())));
+                Operation::Macro(MacroInstr::Call(target_label.into())));
             let label: smartstring::alias::String = "TEST80".into();
             
-            translate_macros(&MacroInstr::CallLabl(target_label.into()),
+            translate_macros(&MacroInstr::Call(target_label.into()),
             &mut test_list, 
             &mut accumulator, 
             &mut pointer, 
@@ -1544,10 +1413,10 @@ TEST: srli a7, a7, 1
             let mut test_list = sample_list.clone();
             let target_label = "0800 444 555 666";
             test_list.insert(2, 
-                Operation::Macro(MacroInstr::TailLabl(target_label.into())));
+                Operation::Macro(MacroInstr::Tail(target_label.into())));
             let label: smartstring::alias::String = "TEST80".into();
             
-            translate_macros(&MacroInstr::TailLabl(target_label.into()),
+            translate_macros(&MacroInstr::Tail(target_label.into()),
             &mut test_list, 
             &mut accumulator, 
             &mut pointer, 

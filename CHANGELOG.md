@@ -13,8 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Data structures from `asm_core_lib` crate
 
+### Changed
+
+- [BREAKING] Syntax of memory operations
+  - `lb t1, 4(t2)` instead of `lb t1, t2, 4`
+  - You can also use `lb t1, (t2)` which becomes `lb t1, t2, 0`
+- [BREAKING] Renamed internal data structures for `la`, `call` and `tail`
+
 ### Removed
 
+- [BREAKING] Removed immediate variants of `la`, `call` and `tail`
+  - `la t1, 20`, `call 0x10` and `tail 15` are no longer accepted!
+- [BREAKING] Removed `jal <IMM>` and `j <IMM>`
 - Dependency on `asm_core_lib` crate
   - No API changes
 

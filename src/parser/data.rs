@@ -20,6 +20,8 @@ use nom::{
     IResult
 };
 
+use crate::parser::symbols;
+
 use super::{
     errors::ParserError, handle_label_defs, instructions::parse_seper, literals::{
         parse_bigimm, 
@@ -335,7 +337,9 @@ impl LineHandle for DirectiveData {
                 dir_list.push(data);
             },
             Directive::EqvLabel(label, def) => {
-                symbol_map.crt_or_def_label(&label, true, LabelType::Data, def)?;
+                //symbol_map.crt_or_def_label(&label, true, LabelType::Data, def)?;
+                let mut symbol_list = symbols().write().map_err(|_| ParserError::LockNotWritable(label.clone()))?;
+                symbol_list.insert(label, def.try_into()?);
             },
         }
         Ok(())
@@ -372,7 +376,9 @@ impl LineHandle for LabelDirectiveData {
                 dir_list.push(data);
             },
             Directive::EqvLabel(label, def) => {
-                symbol_map.crt_or_def_label(&label, true, LabelType::Data, def)?;
+                //symbol_map.crt_or_def_label(&label, true, LabelType::Data, def)?;
+                let mut symbol_list = symbols().write().map_err(|_| ParserError::LockNotWritable(label.clone()))?;
+                symbol_list.insert(label, def.try_into()?);
             },
         }
         Ok(())

@@ -20,7 +20,7 @@ use nom::{
     sequence::tuple, 
     IResult
 };
-use std::collections::HashSet;
+use std::{collections::{HashMap, HashSet}, sync::{OnceLock, RwLock}};
 
 use crate::common::*;
 
@@ -46,6 +46,11 @@ impl Default for Subroutines {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn symbols() -> &'static RwLock<HashMap<smartstring::alias::String, i32>> {
+    static ARRAY: OnceLock<RwLock<HashMap<smartstring::alias::String, i32>>> = OnceLock::new();
+    ARRAY.get_or_init(|| RwLock::new(HashMap::new()))
 }
 
 #[inline]

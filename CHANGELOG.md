@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     .LOCAL:
       jal LOCAL
     ```
+- [BREAKING] Behavior of `lui` and `auipc`
+  - Before numbers must be equal or greater than 4096 (12 bits), now numbers are handled as any 20 bit number (0 to 2^21 - 1)
+- Representation of Macros that are mapped to multiple instructions
+  - The human-readable instructions belonging to `li`, `la` and more now contain the exact number that will be written to the output file or console
 
 ### Removed
 

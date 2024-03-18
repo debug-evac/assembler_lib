@@ -77,8 +77,8 @@ impl InstrType {
                 let (rest, args) = separated_pair(parse_reg, parse_seper, parse_imm)(rest)?;
 
                 Ok((rest, match interop {
-                    IntermediateOp::Lui => Instruction::Lui(args.0, args.1).into(),
-                    IntermediateOp::Auipc => Instruction::Auipc(args.0, args.1).into(),
+                    IntermediateOp::Lui => Instruction::Lui(args.0, args.1 << 12).into(),
+                    IntermediateOp::Auipc => Instruction::Auipc(args.0, args.1 << 12).into(),
                     IntermediateOp::Jal => Instruction::Jal(args.0, args.1).into(),
             
                     IntermediateOp::Li => MacroInstr::LiImm(args.0, args.1).into(),
@@ -575,8 +575,8 @@ mod tests {
         assert_ne!(parse_inst_1imm1reg("lb"), Ok(("", Instruction::Lb(Reg::G0, Reg::G0, 0).into())));
         assert_ne!(parse_inst_1imm1reg(""), Ok(("", Instruction::Addi(Reg::G0, Reg::G0, 0).into())));
         assert_ne!(parse_inst_1imm1reg("lui"), Ok(("", Instruction::Lui(Reg::G0, 0).into())));
-        assert_eq!(parse_inst_1imm1reg("lui x12, 12"), Ok(("", Instruction::Lui(Reg::G12, 12).into())));
-        assert_eq!(parse_inst_1imm1reg("auipc x18, 0x20"), Ok(("", Instruction::Auipc(Reg::G18, 32).into())));
+        assert_eq!(parse_inst_1imm1reg("lui x12, 12"), Ok(("", Instruction::Lui(Reg::G12, 49152).into())));
+        assert_eq!(parse_inst_1imm1reg("auipc x18, 0x20"), Ok(("", Instruction::Auipc(Reg::G18, 131072).into())));
         assert_eq!(parse_inst_1imm1reg("jal x20, 5"), Ok(("", Instruction::Jal(Reg::G20, 5).into())));
         assert_ne!(parse_inst_1imm1reg("jal x19, 125 "), Ok(("", Instruction::Jal(Reg::G19, 125).into())));
         assert_ne!(parse_inst_1imm1reg("la x19, 0x0F"), Ok(("", MacroInstr::La(Reg::G19, "0x0F".into()).into())));

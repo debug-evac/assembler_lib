@@ -48,8 +48,8 @@ impl Default for Subroutines {
     }
 }
 
-fn symbols() -> &'static RwLock<HashMap<smartstring::alias::String, i32>> {
-    static ARRAY: OnceLock<RwLock<HashMap<smartstring::alias::String, i32>>> = OnceLock::new();
+fn symbols() -> &'static RwLock<HashMap<smartstring::alias::String, i128>> {
+    static ARRAY: OnceLock<RwLock<HashMap<smartstring::alias::String, i128>>> = OnceLock::new();
     ARRAY.get_or_init(|| RwLock::new(HashMap::new()))
 }
 

@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- [BREAKING] Symbols
+  - `.eqv` now longer emits labels, instead symbols are emitted
+  - Symbols are local only and can be used in instructions and macros instead of immediates
+  - Example:
+    ```
+    .data
+      .eqv  TEST, 25
+    .text
+      li  t0, TEST  ; == li t0, 25
+    ```
 - Data structures from `asm_core_lib` crate
 
 ### Changed
@@ -41,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [BREAKING] Removed immediate variants of `la`, `call` and `tail`
   - `la t1, 20`, `call 0x10` and `tail 15` are no longer accepted!
 - [BREAKING] Removed `jal <IMM>` and `j <IMM>`
+- [BREAKING] Removed label variant of `li`
 - Dependency on `asm_core_lib` crate
   - No API changes
 

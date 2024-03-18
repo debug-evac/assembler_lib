@@ -423,7 +423,7 @@ fn translate_macros(
 
             incorporate_changes(instr_list, &mut mid_list, &mut right_list, accumulator, pointer, label);
         },
-        MacroInstr::LiImm(reg, imm) => {
+        MacroInstr::Li(reg, imm) => {
             instr_list.remove(*pointer);
             let mut imm_used = *imm;
 
@@ -442,22 +442,6 @@ fn translate_macros(
             Instruction::Addi(reg.to_owned(), reg.to_owned(), imm_used).into());
 
             debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
-
-            *pointer += 1;
-            *accumulator += 1;
-        },
-        MacroInstr::LiLabl(reg, targ_labl) => {
-            instr_list.remove(*pointer);
-            match label {
-                Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablMacro(labl, MacroInstr::Lui(reg.to_owned(), targ_labl.clone(), Part::Upper))),
-                None => instr_list.insert(*pointer, MacroInstr::Lui(reg.to_owned(), targ_labl.clone(), Part::Upper).into()),
-            }
-            *pointer += 1;
-            instr_list.insert(*pointer,
-            MacroInstr::Addi(reg.to_owned(), reg.to_owned(), targ_labl.clone(), Part::Lower).into());
-
-            debug!("Expanded '{:?}' at {} into '[{:?}, {:?}]'", macro_in, *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
 
             *pointer += 1;
             *accumulator += 1;

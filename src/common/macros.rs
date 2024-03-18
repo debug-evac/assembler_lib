@@ -57,8 +57,7 @@ pub enum MacroInstr {
     Srr(Reg, Reg, Imm),
     Slr(Reg, Reg, Imm),
 
-    LiImm(Reg, Imm),
-    LiLabl(Reg, smartstring::alias::String),
+    Li(Reg, Imm),
     La(Reg, smartstring::alias::String),
 
     Call(smartstring::alias::String),
@@ -112,8 +111,7 @@ impl Display for MacroInstr {
             MacroInstr::Srr(reg1, reg2, imm) => write!(f, "srr {reg1}, {reg2}, {imm}"),
             MacroInstr::Slr(reg1, reg2, imm) => write!(f, "slr {reg1}, {reg2}, {imm}"),
 
-            MacroInstr::LiImm(reg, imm) => write!(f, "li {reg}, {imm}"),
-            MacroInstr::LiLabl(reg, label) => write!(f, "li {reg}, {label}"),
+            MacroInstr::Li(reg, imm) => write!(f, "li {reg}, {imm}"),
             MacroInstr::La(reg, label) => write!(f, "la {reg}, {label}"),
 
             MacroInstr::Call(label) => write!(f, "call {label}"),

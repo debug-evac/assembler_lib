@@ -110,7 +110,7 @@ impl Display for Instruction {
             Instruction::Slt(reg1, reg2, reg3) => write!(f, "slt {reg1}, {reg2}, {reg3}"),
             Instruction::Sltu(reg1, reg2, reg3) => write!(f, "sltu {reg1}, {reg2}, {reg3}"),
 
-            Instruction::Addi(reg1, reg2, imm) => write!(f, "addi {reg1}, {reg2}, {imm}"),
+            Instruction::Addi(reg1, reg2, imm) => write!(f, "addi {reg1}, {reg2}, {}", (imm << 20) >> 20),
             Instruction::Xori(reg1, reg2, imm) => write!(f, "xori {reg1}, {reg2}, {imm}"),
             Instruction::Ori(reg1, reg2, imm) => write!(f, "ori {reg1}, {reg2}, {imm}"),
             Instruction::Andi(reg1, reg2, imm) => write!(f, "andi {reg1}, {reg2}, {imm}"),
@@ -120,15 +120,15 @@ impl Display for Instruction {
             Instruction::Slti(reg1, reg2, imm) => write!(f, "slti {reg1}, {reg2}, {imm}"),
             Instruction::Sltiu(reg1, reg2, imm) => write!(f, "sltiu {reg1}, {reg2}, {imm}"),
 
-            Instruction::Lb(reg1, reg2, imm) => write!(f, "lb {reg1}, {reg2}, {imm}"),
-            Instruction::Lh(reg1, reg2, imm) => write!(f, "lh {reg1}, {reg2}, {imm}"),
-            Instruction::Lw(reg1, reg2, imm) => write!(f, "lw {reg1}, {reg2}, {imm}"),
-            Instruction::Lbu(reg1, reg2, imm) => write!(f, "lbu {reg1}, {reg2}, {imm}"),
-            Instruction::Lhu(reg1, reg2, imm) => write!(f, "lhu {reg1}, {reg2}, {imm}"),
+            Instruction::Lb(reg1, reg2, imm) => write!(f, "lb {reg1}, {reg2}, {}", (imm << 20) >> 20),
+            Instruction::Lh(reg1, reg2, imm) => write!(f, "lh {reg1}, {reg2}, {}", (imm << 20) >> 20),
+            Instruction::Lw(reg1, reg2, imm) => write!(f, "lw {reg1}, {reg2}, {}", (imm << 20) >> 20),
+            Instruction::Lbu(reg1, reg2, imm) => write!(f, "lbu {reg1}, {reg2}, {}", (imm << 20) >> 20),
+            Instruction::Lhu(reg1, reg2, imm) => write!(f, "lhu {reg1}, {reg2}, {}", (imm << 20) >> 20),
 
-            Instruction::Sb(reg1, reg2, imm) => write!(f, "sb {reg1}, {reg2}, {imm}"),
-            Instruction::Sh(reg1, reg2, imm) => write!(f, "sh {reg1}, {reg2}, {imm}"),
-            Instruction::Sw(reg1, reg2, imm) => write!(f, "sw {reg1}, {reg2}, {imm}"),
+            Instruction::Sb(reg1, reg2, imm) => write!(f, "sb {reg1}, {reg2}, {}", (imm << 20) >> 20),
+            Instruction::Sh(reg1, reg2, imm) => write!(f, "sh {reg1}, {reg2}, {}", (imm << 20) >> 20),
+            Instruction::Sw(reg1, reg2, imm) => write!(f, "sw {reg1}, {reg2}, {}", (imm << 20) >> 20),
 
             Instruction::Beq(reg1, reg2, imm) => write!(f, "beq {reg1}, {reg2}, {imm}"),
             Instruction::Bne(reg1, reg2, imm) => write!(f, "bne {reg1}, {reg2}, {imm}"),
@@ -138,9 +138,9 @@ impl Display for Instruction {
             Instruction::Bgeu(reg1, reg2, imm) => write!(f, "bgeu {reg1}, {reg2}, {imm}"),
 
             Instruction::Jal(reg, imm) => write!(f, "jal {reg}, {imm}"),
-            Instruction::Jalr(reg1, reg2, imm) => write!(f, "jalr {reg1}, {reg2}, {imm}"),
-            Instruction::Lui(reg, imm) => write!(f, "lui {reg}, {imm}"),
-            Instruction::Auipc(reg, imm) => write!(f, "auipc {reg}, {imm}"),
+            Instruction::Jalr(reg1, reg2, imm) => write!(f, "jalr {reg1}, {reg2}, {}", (imm << 20) >> 20),
+            Instruction::Lui(reg, imm) => write!(f, "lui {reg}, {}", imm >> 12),
+            Instruction::Auipc(reg, imm) => write!(f, "auipc {reg}, {}", imm >> 12),
 
             Instruction::Xnor(reg1, reg2, reg3) => write!(f, "xnor {reg1}, {reg2}, {reg3}"),
             Instruction::Equal(reg1, reg2, reg3) => write!(f, "equal {reg1}, {reg2}, {reg3}"),

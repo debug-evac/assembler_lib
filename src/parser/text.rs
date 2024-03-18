@@ -1077,7 +1077,7 @@ END:
                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                 Operation::LablMacro("MUL".into(), MacroInstr::Beq(Reg::G3, Reg::G4, "END".into())),
                                                 Operation::from(Instruction::Mul(Reg::G6, Reg::G4, Reg::G3)),
-                                                Operation::from(Instruction::Lui(Reg::G4, 0x16)),
+                                                Operation::from(Instruction::Lui(Reg::G4, 90112)),
                                                 Operation::from(MacroInstr::Jal(Reg::G0, "MUL".into())),
                                                 Operation::Labl("END".into())
                                                 ];
@@ -1137,7 +1137,7 @@ r#" li  x4, 16
                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__6".into())),
                                                 Operation::LablInstr("__3".into(), Instruction::Mul(Reg::G6, Reg::G4, Reg::G3)),
                                                 Operation::Macro(MacroInstr::Beq(Reg::G3, Reg::G4, "__7".into())),
-                                                Operation::from(Instruction::Lui(Reg::G4, 0x16)),
+                                                Operation::from(Instruction::Lui(Reg::G4, 90112)),
                                                 Operation::LablMacro("__6".into(), MacroInstr::Jal(Reg::G0, "__3".into())),
                                                 Operation::Labl("__7".into())
                                                 ];
@@ -1586,7 +1586,7 @@ END:                    ; TEST
                                                 Operation::from(Instruction::Addi(Reg::G3, Reg::G4, 0)),
                                                 Operation::LablMacro("MUL".into(), MacroInstr::Beq(Reg::G3, Reg::G4, "END".into())),
                                                 Operation::from(Instruction::Mul(Reg::G6, Reg::G4, Reg::G3)),
-                                                Operation::from(Instruction::Lui(Reg::G4, 0x16)),
+                                                Operation::from(Instruction::Lui(Reg::G4, 90112)),
                                                 Operation::from(MacroInstr::Jal(Reg::G0, "MUL".into())),
                                                 Operation::Labl("END".into())
                                                 ];

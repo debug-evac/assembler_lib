@@ -552,6 +552,13 @@ pub fn parse_instruction(input: &str) -> IResult<&str, Operation> {
 mod tests {
     use super::*;
 
+    fn setup_symbols(symbol: smartstring::alias::String, def: i128) {
+        if let Ok(mut symbols) = symbols().write() {
+            symbols.clear();
+            symbols.insert(symbol, def);
+        }
+    }
+
     #[test]
     fn test_parse_seper() {
         assert_ne!(parse_seper("invalid"), Ok(("", "")));
@@ -616,6 +623,12 @@ mod tests {
         assert_eq!(parse_inst_1imm1reg("jal x20, 5"), Ok(("", Instruction::Jal(Reg::G20, 5).into())));
         assert_ne!(parse_inst_1imm1reg("jal x19, 125 "), Ok(("", Instruction::Jal(Reg::G19, 125).into())));
         assert_ne!(parse_inst_1imm1reg("la x19, 0x0F"), Ok(("", MacroInstr::La(Reg::G19, "0x0F".into()).into())));
+
+        setup_symbols("TEST".into(), 25);
+
+        assert_eq!(parse_inst_1imm1reg("li  x11, TEST"), Ok(("", MacroInstr::Li(Reg::G11, 25).into())));
+        assert_eq!(parse_inst_1imm1reg("lui x15, TEST"), Ok(("", Instruction::Lui(Reg::G15, 102400).into())));
+        assert_ne!(parse_inst_1imm1reg("auipc x15, .TEST"), Ok(("", Instruction::Auipc(Reg::G15, 102400).into())));
     }
 
     #[test]
@@ -663,6 +676,10 @@ mod tests {
         assert_ne!(parse_inst_1imm2reg_up("sltix1x15,6"), Ok(("", Instruction::Slti(Reg::G1, Reg::G15, 6).into())));
         assert_ne!(parse_inst_1imm2reg_up("slli x12, x15,  6"), Ok(("", Instruction::Slli(Reg::G12, Reg::G15, 6).into())));
         // TODO: More tests
+
+        setup_symbols("HelloWorld".into(), 404);
+
+        
     }
 
     #[test]

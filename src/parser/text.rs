@@ -155,7 +155,7 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
         MacroInstr::Jalr(_, _, labl, _) |
 
         MacroInstr::Lui(_, labl, _) |
-        MacroInstr::Auipc(_, labl, _) |
+        MacroInstr::Auipc(_, labl) |
 
         MacroInstr::Lb(_, _, labl, _) |
         MacroInstr::Lh(_, _, labl, _) |
@@ -446,8 +446,8 @@ fn translate_macros(
             instr_list.remove(*pointer);
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper))),
-                None => instr_list.insert(*pointer, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper).into())
+                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone()))),
+                None => instr_list.insert(*pointer, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone()).into())
             }
             *pointer += 1;
             instr_list.insert(*pointer,
@@ -462,8 +462,8 @@ fn translate_macros(
             instr_list.remove(*pointer);
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablMacro(labl, MacroInstr::Auipc(Reg::G1, targ_labl.clone(), Part::Upper))),
-                None => instr_list.insert(*pointer, MacroInstr::Auipc(Reg::G1, targ_labl.clone(), Part::Upper).into())
+                                Operation::LablMacro(labl, MacroInstr::Auipc(Reg::G1, targ_labl.clone()))),
+                None => instr_list.insert(*pointer, MacroInstr::Auipc(Reg::G1, targ_labl.clone()).into())
             }
             *pointer += 1;
             instr_list.insert(*pointer,
@@ -478,8 +478,8 @@ fn translate_macros(
             instr_list.remove(*pointer);
             match label {
                 Some(labl) => instr_list.insert(*pointer,
-                                Operation::LablMacro(labl, MacroInstr::Auipc(Reg::G6, targ_labl.clone(), Part::Upper))),
-                None => instr_list.insert(*pointer, MacroInstr::Auipc(Reg::G6, targ_labl.clone(), Part::Upper).into())
+                                Operation::LablMacro(labl, MacroInstr::Auipc(Reg::G6, targ_labl.clone()))),
+                None => instr_list.insert(*pointer, MacroInstr::Auipc(Reg::G6, targ_labl.clone()).into())
             }
             *pointer += 1;
             instr_list.insert(*pointer,
@@ -607,8 +607,8 @@ fn translate_macros(
         MacroInstr::SbLabl(_, reg, targ_labl) => {
             match label {
                 Some(labl) => instr_list.insert(*pointer - 1,
-                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper))),
-                None => instr_list.insert(*pointer - 1, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper).into())
+                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone()))),
+                None => instr_list.insert(*pointer - 1, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone()).into())
             }
             *pointer += 1;
 
@@ -619,8 +619,8 @@ fn translate_macros(
         MacroInstr::ShLabl(_, reg, targ_labl) => {
             match label {
                 Some(labl) => instr_list.insert(*pointer - 1,
-                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper))),
-                None => instr_list.insert(*pointer - 1, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper).into())
+                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone()))),
+                None => instr_list.insert(*pointer - 1, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone()).into())
             }
             *pointer += 1;
 
@@ -631,8 +631,8 @@ fn translate_macros(
         MacroInstr::SwLabl(_, reg, targ_labl) => {
             match label {
                 Some(labl) => instr_list.insert(*pointer - 1,
-                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper))),
-                None => instr_list.insert(*pointer - 1, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper).into())
+                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone()))),
+                None => instr_list.insert(*pointer - 1, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone()).into())
             }
             *pointer += 1;
 
@@ -1441,7 +1441,7 @@ TEST: srli a7, a7, 1
             let cor_vec: Vec<Operation> = Vec::from([
                 Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G7, target_label.into(), Part::Upper)),
+                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G7, target_label.into())),
                 Operation::Macro(MacroInstr::Addi(Reg::G7, Reg::G7, target_label.into(), Part::Lower)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
@@ -1472,7 +1472,7 @@ TEST: srli a7, a7, 1
             let cor_vec: Vec<Operation> = Vec::from([
                 Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G1, target_label.into(), Part::Upper)),
+                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G1, target_label.into())),
                 Operation::Macro(MacroInstr::Jalr(Reg::G1, Reg::G1, target_label.into(), Part::Lower)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),
@@ -1503,7 +1503,7 @@ TEST: srli a7, a7, 1
             let cor_vec: Vec<Operation> = Vec::from([
                 Operation::Instr(Instruction::Addi(Reg::G17, Reg::G0, 1)),
                 Operation::Instr(Instruction::Addi(Reg::G12, Reg::G10, 0)),
-                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G6, target_label.into(), Part::Upper)),
+                Operation::LablMacro(label, MacroInstr::Auipc(Reg::G6, target_label.into())),
                 Operation::Macro(MacroInstr::Jalr(Reg::G0, Reg::G6, target_label.into(), Part::Lower)),
                 Operation::Instr(Instruction::Addi(Reg::G13, Reg::G11, 0)),
                 Operation::Instr(Instruction::Addi(Reg::G10, Reg::G0, 0)),

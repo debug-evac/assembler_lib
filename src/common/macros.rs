@@ -35,7 +35,7 @@ pub enum MacroInstr {
     Jalr(Reg, Reg, smartstring::alias::String, Part),
 
     Lui(Reg, smartstring::alias::String, Part),
-    Auipc(Reg, smartstring::alias::String, Part),
+    Auipc(Reg, smartstring::alias::String),
     
     Lb(Reg, Reg, smartstring::alias::String, Part), //Load byte
     Lh(Reg, Reg, smartstring::alias::String, Part), //Load half
@@ -89,7 +89,7 @@ impl Display for MacroInstr {
             MacroInstr::Jalr(reg1, reg2, label, _) => write!(f, "jalr {reg1}, {reg2}, {label}"),
 
             MacroInstr::Lui(reg, label, _) => write!(f, "lui {reg}, {label}"),
-            MacroInstr::Auipc(reg, label, _) => write!(f, "auipc {reg}, {label}"),
+            MacroInstr::Auipc(reg, label) => write!(f, "auipc {reg}, {label}"),
             
             MacroInstr::Lb(reg1, reg2, label, _) => write!(f, "lb {reg1}, {reg2}, {label}"),
             MacroInstr::Lh(reg1, reg2, label, _) => write!(f, "lh {reg1}, {reg2}, {label}"),

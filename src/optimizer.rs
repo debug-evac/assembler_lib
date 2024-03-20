@@ -210,7 +210,7 @@ impl From<&Operation> for RegActType {
                     MacroInstr::Bgeu(reg1, reg2, _) => RegActType::Read2(*reg1, *reg2),
 
                     MacroInstr::Lui(reg, _, _) |
-                    MacroInstr::Auipc(reg, _, _) |
+                    MacroInstr::Auipc(reg, _) |
                     MacroInstr::Jal(reg, _) => RegActType::Write(*reg),
 
                     MacroInstr::Addi(reg1, reg2, _, _) |
@@ -348,9 +348,9 @@ impl Translate for MacroInstr {
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Lui(reg.to_owned(), lines));
             },
-            MacroInstr::Auipc(reg, labl, part) => {
+            MacroInstr::Auipc(reg, labl) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                handle_part(&mut lines, part);
+                handle_part(&mut lines, &Part::Upper);
                 instructions.push(Instruction::Auipc(reg.to_owned(), lines));
             },
 

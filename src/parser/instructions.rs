@@ -67,7 +67,6 @@ impl InstrType {
 
                 Ok((rest, match interop {
                     IntermediateOp::Lui => MacroInstr::Lui(args.0, args.1.into(), Part::None).into(),
-                    IntermediateOp::Auipc => MacroInstr::Auipc(args.0, args.1.into(), Part::None).into(),
                     IntermediateOp::Jal => MacroInstr::Jal(args.0, args.1.into()).into(),
                     IntermediateOp::La => MacroInstr::La(args.0, args.1.into()).into(),
 
@@ -434,7 +433,6 @@ fn parse_macro_1reg(input: &str) -> IResult<&str, Operation> {
 fn parse_macro_1labl1reg(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
         value(InstrType::RegLabl(IntermediateOp::Lui), tag("lui")),
-        value(InstrType::RegLabl(IntermediateOp::Auipc), tag("auipc")),
         value(InstrType::RegLabl(IntermediateOp::Jal), tag("jal")),
 
         value(InstrType::RegLabl(IntermediateOp::Li), tag("li")),
@@ -672,7 +670,7 @@ mod tests {
         assert_ne!(parse_macro_1labl1reg(""), Ok(("", Instruction::Addi(Reg::G0, Reg::G0, 0).into())));
         assert_ne!(parse_macro_1labl1reg("lui"), Ok(("", MacroInstr::Lui(Reg::G0, "".into(), Part::None).into())));
         assert_eq!(parse_macro_1labl1reg("lui a2, stop"), Ok(("", MacroInstr::Lui(Reg::G12, "stop".into(), Part::None).into())));
-        assert_eq!(parse_macro_1labl1reg("auipc s2, helloWorld"), Ok(("", MacroInstr::Auipc(Reg::G18, "helloWorld".into(), Part::None).into())));
+        assert_ne!(parse_macro_1labl1reg("auipc s2, helloWorld"), Ok(("", MacroInstr::Auipc(Reg::G18, "helloWorld".into()).into())));
         assert_eq!(parse_macro_1labl1reg("jal   x20, test"), Ok(("", MacroInstr::Jal(Reg::G20, "test".into()).into())));
         assert_ne!(parse_macro_1labl1reg("jal x19, train "), Ok(("", MacroInstr::Jal(Reg::G19, "train".into()).into())));
         assert_eq!(parse_macro_1labl1reg("la x19, HELLOWORLD"), Ok(("", MacroInstr::La(Reg::G19, "HELLOWORLD".into()).into())));

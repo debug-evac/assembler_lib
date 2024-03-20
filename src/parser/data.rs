@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{any::Any, collections::HashMap, fmt::Display, sync::{PoisonError, RwLockReadGuard}};
+use std::{any::Any, fmt::Display};
 
 use log::{debug, error};
 use nom::{
@@ -19,9 +19,8 @@ use nom::{
     sequence::{delimited, pair, separated_pair},
     IResult
 };
-use smartstring::{LazyCompact, SmartString};
 
-use crate::parser::symbols;
+use crate::parser::symbols::symbols_write;
 
 use super::{
     errors::ParserError, handle_label_defs, instructions::parse_seper, literals::{
@@ -29,7 +28,7 @@ use super::{
         parse_imm, 
         parse_label_definition, 
         parse_label_name, parse_text_segment_id
-    }, parse_multiline_comments, ByteData, DWordData, HalfData, LabelRecog, LabelType, MemData, WordData
+    }, parse_multiline_comments, symbols::symbols_read, ByteData, DWordData, HalfData, LabelRecog, LabelType, MemData, WordData
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -59,13 +58,12 @@ fn parse_byte(input: &str) -> IResult<&str, MemData> {
             parse_seper,
             alt((
                 map(parse_imm, |imm| imm.into()),
-                map_res(parse_label_name, |label| {
+                map(parse_label_name, |label| {
                     let labl = smartstring::alias::String::from(label);
-                    let symbol_list = symbols().read()?;
-                    Ok::<ByteData, PoisonError<RwLockReadGuard<HashMap<SmartString<LazyCompact>, i128>>>>(match symbol_list.get(&labl) {
-                        Some(val) => ByteData::Byte(*val as i16),
+                    match symbols_read(&labl) {
+                        Some(val) => ByteData::Byte(val as i16),
                         None => ByteData::String(labl),
-                    })
+                    }
                 })
             ))
         ),
@@ -79,13 +77,12 @@ fn parse_half(input: &str) -> IResult<&str, MemData> {
             parse_seper,
             alt((
                 map(parse_imm, |imm| imm.into()),
-                map_res(parse_label_name, |label| {
+                map(parse_label_name, |label| {
                     let labl = smartstring::alias::String::from(label);
-                    let symbol_list = symbols().read()?;
-                    Ok::<HalfData, PoisonError<RwLockReadGuard<HashMap<SmartString<LazyCompact>, i128>>>>(match symbol_list.get(&labl) {
-                        Some(val) => HalfData::Half(*val as i32),
+                    match symbols_read(&labl) {
+                        Some(val) => HalfData::Half(val as i32),
                         None => HalfData::String(labl),
-                    })
+                    }
                 })
             ))
         ),
@@ -99,13 +96,12 @@ fn parse_word(input: &str) -> IResult<&str, MemData> {
             parse_seper,
             alt((
                 map(parse_bigimm, |imm| imm.into()),
-                map_res(parse_label_name, |label| {
+                map(parse_label_name, |label| {
                     let labl = smartstring::alias::String::from(label);
-                    let symbol_list = symbols().read()?;
-                    Ok::<WordData, PoisonError<RwLockReadGuard<HashMap<SmartString<LazyCompact>, i128>>>>(match symbol_list.get(&labl) {
-                        Some(val) => WordData::Word(*val as i64),
+                    match symbols_read(&labl) {
+                        Some(val) => WordData::Word(val as i64),
                         None => WordData::String(labl),
-                    })
+                    }
                 })
             ))
         ),
@@ -119,13 +115,12 @@ fn parse_dword(input: &str) -> IResult<&str, MemData> {
             parse_seper,
             alt((
                 map(parse_bigimm, |imm| imm.into()),
-                map_res(parse_label_name, |label| {
+                map(parse_label_name, |label| {
                     let labl = smartstring::alias::String::from(label);
-                    let symbol_list = symbols().read()?;
-                    Ok::<DWordData, PoisonError<RwLockReadGuard<HashMap<SmartString<LazyCompact>, i128>>>>(match symbol_list.get(&labl) {
-                        Some(val) => DWordData::DWord(*val),
+                    match symbols_read(&labl) {
+                        Some(val) => DWordData::DWord(val),
                         None => DWordData::String(labl),
-                    })
+                    }
                 })
             ))
         ),
@@ -365,11 +360,7 @@ impl LineHandle for DirectiveData {
                 *next_free_ptr += handle_label_refs_count(&data, symbol_map);
                 dir_list.push(data);
             },
-            Directive::EqvLabel(label, def) => {
-                //symbol_map.crt_or_def_label(&label, true, LabelType::Data, def)?;
-                let mut symbol_list = symbols().write().map_err(|_| ParserError::LockNotWritable(label.clone()))?;
-                symbol_list.insert(label, def);
-            },
+            Directive::EqvLabel(label, def) => symbols_write(label, def),
         }
         Ok(())
     }
@@ -404,11 +395,7 @@ impl LineHandle for LabelDirectiveData {
                 *next_free_ptr += handle_label_refs_count(&data, symbol_map);
                 dir_list.push(data);
             },
-            Directive::EqvLabel(label, def) => {
-                //symbol_map.crt_or_def_label(&label, true, LabelType::Data, def)?;
-                let mut symbol_list = symbols().write().map_err(|_| ParserError::LockNotWritable(label.clone()))?;
-                symbol_list.insert(label, def);
-            },
+            Directive::EqvLabel(label, def) => symbols_write(label, def),
         }
         Ok(())
     }

@@ -10,6 +10,7 @@ mod instructions;
 mod literals;
 mod text;
 mod data;
+mod symbols;
 
 use log::{debug, warn};
 use nom::{
@@ -20,9 +21,9 @@ use nom::{
     sequence::tuple, 
     IResult
 };
-use std::{collections::{HashMap, HashSet}, sync::{OnceLock, RwLock}};
+use std::collections::HashSet;
 
-use crate::common::*;
+use crate::{common::*, parser::symbols::symbols_clear};
 
 use self::{errors::CommonError, literals::{parse_data_segment_id, parse_text_segment_id}};
 
@@ -48,11 +49,6 @@ impl Default for Subroutines {
     }
 }
 
-fn symbols() -> &'static RwLock<HashMap<smartstring::alias::String, i128>> {
-    static ARRAY: OnceLock<RwLock<HashMap<smartstring::alias::String, i128>>> = OnceLock::new();
-    ARRAY.get_or_init(|| RwLock::new(HashMap::new()))
-}
-
 #[inline]
 fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType, instr_counter: usize) -> Result<(), CommonError> {
     symbol_map.crt_or_def_label(&label.into(), !label.starts_with('.'), ltype, instr_counter.try_into()?)
@@ -74,12 +70,8 @@ fn parse_multiline_comments(input: &str) -> IResult<&str, bool> {
 
 pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sp_init: bool) -> IResult<&'a str, AssemblyCodeRecog> {
     let mut assembly: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
-
-    {
-        if let Ok(mut map) = symbols().write() {
-            map.clear();
-        }
-    }
+    
+    symbols_clear();
 
     let (mut rest, parsed) = tuple((parse_multiline_comments, opt(parse_data_segment_id), parse_multiline_comments))(input)?;
     if parsed.1.is_some() {

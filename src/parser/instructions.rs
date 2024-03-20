@@ -17,7 +17,7 @@ use nom::{
 use crate::parser::literals::{parse_imm, parse_reg, parse_label_name};
 use crate::common::{MacroInstr, Instruction, Operation, Reg, Part};
 
-use super::{literals::parse_decimal, symbols};
+use super::{literals::parse_decimal, symbols::symbols_read};
 
 #[derive(Clone)]
 enum InstrType {
@@ -78,8 +78,7 @@ impl InstrType {
                     (_, None) => {
                         map_opt(parse_label_name, |label| {
                             let labl = smartstring::alias::String::from(label);
-                            let symbol_list = symbols().read().ok()?;
-                            Some((*symbol_list.get(&labl)?) as i32)
+                            Some(symbols_read(&labl)? as i32)
                         })(rest)?
                     },
                     (rest_f, Some(val)) => (rest_f, val),
@@ -151,8 +150,7 @@ impl InstrType {
                     (rest_f, None) => {
                         map_opt(parse_label_name, |label| {
                             let labl = smartstring::alias::String::from(label);
-                            let symbol_list = symbols().read().ok()?;
-                            Some((*symbol_list.get(&labl)?) as i32)
+                            Some(symbols_read(&labl)? as i32)
                         })(rest_f)?
                     },
                     (rest_f, Some(val)) => (rest_f, val),
@@ -243,8 +241,7 @@ impl InstrType {
                     (rest_f, None) => {
                         opt(map_opt(parse_label_name, |label| {
                             let labl = smartstring::alias::String::from(label);
-                            let symbol_list = symbols().read().ok()?;
-                            Some((*symbol_list.get(&labl)?) as i32)
+                            Some(symbols_read(&labl)? as i32)
                         }))(rest_f)?
                     },
                     op => op,
@@ -530,7 +527,7 @@ fn parse_special_macro(input: &str) -> IResult<&str, Operation> {
 }
 
 pub fn parse_instruction(input: &str) -> IResult<&str, Operation> {
-    let (rest, op) = alt((
+    alt((
         parse_special_macro,
         parse_macro_multiarg,
         parse_inst_3reg,
@@ -543,20 +540,18 @@ pub fn parse_instruction(input: &str) -> IResult<&str, Operation> {
         parse_macro_1reg,
         parse_macro_1labl,
         parse_macro_noparm,
-    ))(input)?;
-
-    Ok((rest, op))
+    ))(input)
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::{symbols::symbols_write, symbols_clear};
+
     use super::*;
 
     fn setup_symbols(symbol: smartstring::alias::String, def: i128) {
-        if let Ok(mut symbols) = symbols().write() {
-            symbols.clear();
-            symbols.insert(symbol, def);
-        }
+        symbols_clear();
+        symbols_write(symbol, def);
     }
 
     #[test]
@@ -679,7 +674,10 @@ mod tests {
 
         setup_symbols("HelloWorld".into(), 404);
 
-        
+        assert_ne!(parse_inst_1imm2reg_lw("lbu x1, HelloWorld"), Ok(("", Instruction::Lbu(Reg::G1, Reg::G0, 404).into())));
+        assert_eq!(parse_inst_1imm2reg_lw("blt x1, x4, HelloWorld"), Ok(("", Instruction::Blt(Reg::G1, Reg::G4, 404).into())));
+        assert_ne!(parse_inst_1imm2reg_lw("lb x1x4,0x6"), Ok(("", Instruction::Lb(Reg::G1, Reg::G4, 6).into())));
+        assert_eq!(parse_inst_1imm2reg_lw("sb x10,HelloWorld(x10)"), Ok(("", Instruction::Sb(Reg::G10, Reg::G10, 404).into())));
     }
 
     #[test]

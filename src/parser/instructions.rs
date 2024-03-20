@@ -17,7 +17,7 @@ use nom::{
 use crate::parser::literals::{parse_imm, parse_reg, parse_label_name};
 use crate::common::{MacroInstr, Instruction, Operation, Reg, Part};
 
-use super::{literals::parse_decimal, symbols::Symbols};
+use super::symbols::Symbols;
 
 #[derive(Clone)]
 enum InstrType {
@@ -236,7 +236,7 @@ impl InstrType {
             InstrType::MemOp(interop) => {
                 let (rest, treg) = terminated(parse_reg, parse_seper)(rest)?;
 
-                let (rest, imm) = match opt(parse_decimal)(rest)? {
+                let (rest, imm) = match opt(parse_imm)(rest)? {
                     (rest_f, None) => {
                         opt(map_opt(parse_label_name, |label| {
                             let labl = smartstring::alias::String::from(label);
@@ -271,7 +271,7 @@ impl InstrType {
             InstrType::SafeOp(interop) => {
                 let (rest, treg) = terminated(parse_reg, parse_seper)(rest)?;
 
-                let (rest, imm) = match opt(parse_decimal)(rest)? {
+                let (rest, imm) = match opt(parse_imm)(rest)? {
                     (rest_f, None) => {
                         opt(map_opt(parse_label_name, |label| {
                             let labl = smartstring::alias::String::from(label);
@@ -762,6 +762,7 @@ mod tests {
         assert_ne!(parse_inst_1imm2reg_lw("lb x1x4,0x6"), Ok(("", Instruction::Lb(Reg::G1, Reg::G4, 6).into())));
         assert_eq!(parse_inst_1imm2reg_lw("lb x10,(x10)"), Ok(("", Instruction::Lb(Reg::G10, Reg::G10, 0).into())));
         assert_eq!(parse_inst_1imm2reg_lw("lw x10, -1(x10)"), Ok(("", Instruction::Lw(Reg::G10, Reg::G10, -1).into())));
+        assert_eq!(parse_inst_1imm2reg_lw("lb x26, 0x500(zero)"), Ok(("", Instruction::Lb(Reg::G26, Reg::G0, 0x500).into())));
         assert_ne!(parse_inst_1imm2reg_lw("lw x10,x10)"), Ok(("", Instruction::Lw(Reg::G10, Reg::G10, 0).into())));
 
         assert_ne!(parse_macro_1labl2reg("lb x1, total"), Ok(("", MacroInstr::Lb(Reg::G1, Reg::G0, "total".into(), Part::None).into())));

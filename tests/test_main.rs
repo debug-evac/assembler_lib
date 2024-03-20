@@ -6,35 +6,21 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use assert_cmd::prelude::*;
+use assembler_lib::{translator, ParseLinkBuilder};
+
 use predicates::prelude::*;
 use assert_fs::prelude::*;
-use std::process::Command;
 
 #[test]
-#[ignore = "Requires binary"]
-fn test_input_not_existing() -> Result<(), Box<dyn std::error::Error>> {
-    let mut cmd = Command::cargo_bin("assembler")?;
-
-    cmd.arg("-i").arg("non_existent_random_file_that_does_not_exist");
-    cmd.assert()
-        .failure()
-        .stderr(predicate::str::contains("[ERROR assembler] Could not read \'non_existent_random_file_that_does_not_exist\':"));
-
-    Ok(())
-}
-
-#[test]
-#[ignore = "Requires binary"]
 fn test_translate_test_file() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
-    let input = temp.child("test_assembly_file.asm");
-    input.write_str(r#"SmallExample: addi sp, zero, 0x300
+
+    let input = r#"SmallExample: addi sp, zero, 0x300
 li x25, 150006
 push x25
 pop x25
 ret
-"#)?;
+"#;
 
     let output_path = temp.child("a.bin");
 
@@ -80,10 +66,12 @@ ret
 
     cor_output.write_binary(&cor_instr_vec)?;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path()).arg("-f").arg("raw");
-    cmd.assert()
-        .success();
+    let mut parser_builder = ParseLinkBuilder::new()
+        .sp_init(true);
+    parser_builder.add_code(input.to_string());
+
+    let assembly_code = parser_builder.parse_link_optimize().unwrap();
+    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "raw", (0, 0)).unwrap();
 
     output_path
         .assert(predicate::path::is_file())
@@ -95,24 +83,20 @@ ret
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_translate_multiple_files() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
-    let main_in = temp.child("test_main.asm");
-    main_in.write_str(r#"SmallExample: addi sp, zero, 0x300
+    let inputs = [r#"SmallExample: addi sp, zero, 0x300
 li x25, 150006
 push x25
 call biggun
 pop x25
 ret
-"#)?;
+"#, 
+r#"biggun: lb x26, 0x500(zero)
+ret
+"#];
 
     let output_path = temp.child("a.bin");
-
-    let sec_in = temp.child("test_sec.asm");
-    sec_in.write_str(r#"biggun: lb x26, zero, 0x500
-ret
-"#)?;
 
     let cor_output = temp.child("correct_output.bin");
 
@@ -166,17 +150,18 @@ ret
 
     cor_output.write_binary(&cor_instr_vec)?;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
     #[cfg(feature = "raw_nop")]
-    cmd.arg("-i").arg(main_in.path()).arg(sec_in.path())
-                 .arg("-o").arg(output_path.path())
-                 .arg("-f").arg("raw").arg("--no-sp-init");
+    let mut parser_builder = ParseLinkBuilder::new();
     #[cfg(not(feature = "raw_nop"))]
-    cmd.arg("-i").arg(main_in.path()).arg(sec_in.path())
-                 .arg("-o").arg(output_path.path())
-                 .arg("-f").arg("raw");
-    cmd.assert()
-        .success();
+    let mut parser_builder = ParseLinkBuilder::new()
+        .sp_init(true);
+
+    for input in inputs {
+        parser_builder.add_code(input.to_string());
+    }
+
+    let assembly_code = parser_builder.parse_link_optimize().unwrap();
+    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "raw", (0, 0)).unwrap();
 
     let get_vec = std::fs::read(output_path.path())?;
 
@@ -198,16 +183,14 @@ ret
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_translate_no_nop() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
-    let input = temp.child("test_assembly_file.asm");
-    input.write_str(r#"SmallExample: addi sp, zero, 0x300
+    let input = r#"SmallExample: addi sp, zero, 0x300
 li x25, 150006
 push x25
 pop x25
 ret
-"#)?;
+"#;
 
     let output_path = temp.child("a.bin");
 
@@ -233,12 +216,13 @@ ret
 
     cor_output.write_binary(&cor_instr_vec)?;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
-                                   .arg("--no-nop-insertion")
-                                   .arg("-f").arg("raw");
-    cmd.assert()
-        .success();
+    let mut parser_builder = ParseLinkBuilder::new()
+        .sp_init(true)
+        .no_nop_insert(true);
+    parser_builder.add_code(input.to_string());
+
+    let assembly_code = parser_builder.parse_link_optimize().unwrap();
+    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "raw", (0, 0)).unwrap();
 
     output_path
         .assert(predicate::path::is_file())
@@ -250,56 +234,48 @@ ret
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_translate_fail_undef_label() -> Result<(), Box<dyn std::error::Error>> {
-    let temp = assert_fs::TempDir::new()?;
-
-    let input = temp.child("test_label_undefined.asm");
-    input.write_str(r#"call nonExistentLabel
+    let input = r#"call nonExistentLabel
 ret
-"#)?;
+"#;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
+    let mut parser_builder = ParseLinkBuilder::new();
+    parser_builder.add_code(input.to_string());
 
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a.bin"));
-    cmd.assert()
-        .failure();
+    if let Ok(_) = parser_builder.parse_link_optimize() {
+        panic!("Parse has succeeded although label is undefined!");
+    }
 
     Ok(())
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_translate_fail_unknown_instr() -> Result<(), Box<dyn std::error::Error>> {
-    let temp = assert_fs::TempDir::new()?;
-
-    let input = temp.child("test_wrong_instr.asm");
-    input.write_str(r#"aylmao
+    let input = r#"aylmao
 ret
-"#)?;
+"#;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
+    let mut parser_builder = ParseLinkBuilder::new();
+    parser_builder.add_code(input.to_string());
 
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(temp.path().join("a2.bin"));
-    cmd.assert()
-        .failure();
+    if let Ok(_) = parser_builder.parse_link_optimize() {
+        panic!("Parse has succeeded although instruction is unknown!");
+    }
 
     Ok(())
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_faraway_calls() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
     let output_path = temp.child("a.bin");
 
-    let input = temp.child("test_far_call.asm");
-    input.write_str(r#"
+    let input = r#"
 call farAway
 rep 1024, nop
 farAway: j farAway
-"#)?;
+"#;
 
     let cor_output = temp.child("correct_output.bin");
 
@@ -333,16 +309,16 @@ farAway: j farAway
 
     cor_output.write_binary(&cor_instr_vec)?;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
-
     #[cfg(feature = "raw_nop")]
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
-                 .arg("-f").arg("raw").arg("--no-sp-init");
+    let mut parser_builder = ParseLinkBuilder::new();
     #[cfg(not(feature = "raw_nop"))]
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
-                 .arg("-f").arg("raw");
-    cmd.assert()
-        .success();
+    let mut parser_builder = ParseLinkBuilder::new()
+        .sp_init(true);
+
+    parser_builder.add_code(input.to_string());
+
+    let assembly_code = parser_builder.parse_link_optimize().unwrap();
+    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "raw", (0, 0)).unwrap();
 
     output_path
         .assert(predicate::path::is_file())
@@ -354,16 +330,14 @@ farAway: j farAway
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_mif_format_32() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
     let output_path = temp.child("a.mif");
 
-    let input = temp.child("test_mif_format.asm");
-    input.write_str(r#"
+    let input = r#"
 rep 3, nop
-"#)?;
+"#;
 
     let cor_output = temp.child("correct_output.mif");
 
@@ -390,12 +364,12 @@ rep 3, nop
 
     cor_output.write_str(&output_str)?;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
+    let mut parser_builder = ParseLinkBuilder::new()
+        .sp_init(true);
+    parser_builder.add_code(input.to_string());
 
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
-                 .arg("--width").arg("32");
-    cmd.assert()
-        .success();
+    let assembly_code = parser_builder.parse_link_optimize().unwrap();
+    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "mif", (1024, 32)).unwrap();
 
     output_path
         .assert(predicate::path::is_file())
@@ -407,16 +381,14 @@ rep 3, nop
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_mif_format_8() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
     let output_path = temp.child("a.mif");
 
-    let input = temp.child("test_mif_format.asm");
-    input.write_str(r#"
+    let input = r#"
 rep 3, nop
-"#)?;
+"#;
 
     let cor_output = temp.child("correct_output.mif");
 
@@ -441,12 +413,12 @@ rep 3, nop
 
     cor_output.write_str(&output_str)?;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
+    let mut parser_builder = ParseLinkBuilder::new()
+        .sp_init(true);
+    parser_builder.add_code(input.to_string());
 
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
-                 .arg("--width").arg("8");
-    cmd.assert()
-        .success();
+    let assembly_code = parser_builder.parse_link_optimize().unwrap();
+    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "mif", (1024, 8)).unwrap();
 
     output_path
         .assert(predicate::path::is_file())
@@ -458,16 +430,14 @@ rep 3, nop
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_mif_format_32_cmt() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
     let output_path = temp.child("a.mif");
 
-    let input = temp.child("test_mif_format.asm");
-    input.write_str(r#"
+    let input = r#"
 rep 3, nop
-"#)?;
+"#;
 
     let cor_output = temp.child("correct_output.mif");
 
@@ -488,7 +458,7 @@ rep 3, nop
 
     for (counter, values) in cor_instr_vec.chunks_exact(4).enumerate() {
         if counter == 0 {
-            output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "lui sp, 4096"));
+            output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "lui sp, 1"));
         } else {
             output_str.push_str(&format!("{counter}\t: {:08b}{:08b}{:08b}{:08b};\t\t-- {}\n", values[0], values[1], values[2], values[3], "addi zero, zero, 0"));
         }
@@ -498,12 +468,12 @@ rep 3, nop
 
     cor_output.write_str(&output_str)?;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
+    let mut parser_builder = ParseLinkBuilder::new()
+        .sp_init(true);
+    parser_builder.add_code(input.to_string());
 
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
-                 .arg("--width").arg("32").arg("-c");
-    cmd.assert()
-        .success();
+    let assembly_code = parser_builder.parse_link_optimize().unwrap();
+    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, true, "mif", (1024, 32)).unwrap();
 
     output_path
         .assert(predicate::path::is_file())
@@ -515,16 +485,14 @@ rep 3, nop
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_mif_format_8_cmt() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
     let output_path = temp.child("a.mif");
 
-    let input = temp.child("test_mif_format.asm");
-    input.write_str(r#"
+    let input = r#"
 rep 3, nop
-"#)?;
+"#;
 
     let cor_output = temp.child("correct_output.mif");
 
@@ -542,7 +510,7 @@ rep 3, nop
     for instr in instr_vec.iter() {
         let mach_instr = instr.to_le_bytes();
         if counter == 0 {
-            output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "lui sp, 4096"));
+            output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "lui sp, 1"));
         } else {
             output_str.push_str(&format!("{counter}\t: {:08b} {:08b} {:08b} {:08b};\t\t-- {}\n", mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3], "addi zero, zero, 0"));
         }
@@ -553,12 +521,12 @@ rep 3, nop
 
     cor_output.write_str(&output_str)?;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
+    let mut parser_builder = ParseLinkBuilder::new()
+        .sp_init(true);
+    parser_builder.add_code(input.to_string());
 
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
-                 .arg("--width").arg("8").arg("-c");
-    cmd.assert()
-        .success();
+    let assembly_code = parser_builder.parse_link_optimize().unwrap();
+    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, true, "mif", (1024, 8)).unwrap();
 
     output_path
         .assert(predicate::path::is_file())
@@ -570,16 +538,14 @@ rep 3, nop
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_debug_format() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
     let no_output_path = temp.child("a.mif");
 
-    let input = temp.child("test_mif_format.asm");
-    input.write_str(r#"
+    let input = r#"
 rep 3, nop
-"#)?;
+"#;
 
     let instr_vec: Vec<u32> = Vec::from([
         0b00_00000_00000_00000_00100_01001_10111, // Lui - sp init
@@ -600,18 +566,12 @@ rep 3, nop
 
     output_str.push_str("END;\n");
 
-    let mut cmd = Command::cargo_bin("assembler")?;
+    let mut parser_builder = ParseLinkBuilder::new()
+        .sp_init(true);
+    parser_builder.add_code(input.to_string());
 
-    let match_str = format!("Debug format chosen! Nothing will be written to {:?}!", no_output_path.path());
-
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(no_output_path.path())
-                 .arg("-f").arg("debug").arg("-c");
-    cmd.assert()
-        .success()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::contains("Comment flag has no effect on debug format!"))
-        .stderr(predicate::str::contains(match_str))
-        .stderr(predicate::str::contains("Emitted 00000000000000000000000000010011 from 'addi zero, zero, 0'"));
+    let assembly_code = parser_builder.parse_link_optimize().unwrap();
+    translator::translate_and_present(&no_output_path.to_path_buf(), assembly_code, true, "debug", (1024, 8)).unwrap();
 
     no_output_path
         .assert(predicate::path::missing());
@@ -622,7 +582,6 @@ rep 3, nop
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_data_mif() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -630,8 +589,7 @@ fn test_data_mif() -> Result<(), Box<dyn std::error::Error>> {
     let cor_instr_output = temp.child("correct_output.mif");
     let cor_data_output = temp.child("correct_output.mem.mif");
 
-    let input = temp.child("test_mif_format.asm");
-    input.write_str(r#"
+    let input = r#"
 .data
     .space  3000            ; very much free space
 testing:
@@ -644,7 +602,7 @@ SmallExample:
     li      t1, INSTANT     ; load 25
 GETIT:
     j       GETIT           ; haha get it?
-"#)?;
+"#;
 
     let mut data_vec: Vec<u32> = vec![];
     data_vec.push(0);
@@ -661,14 +619,10 @@ GETIT:
             0b00_00000_00000_00000_00000_00000_10011,
             0b00_00000_00000_00000_00000_00000_10011,
             0b10_11101_11000_00101_00000_10100_10011,
-            0b00_00000_00000_00000_00000_11001_10111, // lui - li
-            0b00_00000_00000_00000_00000_00000_10011,
-            0b00_00000_00000_00000_00000_00000_10011,
-            0b00_00000_00000_00000_00000_00000_10011,
-            0b00_00000_11001_00110_00000_11000_10011, // lui - addi
+            0b00_00000_11001_00000_00000_11000_10011, // lui - addi
             0b00_00000_00000_00000_00000_00011_01111
         ]);
-        data_vec.push(48);
+        data_vec.push(32);
     }
 
     #[cfg(not(feature = "raw_nop"))] {
@@ -677,11 +631,10 @@ GETIT:
             0b00_11000_00000_00000_00000_01000_10011, // addi
             0b00_00000_00000_00000_00100_10100_10111, // la
             0b10_11101_11000_00101_00000_10100_10011, // la
-            0b00_00000_00000_00000_00000_11001_10111, // lui - li
-            0b00_00000_11001_00110_00000_11000_10011, // lui - addi
+            0b00_00000_11001_00000_00000_11000_10011, // lui - addi
             0b00_00000_00000_00000_00000_00011_01111  // j GETIT
         ]);
-        data_vec.push(24);
+        data_vec.push(20);
     }
 
     let mut output_data_str = "DEPTH = 1024;\nWIDTH = 32;\nADDRESS_RADIX = DEC;\nDATA_RADIX = BIN;\nCONTENT\nBEGIN\n".to_string();
@@ -703,15 +656,12 @@ GETIT:
     cor_data_output.write_str(&output_data_str)?;
     cor_instr_output.write_str(&output_instr_str)?;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
+    let mut parser_builder = ParseLinkBuilder::new()
+        .sp_init(true);
+    parser_builder.add_code(input.to_string());
 
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
-        .arg("-f").arg("mif");
-    cmd.assert()
-        .success()
-        .stdout(predicate::str::is_empty());
-
-    println!("{}", std::fs::read_to_string(output_path.path())?);
+    let assembly_code = parser_builder.parse_link_optimize().unwrap();
+    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "mif", (1024, 32)).unwrap();
 
     output_path
         .assert(predicate::path::is_file())
@@ -727,7 +677,6 @@ GETIT:
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_data_mif8() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -735,8 +684,7 @@ fn test_data_mif8() -> Result<(), Box<dyn std::error::Error>> {
     let cor_instr_output = temp.child("correct_output.mif");
     let cor_data_output = temp.child("correct_output.mem.mif");
 
-    let input = temp.child("test_mif_format.asm");
-    input.write_str(r#"
+    let input = r#"
 .data
 BYTEDATA:
     .byte   1, 2, 3
@@ -750,7 +698,7 @@ SmallExample:
     la      t1, DWORDDATA       ; load dword data address
 GETIT:
     j       GETIT               ; haha get it?
-"#)?;
+"#;
 
     let mut data_vec: Vec<u32> = vec![];
     data_vec.push(1_u32 + (2_u32 << 8) + (3_u32 << 16));
@@ -816,13 +764,12 @@ GETIT:
     cor_data_output.write_str(&output_data_str)?;
     cor_instr_output.write_str(&output_instr_str)?;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
+    let mut parser_builder = ParseLinkBuilder::new()
+        .sp_init(false);
+    parser_builder.add_code(input.to_string());
 
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
-        .arg("-f").arg("mif").arg("--width").arg("8").arg("--no-sp-init");
-    cmd.assert()
-        .success()
-        .stdout(predicate::str::is_empty());
+    let assembly_code = parser_builder.parse_link_optimize().unwrap();
+    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "mif", (1024, 8)).unwrap();
 
     output_path
         .assert(predicate::path::is_file())
@@ -838,7 +785,6 @@ GETIT:
 }
 
 #[test]
-#[ignore = "Requires binary"]
 fn test_data_mif_alignment() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
 
@@ -846,8 +792,7 @@ fn test_data_mif_alignment() -> Result<(), Box<dyn std::error::Error>> {
     let cor_instr_output = temp.child("correct_output.mif");
     let cor_data_output = temp.child("correct_output.mem.mif");
 
-    let input = temp.child("test_mif_format.asm");
-    input.write_str(r#"
+    let input = r#"
 .data
 BYTEDATA:
     .byte   1
@@ -860,7 +805,7 @@ SmallExample:
     la      t1, DWORDDATA       ; load dword data address
 GETIT:
     j       GETIT               ; haha get it?
-"#)?;
+"#;
 
     let mut data_vec: Vec<u32> = vec![];
     data_vec.push(1_u32);
@@ -924,13 +869,12 @@ GETIT:
     cor_data_output.write_str(&output_data_str)?;
     cor_instr_output.write_str(&output_instr_str)?;
 
-    let mut cmd = Command::cargo_bin("assembler")?;
+    let mut parser_builder = ParseLinkBuilder::new()
+        .sp_init(false);
+    parser_builder.add_code(input.to_string());
 
-    cmd.arg("-i").arg(input.path()).arg("-o").arg(output_path.path())
-        .arg("-f").arg("mif").arg("--width").arg("8").arg("--no-sp-init");
-    cmd.assert()
-        .success()
-        .stdout(predicate::str::is_empty());
+    let assembly_code = parser_builder.parse_link_optimize().unwrap();
+    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "mif", (1024, 8)).unwrap();
 
     output_path
         .assert(predicate::path::is_file())

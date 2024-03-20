@@ -222,9 +222,9 @@ impl From<&Operation> for RegActType {
                     MacroInstr::Lbu(reg1, reg2, _) |
                     MacroInstr::Lhu(reg1, reg2, _) => RegActType::Load(*reg2, *reg1),
 
-                    MacroInstr::Sh(reg1, reg2, _, _) |
-                    MacroInstr::Sb(reg1, reg2, _, _) |
-                    MacroInstr::Sw(reg1, reg2, _, _) => RegActType::Store(*reg1, *reg2),
+                    MacroInstr::ShLabl(reg1, reg2, _) |
+                    MacroInstr::SbLabl(reg1, reg2, _) |
+                    MacroInstr::SwLabl(reg1, reg2, _) => RegActType::Store(*reg1, *reg2),
 
                     _ => unreachable!(),
                 }
@@ -378,19 +378,19 @@ impl Translate for MacroInstr {
                 instructions.push(Instruction::Lhu(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
-            MacroInstr::Sb(reg1, reg2, labl, part) => {
+            MacroInstr::SbLabl(reg1, reg2, labl) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                handle_part(&mut lines, part);
+                handle_part(&mut lines, &Part::Lower);
                 instructions.push(Instruction::Sb(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Sh(reg1, reg2, labl, part) => {
+            MacroInstr::ShLabl(reg1, reg2, labl) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                handle_part(&mut lines, part);
+                handle_part(&mut lines, &Part::Lower);
                 instructions.push(Instruction::Sh(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Sw(reg1, reg2, labl, part) => {
+            MacroInstr::SwLabl(reg1, reg2, labl) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                handle_part(&mut lines, part);
+                handle_part(&mut lines, &Part::Lower);
                 instructions.push(Instruction::Sw(reg1.to_owned(), reg2.to_owned(), lines));
             },
 

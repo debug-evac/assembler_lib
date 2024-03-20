@@ -164,9 +164,9 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
         MacroInstr::Lbu(_, _, labl) |
         MacroInstr::Lhu(_, _, labl) |
 
-        MacroInstr::Sb(_, _, labl, _) |
-        MacroInstr::Sh(_, _, labl, _) |
-        MacroInstr::Sw(_, _, labl, _) | 
+        MacroInstr::SbLabl(_, _, labl) |
+        MacroInstr::ShLabl(_, _, labl) |
+        MacroInstr::SwLabl(_, _, labl) | 
         
         MacroInstr::Call(labl) |
         MacroInstr::Tail(labl) |
@@ -603,6 +603,102 @@ fn translate_macros(
             *pointer += space_needed;
             instr_list.append(&mut mid_list);
             instr_list.append(&mut right_list);
+        },
+        MacroInstr::SbLabl(_, reg, targ_labl) => {
+            match label {
+                Some(labl) => instr_list.insert(*pointer - 1,
+                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper))),
+                None => instr_list.insert(*pointer - 1, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper).into())
+            }
+            *pointer += 1;
+
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
+            *accumulator += 1;
+        },
+        MacroInstr::ShLabl(_, reg, targ_labl) => {
+            match label {
+                Some(labl) => instr_list.insert(*pointer - 1,
+                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper))),
+                None => instr_list.insert(*pointer - 1, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper).into())
+            }
+            *pointer += 1;
+
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
+            *accumulator += 1;
+        },
+        MacroInstr::SwLabl(_, reg, targ_labl) => {
+            match label {
+                Some(labl) => instr_list.insert(*pointer - 1,
+                                Operation::LablMacro(labl, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper))),
+                None => instr_list.insert(*pointer - 1, MacroInstr::Auipc(reg.to_owned(), targ_labl.clone(), Part::Upper).into())
+            }
+            *pointer += 1;
+
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
+            *accumulator += 1;
+        },
+        MacroInstr::SbImm(reg1, reg2, imm) => {
+            instr_list.remove(*pointer);
+            let mut imm_used = *imm;
+
+            handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Sb(reg1.to_owned(), reg2.to_owned(), *imm));
+
+            match label {
+                Some(labl) => instr_list.insert(*pointer,
+                                Operation::LablInstr(labl, Instruction::Auipc(reg2.to_owned(), imm_used))),
+                None => instr_list.insert(*pointer, Instruction::Auipc(reg2.to_owned(), imm_used).into()),
+            }
+            *pointer += 1;
+            instr_list.insert(*pointer,
+            Instruction::Sb(reg1.to_owned(), reg2.to_owned(), imm_used).into());
+
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
+            *pointer += 1;
+            *accumulator += 1;
+        },
+        MacroInstr::ShImm(reg1, reg2, imm) => {
+            instr_list.remove(*pointer);
+            let mut imm_used = *imm;
+
+            handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Sh(reg1.to_owned(), reg2.to_owned(), *imm));
+
+            match label {
+                Some(labl) => instr_list.insert(*pointer,
+                                Operation::LablInstr(labl, Instruction::Auipc(reg2.to_owned(), imm_used))),
+                None => instr_list.insert(*pointer, Instruction::Auipc(reg2.to_owned(), imm_used).into()),
+            }
+            *pointer += 1;
+            instr_list.insert(*pointer,
+            Instruction::Sh(reg1.to_owned(), reg2.to_owned(), imm_used).into());
+
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
+            *pointer += 1;
+            *accumulator += 1;
+        },
+        MacroInstr::SwImm(reg1, reg2, imm) => {
+            instr_list.remove(*pointer);
+            let mut imm_used = *imm;
+
+            handle_multiline_immediate(&mut imm_used, label.clone(), pointer, instr_list, &Instruction::Sw(reg1.to_owned(), reg2.to_owned(), *imm));
+
+            match label {
+                Some(labl) => instr_list.insert(*pointer,
+                                Operation::LablInstr(labl, Instruction::Auipc(reg2.to_owned(), imm_used))),
+                None => instr_list.insert(*pointer, Instruction::Auipc(reg2.to_owned(), imm_used).into()),
+            }
+            *pointer += 1;
+            instr_list.insert(*pointer,
+            Instruction::Sw(reg1.to_owned(), reg2.to_owned(), imm_used).into());
+
+            debug!("Expanded '{macro_in}' at {} into '[{}; {}]'", *pointer - 1, instr_list[*pointer-1], instr_list[*pointer]);
+
+            *pointer += 1;
+            *accumulator += 1;
         },
         _ => *pointer += 1,
     }

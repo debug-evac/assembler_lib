@@ -44,9 +44,13 @@ pub enum MacroInstr {
     Lbu(Reg, Reg, smartstring::alias::String),
     Lhu(Reg, Reg, smartstring::alias::String),
     
-    Sb(Reg, Reg, smartstring::alias::String, Part), //Store byte
-    Sh(Reg, Reg, smartstring::alias::String, Part), //Store half
-    Sw(Reg, Reg, smartstring::alias::String, Part), //Store word
+    SbLabl(Reg, Reg, smartstring::alias::String), //Store byte
+    ShLabl(Reg, Reg, smartstring::alias::String), //Store half
+    SwLabl(Reg, Reg, smartstring::alias::String), //Store word
+
+    SbImm(Reg, Reg, Imm), //Store byte
+    ShImm(Reg, Reg, Imm), //Store half
+    SwImm(Reg, Reg, Imm), //Store word
 
     Addi(Reg, Reg, smartstring::alias::String, Part),
 
@@ -94,9 +98,13 @@ impl Display for MacroInstr {
             MacroInstr::Lbu(reg1, reg2, label) => write!(f, "lbu {reg1}, {reg2}, {label}"),
             MacroInstr::Lhu(reg1, reg2, label) => write!(f, "lhu {reg1}, {reg2}, {label}"),
             
-            MacroInstr::Sb(reg1, reg2, label, _) => write!(f, "sb {reg1}, {reg2}, {label}"),
-            MacroInstr::Sh(reg1, reg2, label, _) => write!(f, "sh {reg1}, {reg2}, {label}"),
-            MacroInstr::Sw(reg1, reg2, label, _) => write!(f, "sw {reg1}, {reg2}, {label}"),
+            MacroInstr::SbLabl(reg1, reg2, label) => write!(f, "sb {reg1}, {label}, {reg2}"),
+            MacroInstr::ShLabl(reg1, reg2, label) => write!(f, "sh {reg1}, {label}, {reg2}"),
+            MacroInstr::SwLabl(reg1, reg2, label) => write!(f, "sw {reg1}, {label}, {reg2}"),
+
+            MacroInstr::SbImm(reg1, reg2, imm) => write!(f, "sb {reg1}, {imm}, {reg2}"),
+            MacroInstr::ShImm(reg1, reg2, imm) => write!(f, "sh {reg1}, {imm}, {reg2}"),
+            MacroInstr::SwImm(reg1, reg2, imm) => write!(f, "sw {reg1}, {imm}, {reg2}"),
 
             MacroInstr::Addi(reg1, reg2, label, _) => write!(f, "addi {reg1}, {reg2}, {label}"),
 

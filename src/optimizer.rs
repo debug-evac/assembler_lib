@@ -214,9 +214,6 @@ impl From<&Operation> for RegActType {
                     MacroInstr::Jal(reg, _) => RegActType::Write(*reg),
 
                     MacroInstr::Addi(reg1, reg2, _, _) |
-                    MacroInstr::Slli(reg1, reg2, _) |
-                    MacroInstr::Srli(reg1, reg2, _) |
-                    MacroInstr::Srai(reg1, reg2, _) |
                     MacroInstr::Jalr(reg1, reg2, _, _) => RegActType::WriteRead(*reg1, *reg2),
 
                     MacroInstr::Lb(reg1, reg2, _, _) |
@@ -355,19 +352,6 @@ impl Translate for MacroInstr {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Auipc(reg.to_owned(), lines));
-            },
-
-            MacroInstr::Slli(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                instructions.push(Instruction::Slli(reg1.to_owned(), reg2.to_owned(), lines));
-            },
-            MacroInstr::Srli(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                instructions.push(Instruction::Srli(reg1.to_owned(), reg2.to_owned(), lines));
-            },
-            MacroInstr::Srai(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                instructions.push(Instruction::Srai(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
             MacroInstr::Lb(reg1, reg2, labl, part) => {
@@ -1316,9 +1300,6 @@ mod tests {
         let mut test_macros: Vec<(MacroInstr, Instruction)> = vec![];
 
         test_macros.push((MacroInstr::Lui(Reg::G21, "GLOBAL".into(), Part::None), Instruction::Lui(Reg::G21, -8)));
-        test_macros.push((MacroInstr::Slli(Reg::G30, Reg::G19, ".LOCAL".into()), Instruction::Slli(Reg::G30, Reg::G19, -4)));
-        test_macros.push((MacroInstr::Srli(Reg::G5, Reg::G20, "GLOBAL".into()), Instruction::Srli(Reg::G5, Reg::G20, -8)));
-        test_macros.push((MacroInstr::Srai(Reg::G7, Reg::G15, ".LOCAL".into()), Instruction::Srai(Reg::G7, Reg::G15, -4)));
 
         for (test, corr) in test_macros {
             let _ = test.translate(&mut namespace, &cs, &mut instructions);

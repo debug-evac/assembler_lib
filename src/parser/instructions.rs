@@ -121,10 +121,6 @@ impl InstrType {
                     IntermediateOp::Jalr => MacroInstr::Jalr(args.0, args.1, args.2.into(), Part::None).into(),
                     // until here
             
-                    IntermediateOp::Slli => MacroInstr::Slli(args.0, args.1, args.2.into()).into(),
-                    IntermediateOp::Srli => MacroInstr::Srli(args.0, args.1, args.2.into()).into(),
-                    IntermediateOp::Srai => MacroInstr::Srai(args.0, args.1, args.2.into()).into(),
-            
                     IntermediateOp::Sb => MacroInstr::Sb(args.0, args.1, args.2.into(), Part::None).into(),
                     IntermediateOp::Sh => MacroInstr::Sh(args.0, args.1, args.2.into(), Part::None).into(),
                     IntermediateOp::Sw => MacroInstr::Sw(args.0, args.1, args.2.into(), Part::None).into(),
@@ -397,10 +393,6 @@ fn parse_macro_1labl2reg(input: &str) -> IResult<&str, Operation> {
 
         value(InstrType::Reg2Labl(IntermediateOp::Jalr), tag("jalr")),
 
-        value(InstrType::Reg2Labl(IntermediateOp::Slli), tag("slli")),
-        value(InstrType::Reg2Labl(IntermediateOp::Srli), tag("srli")),
-        value(InstrType::Reg2Labl(IntermediateOp::Srai), tag("srai")),
-
         value(InstrType::Reg2Labl(IntermediateOp::Sb), tag("sb")),
         value(InstrType::Reg2Labl(IntermediateOp::Sh), tag("sh")),
         value(InstrType::Reg2Labl(IntermediateOp::Sw), tag("sw")),
@@ -643,7 +635,6 @@ mod tests {
         assert_ne!(parse_macro_1labl2reg("sb x1, x6"), Ok(("", MacroInstr::Sb(Reg::G1, Reg::G6, "".into(), Part::None).into())));
         assert_ne!(parse_macro_1labl2reg("lb x1, total"), Ok(("", MacroInstr::Lb(Reg::G1, Reg::G0, "total".into(), Part::None).into())));
         assert_eq!(parse_macro_1labl2reg("bgeu  x1, x4, sTaRt"), Ok(("", MacroInstr::Bgeu(Reg::G1, Reg::G4, "sTaRt".into()).into())));
-        assert_ne!(parse_macro_1labl2reg("slli x1x4,eNND"), Ok(("", MacroInstr::Slli(Reg::G1, Reg::G4, "eNND".into()).into())));
         assert_eq!(parse_macro_1labl2reg("blt x10,x10, last"), Ok(("", MacroInstr::Blt(Reg::G10, Reg::G10, "last".into()).into())));
         assert_ne!(parse_macro_1labl2reg("jalr  x6,  x8,test"), Ok(("", MacroInstr::Jalr(Reg::G6, Reg::G8, "test".into(), Part::None).into())));
         assert_eq!(parse_macro_1labl2reg("lhu x1, x2, hans"), Ok(("", MacroInstr::Lhu(Reg::G1, Reg::G2, "hans".into()).into())));

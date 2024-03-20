@@ -157,10 +157,6 @@ fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subrou
         MacroInstr::Lui(_, labl, _) |
         MacroInstr::Auipc(_, labl, _) |
 
-        MacroInstr::Slli(_, _, labl) |
-        MacroInstr::Srli(_, _, labl) |
-        MacroInstr::Srai(_, _, labl) |
-
         MacroInstr::Lb(_, _, labl, _) |
         MacroInstr::Lh(_, _, labl, _) |
         MacroInstr::Lw(_, _, labl, _) |

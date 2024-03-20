@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- [BREAKING] Syntax of memory operations
+- [BREAKING] Syntax of memory operations (exactly the same to RARS)
   - `lb t1, 4(t2)` instead of `lb t1, t2, 4`
   - You can also use `lb t1, (t2)` which is equivalent to former syntax `lb t1, t2, 0`
 - [BREAKING] Renamed internal data structures for `la`, `call` and `tail`
@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [BREAKING] Removed immediate variants of `la`, `call` and `tail`
   - `la t1, 20`, `call 0x10` and `tail 15` are no longer accepted!
 - [BREAKING] Removed `jal <IMM>` and `j <IMM>`
-- [BREAKING] Removed label variant of `li`, `slli`, `srli`, `auipc` and `srai`
+- [BREAKING] Removed label variant of `li`, `auipc`, `slli`, `srli`, and `srai`
 - Dependency on `asm_core_lib` crate
   - No API changes
 

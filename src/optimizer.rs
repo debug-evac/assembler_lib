@@ -216,11 +216,11 @@ impl From<&Operation> for RegActType {
                     MacroInstr::Addi(reg1, reg2, _, _) |
                     MacroInstr::Jalr(reg1, reg2, _, _) => RegActType::WriteRead(*reg1, *reg2),
 
-                    MacroInstr::Lb(reg1, reg2, _, _) |
-                    MacroInstr::Lh(reg1, reg2, _, _) |
-                    MacroInstr::Lw(reg1, reg2, _, _) |
-                    MacroInstr::Lbu(reg1, reg2, _) |
-                    MacroInstr::Lhu(reg1, reg2, _) => RegActType::Load(*reg2, *reg1),
+                    MacroInstr::LbLabl(reg1, reg2, _, _) |
+                    MacroInstr::LhLabl(reg1, reg2, _, _) |
+                    MacroInstr::LwLabl(reg1, reg2, _, _) |
+                    MacroInstr::LbuLabl(reg1, reg2, _) |
+                    MacroInstr::LhuLabl(reg1, reg2, _) => RegActType::Load(*reg2, *reg1),
 
                     MacroInstr::ShLabl(reg1, reg2, _) |
                     MacroInstr::SbLabl(reg1, reg2, _) |
@@ -354,27 +354,30 @@ impl Translate for MacroInstr {
                 instructions.push(Instruction::Auipc(reg.to_owned(), lines));
             },
 
-            MacroInstr::Lb(reg1, reg2, labl, part) => {
+            MacroInstr::LbLabl(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Lb(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Lh(reg1, reg2, labl, part) => {
+            MacroInstr::LhLabl(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Lh(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Lw(reg1, reg2, labl, part) => {
+            MacroInstr::LwLabl(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Lw(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Lbu(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+
+            MacroInstr::LbuLabl(reg1, reg2, labl) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                handle_part(&mut lines, &Part::Lower);
                 instructions.push(Instruction::Lbu(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Lhu(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+            MacroInstr::LhuLabl(reg1, reg2, labl) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                handle_part(&mut lines, &Part::Lower);
                 instructions.push(Instruction::Lhu(reg1.to_owned(), reg2.to_owned(), lines));
             },
 

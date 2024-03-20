@@ -20,15 +20,13 @@ use nom::{
     IResult
 };
 
-use crate::parser::symbols::symbols_write;
-
 use super::{
     errors::ParserError, handle_label_defs, instructions::parse_seper, literals::{
         parse_bigimm, 
         parse_imm, 
         parse_label_definition, 
         parse_label_name, parse_text_segment_id
-    }, parse_multiline_comments, symbols::symbols_read, ByteData, DWordData, HalfData, LabelRecog, LabelType, MemData, WordData
+    }, parse_multiline_comments, symbols::Symbols, ByteData, DWordData, HalfData, LabelRecog, LabelType, MemData, WordData
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -60,7 +58,7 @@ fn parse_byte(input: &str) -> IResult<&str, MemData> {
                 map(parse_imm, |imm| imm.into()),
                 map(parse_label_name, |label| {
                     let labl = smartstring::alias::String::from(label);
-                    match symbols_read(&labl) {
+                    match Symbols::symbols_read(&labl) {
                         Some(val) => ByteData::Byte(val as i16),
                         None => ByteData::String(labl),
                     }
@@ -79,7 +77,7 @@ fn parse_half(input: &str) -> IResult<&str, MemData> {
                 map(parse_imm, |imm| imm.into()),
                 map(parse_label_name, |label| {
                     let labl = smartstring::alias::String::from(label);
-                    match symbols_read(&labl) {
+                    match Symbols::symbols_read(&labl) {
                         Some(val) => HalfData::Half(val as i32),
                         None => HalfData::String(labl),
                     }
@@ -98,7 +96,7 @@ fn parse_word(input: &str) -> IResult<&str, MemData> {
                 map(parse_bigimm, |imm| imm.into()),
                 map(parse_label_name, |label| {
                     let labl = smartstring::alias::String::from(label);
-                    match symbols_read(&labl) {
+                    match Symbols::symbols_read(&labl) {
                         Some(val) => WordData::Word(val as i64),
                         None => WordData::String(labl),
                     }
@@ -117,7 +115,7 @@ fn parse_dword(input: &str) -> IResult<&str, MemData> {
                 map(parse_bigimm, |imm| imm.into()),
                 map(parse_label_name, |label| {
                     let labl = smartstring::alias::String::from(label);
-                    match symbols_read(&labl) {
+                    match Symbols::symbols_read(&labl) {
                         Some(val) => DWordData::DWord(val),
                         None => DWordData::String(labl),
                     }
@@ -360,7 +358,7 @@ impl LineHandle for DirectiveData {
                 *next_free_ptr += handle_label_refs_count(&data, symbol_map);
                 dir_list.push(data);
             },
-            Directive::EqvLabel(label, def) => symbols_write(label, def),
+            Directive::EqvLabel(label, def) => Symbols::symbols_write(label, def),
         }
         Ok(())
     }
@@ -395,7 +393,7 @@ impl LineHandle for LabelDirectiveData {
                 *next_free_ptr += handle_label_refs_count(&data, symbol_map);
                 dir_list.push(data);
             },
-            Directive::EqvLabel(label, def) => symbols_write(label, def),
+            Directive::EqvLabel(label, def) => Symbols::symbols_write(label, def),
         }
         Ok(())
     }

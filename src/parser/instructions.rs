@@ -17,7 +17,7 @@ use nom::{
 use crate::parser::literals::{parse_imm, parse_reg, parse_label_name};
 use crate::common::{MacroInstr, Instruction, Operation, Reg, Part};
 
-use super::{literals::parse_decimal, symbols::symbols_read};
+use super::{literals::parse_decimal, symbols::Symbols};
 
 #[derive(Clone)]
 enum InstrType {
@@ -78,7 +78,7 @@ impl InstrType {
                     (_, None) => {
                         map_opt(parse_label_name, |label| {
                             let labl = smartstring::alias::String::from(label);
-                            Some(symbols_read(&labl)? as i32)
+                            Some(Symbols::symbols_read(&labl)? as i32)
                         })(rest)?
                     },
                     (rest_f, Some(val)) => (rest_f, val),
@@ -150,7 +150,7 @@ impl InstrType {
                     (rest_f, None) => {
                         map_opt(parse_label_name, |label| {
                             let labl = smartstring::alias::String::from(label);
-                            Some(symbols_read(&labl)? as i32)
+                            Some(Symbols::symbols_read(&labl)? as i32)
                         })(rest_f)?
                     },
                     (rest_f, Some(val)) => (rest_f, val),
@@ -241,7 +241,7 @@ impl InstrType {
                     (rest_f, None) => {
                         opt(map_opt(parse_label_name, |label| {
                             let labl = smartstring::alias::String::from(label);
-                            Some(symbols_read(&labl)? as i32)
+                            Some(Symbols::symbols_read(&labl)? as i32)
                         }))(rest_f)?
                     },
                     op => op,
@@ -545,13 +545,13 @@ pub fn parse_instruction(input: &str) -> IResult<&str, Operation> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::{symbols::symbols_write, symbols_clear};
+    use crate::parser::symbols::Symbols;
 
     use super::*;
 
     fn setup_symbols(symbol: smartstring::alias::String, def: i128) {
-        symbols_clear();
-        symbols_write(symbol, def);
+        Symbols::symbols_clear();
+        Symbols::symbols_write(symbol, def);
     }
 
     #[test]

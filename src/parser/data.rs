@@ -195,7 +195,7 @@ fn parse_directive(input: &str) -> IResult<&str, Directive> {
             }
         )),
         separated_pair(tag(".eqv"), space1, parse_eqv)
-    ))(input)?;
+    )).parse_next(input)?;
 
     Ok((rest, directive))
 }
@@ -415,7 +415,11 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
             return fail.context(e.get_nom_err_text()).parse_next(rest)
         }
 
-        let (rested, breakout) = delimited(parse_multiline_comments, opt(parse_text_segment_id), parse_multiline_comments)(rest)?;
+        let (rested, breakout) = delimited(
+            parse_multiline_comments,
+            opt(parse_text_segment_id),
+            parse_multiline_comments
+        ).parse_next(rest)?;
         if breakout.is_some() {
             debug!("Finished data parsing sub step");
             rest = rested;

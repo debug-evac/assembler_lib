@@ -51,14 +51,14 @@ pub fn parse_label_definition(input: &str) -> IResult<&str, &str> {
     terminated(
         parse_label_name,
         ':'
-    )(input)
+    ).parse_next(input)
 }
 
 pub fn parse_label_definition_priv(input: &str) -> IResult<&str, &str> {
     terminated(
         label_name!('_'),
         ':'
-    )(input)
+    ).parse_next(input)
 }
 
 fn from_hex(input: &str) -> Result<Imm, std::num::ParseIntError> {
@@ -134,12 +134,12 @@ fn from_bigbinary(input: &str) -> Result<i128, std::num::ParseIntError> {
 }
 
 pub fn parse_bigimm(input: &str) -> IResult<&str, i128> {
-    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0x"))(input) {
+    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0x")).parse_next(input) {
         // Hexadecimal
         (hex_digit1, opt(one_of("suSU"))).recognize()
         .map_res(from_bighex)
         .parse_next(rest)
-    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0b"))(input) {
+    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0b")).parse_next(input) {
         // Binary
         (take_while1("01"), opt(one_of("suSU"))).recognize()
         .map_res(from_bigbinary)
@@ -153,12 +153,12 @@ pub fn parse_bigimm(input: &str) -> IResult<&str, i128> {
 }
 
 pub fn parse_imm(input: &str) -> IResult<&str, Imm> {
-    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0x"))(input) {
+    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0x")).parse_next(input) {
         // Hexadecimal
         (hex_digit1, opt(one_of("suSU"))).recognize()
         .map_res(from_hex)
         .parse_next(rest)
-    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0b"))(input) {
+    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0b")).parse_next(input) {
         // Binary
         (take_while1("01"), opt(one_of("suSU"))).recognize()
         .map_res(from_binary)
@@ -185,7 +185,7 @@ pub fn parse_reg(input: &str) -> IResult<&str, Reg> {
             success('n'),
             alphanumeric1.map_res(Reg::str_to_enum)
         )
-    ))(input)?;
+    )).parse_next(input)?;
     Ok((rest, reg.1))
 }
 

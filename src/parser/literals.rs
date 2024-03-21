@@ -8,8 +8,8 @@
 
 use winnow::{
     Parser,
-    bytes::{tag, tag_no_case, one_of, take_while1},
-    character::{alpha1, alphanumeric0, alphanumeric1, digit1, hex_digit1},
+    bytes::{tag, tag_no_case, one_of, take_while},
+    ascii::{alpha1, alphanumeric0, alphanumeric1, digit1, hex_digit1},
     branch::alt,
     combinator::{
         opt, success
@@ -137,17 +137,17 @@ pub fn parse_bigimm(input: &str) -> IResult<&str, i128> {
     if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0x")).parse_next(input) {
         // Hexadecimal
         (hex_digit1, opt(one_of("suSU"))).recognize()
-        .map_res(from_bighex)
+        .try_map(from_bighex)
         .parse_next(rest)
     } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0b")).parse_next(input) {
         // Binary
-        (take_while1("01"), opt(one_of("suSU"))).recognize()
-        .map_res(from_bigbinary)
+        (take_while(1.., "01"), opt(one_of("suSU"))).recognize()
+        .try_map(from_bigbinary)
         .parse_next(rest)
     } else {
         // Decimal
         (opt(tag("-")), digit1).recognize()
-        .map_res(str::parse)
+        .try_map(str::parse)
         .parse_next(input)
     }
 }
@@ -156,12 +156,12 @@ pub fn parse_imm(input: &str) -> IResult<&str, Imm> {
     if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0x")).parse_next(input) {
         // Hexadecimal
         (hex_digit1, opt(one_of("suSU"))).recognize()
-        .map_res(from_hex)
+        .try_map(from_hex)
         .parse_next(rest)
     } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0b")).parse_next(input) {
         // Binary
-        (take_while1("01"), opt(one_of("suSU"))).recognize()
-        .map_res(from_binary)
+        (take_while(1.., "01"), opt(one_of("suSU"))).recognize()
+        .try_map(from_binary)
         .parse_next(rest)
     } else {
         parse_decimal(input)
@@ -170,7 +170,7 @@ pub fn parse_imm(input: &str) -> IResult<&str, Imm> {
 
 pub fn parse_decimal(input: &str) -> IResult<&str, Imm> {
     (opt(tag("-")), digit1).recognize()
-    .map_res(str::parse)
+    .try_map(str::parse)
     .parse_next(input)
 }
 
@@ -178,12 +178,12 @@ pub fn parse_reg(input: &str) -> IResult<&str, Reg> {
     let (rest, reg) = alt((
         (
             'x', 
-            digit1.map_res(str::parse::<u8>)
-            .map_res(Reg::num_to_enum)
+            digit1.try_map(str::parse::<u8>)
+            .try_map(Reg::num_to_enum)
         ),
         (
             success('n'),
-            alphanumeric1.map_res(Reg::str_to_enum)
+            alphanumeric1.try_map(Reg::str_to_enum)
         )
     )).parse_next(input)?;
     Ok((rest, reg.1))

@@ -16,7 +16,7 @@ use log::{debug, warn};
 use winnow::stream::Offset;
 use winnow::trace::trace;
 use winnow::{
-    character::{multispace1, not_line_ending},
+    ascii::{multispace1, not_line_ending},
     combinator::{fail, opt},
     error::{ErrMode, ErrorKind, ParseError},
     stream::{Accumulate, Stream, StreamIsPartial},

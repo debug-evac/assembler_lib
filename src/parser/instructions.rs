@@ -9,7 +9,7 @@
 use winnow::{
     Parser,
     bytes::tag,
-    character::{space1, digit1},
+    ascii::{space1, digit1},
     branch::alt,
     combinator::{fail, opt},
     multi::separated1,
@@ -701,8 +701,8 @@ fn parse_special_macro(input: &str) -> IResult<&str, Operation> {
     (
         tag("rep"), 
         space1, 
-        separated_pair(digit1.map_res(str::parse), parse_seper, parse_instruction)
-    ).map_res(
+        separated_pair(digit1.try_map(str::parse), parse_seper, parse_instruction)
+    ).try_map(
     |parsed| {
         match parsed.2.1 {
             Operation::Namespace(_) |

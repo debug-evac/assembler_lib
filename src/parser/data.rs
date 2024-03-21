@@ -13,7 +13,7 @@ use winnow::{
     Parser,
     branch::alt,
     bytes::{tag, take_till1},
-    character::{digit1, space1},
+    ascii::{digit1, space1},
     combinator::{fail, opt, success},
     multi::separated1,
     sequence::{delimited, separated_pair},
@@ -166,7 +166,7 @@ fn parse_directive(input: &str) -> IResult<&str, Directive> {
         separated_pair(tag(".word"), space1, parse_word.map(Directive::Data)),
         separated_pair(tag(".dword"), space1, parse_dword.map(Directive::Data)),
         separated_pair(tag(".space"), space1,
-            digit1.map_res(|num| {
+            digit1.try_map(|num| {
                 let mut vec_data = vec![];
                 for _ in 0..str::parse(num)? {
                     vec_data.push(ByteData::Byte(0));

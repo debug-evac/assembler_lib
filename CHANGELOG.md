@@ -28,6 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [BREAKING] Syntax of memory operations (exactly the same to RARS)
   - `lb t1, 4(t2)` instead of `lb t1, t2, 4`
   - You can also use `lb t1, (t2)` which is equivalent to former syntax `lb t1, t2, 0`
+- [BREAKING] Label references for `addi` & `lui`
+  - You have to specify `%lo(LABEL)` for `addi` and `%hi(LABEL)` for `lui` to use labels with these operations
+  - Example:
+    ```
+    TEST:
+      addi  x10, x10, %lo(TEST)
+      lui   x10, %hi(TEST)
+    ```
 - [BREAKING] Renamed internal data structures for `la`, `call` and `tail`
 - [BREAKING] Label references now include scope
   - References to local labels must be prefixed with a dot **.**

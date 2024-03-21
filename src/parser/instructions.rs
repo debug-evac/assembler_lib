@@ -31,7 +31,8 @@ enum InstrType {
     Reg3(IntermediateOp),
     RegVar(IntermediateOp),
     StoreOp(IntermediateOp),
-    LoadOp(IntermediateOp)
+    LoadOp(IntermediateOp),
+    SpecOp(IntermediateOp)
 }
 
 impl InstrType {
@@ -400,6 +401,54 @@ impl InstrType {
                     },
                 }
             },
+            InstrType::SpecOp(interop) => {
+                let (rest, reg1) = terminated(parse_reg, parse_seper)(rest)?;
+
+                match interop {
+                    IntermediateOp::Addi => {
+                        let (rest, reg2) = terminated(parse_reg, parse_seper)(rest)?;
+        
+                        let (rest, imm) = match opt(parse_imm)(rest)? {
+                            (rest_f, None) => {
+                                opt(map_opt(parse_label_name, |label| {
+                                    let labl = smartstring::alias::String::from(label);
+                                    Some(Symbols::symbols_read(&labl)? as i32)
+                                }))(rest_f)?
+                            },
+                            op => op,
+                        };
+
+                        if let Some(imm) = imm {
+                            Ok((rest, Instruction::Addi(reg1, reg2, imm).into()))
+                        } else {
+                            let (rest, label) = parse_low_label(rest)?;
+
+                            Ok((rest, MacroInstr::Addi(reg1, reg2, label.into(), Part::None).into()))
+                        }
+                    },
+                    IntermediateOp::Lui => {
+                        let (rest, imm) = match opt(parse_imm)(rest)? {
+                            (rest_f, None) => {
+                                opt(map_opt(parse_label_name, |label| {
+                                    let labl = smartstring::alias::String::from(label);
+                                    Some(Symbols::symbols_read(&labl)? as i32)
+                                }))(rest_f)?
+                            },
+                            op => op,
+                        };
+
+                        if let Some(imm) = imm {
+                            Ok((rest, Instruction::Lui(reg1, imm << 12).into()))
+                        } else {
+                            let (rest, label) = parse_high_label(rest)?;
+
+                            Ok((rest, MacroInstr::Lui(reg1, label.into(), Part::None).into()))
+                        }
+                    },
+
+                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                }
+            },
         }
     }
 }
@@ -467,7 +516,6 @@ fn parse_low_label(input: &str) -> IResult<&str, &str> {
     )(input)
 }
 
-#[allow(dead_code)]
 fn parse_high_label(input: &str) -> IResult<&str, &str> {
     preceded(
         tag("%hi"),
@@ -512,7 +560,6 @@ fn parse_macro_1reg(input: &str) -> IResult<&str, Operation> {
 
 fn parse_macro_1labl1reg(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::RegLabl(IntermediateOp::Lui), tag("lui")),
         value(InstrType::RegLabl(IntermediateOp::Jal), tag("jal")),
 
         value(InstrType::RegLabl(IntermediateOp::Li), tag("li")),
@@ -523,7 +570,7 @@ fn parse_macro_1labl1reg(input: &str) -> IResult<&str, Operation> {
 
 fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::RegImm(IntermediateOp::Lui), tag("lui")),
+        value(InstrType::SpecOp(IntermediateOp::Lui), tag("lui")),
         value(InstrType::RegImm(IntermediateOp::Auipc), tag("auipc")),
         value(InstrType::RegImm(IntermediateOp::Jal), tag("jal")),
 
@@ -555,8 +602,6 @@ fn parse_macro_1labl2reg(input: &str) -> IResult<&str, Operation> {
         value(InstrType::Reg2Labl(IntermediateOp::Lb), tag("lb")),
         value(InstrType::Reg2Labl(IntermediateOp::Lh), tag("lh")),
         value(InstrType::Reg2Labl(IntermediateOp::Lw), tag("lw")),
-
-        value(InstrType::Reg2Labl(IntermediateOp::Addi), tag("addi")),
     ))(input)?;
     instr.translate_parse(rest)
 }
@@ -579,7 +624,7 @@ fn parse_inst_1imm2reg_lw(input: &str) -> IResult<&str, Operation> {
 
 fn parse_inst_1imm2reg_up(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::Reg2Imm(IntermediateOp::Addi), tag("addi")),
+        value(InstrType::SpecOp(IntermediateOp::Addi), tag("addi")),
 
         value(InstrType::Reg2Imm(IntermediateOp::Sltiu), tag("sltiu")),
         value(InstrType::Reg2Imm(IntermediateOp::Slti), tag("slti")),
@@ -748,8 +793,6 @@ mod tests {
     #[test]
     fn test_parse_instr1labl1reg() {
         assert_ne!(parse_macro_1labl1reg(""), Ok(("", Instruction::Addi(Reg::G0, Reg::G0, 0).into())));
-        assert_ne!(parse_macro_1labl1reg("lui"), Ok(("", MacroInstr::Lui(Reg::G0, "".into(), Part::None).into())));
-        assert_eq!(parse_macro_1labl1reg("lui a2, stop"), Ok(("", MacroInstr::Lui(Reg::G12, "stop".into(), Part::None).into())));
         assert_ne!(parse_macro_1labl1reg("auipc s2, helloWorld"), Ok(("", MacroInstr::Auipc(Reg::G18, "helloWorld".into()).into())));
         assert_eq!(parse_macro_1labl1reg("jal   x20, test"), Ok(("", MacroInstr::Jal(Reg::G20, "test".into()).into())));
         assert_ne!(parse_macro_1labl1reg("jal x19, train "), Ok(("", MacroInstr::Jal(Reg::G19, "train".into()).into())));
@@ -765,6 +808,7 @@ mod tests {
         assert_ne!(parse_inst_1imm1reg(""), Ok(("", Instruction::Addi(Reg::G0, Reg::G0, 0).into())));
         assert_ne!(parse_inst_1imm1reg("lui"), Ok(("", Instruction::Lui(Reg::G0, 0).into())));
         assert_eq!(parse_inst_1imm1reg("lui x12, 12"), Ok(("", Instruction::Lui(Reg::G12, 49152).into())));
+        assert_eq!(parse_inst_1imm1reg("lui a2, %hi(stop)"), Ok(("", MacroInstr::Lui(Reg::G12, "stop".into(), Part::None).into())));
         assert_eq!(parse_inst_1imm1reg("auipc x18, 0x20"), Ok(("", Instruction::Auipc(Reg::G18, 131072).into())));
         assert_eq!(parse_inst_1imm1reg("jal x20, 5"), Ok(("", Instruction::Jal(Reg::G20, 5).into())));
         assert_ne!(parse_inst_1imm1reg("jal x19, 125 "), Ok(("", Instruction::Jal(Reg::G19, 125).into())));

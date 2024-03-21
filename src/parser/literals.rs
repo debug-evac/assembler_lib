@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use nom::{
+use winnow::{
     branch::alt, bytes::complete::{
         is_a, tag, tag_no_case
     }, character::complete::{
@@ -22,13 +22,13 @@ use crate::common::{Imm, Reg};
 
 pub fn parse_data_segment_id(input: &str) -> IResult<&str, &str> {
     recognize(
-        tuple((nom::character::complete::char('.'), tag("data")))
+        tuple((winnow::character::complete::char('.'), tag("data")))
     )(input)
 }
 
 pub fn parse_text_segment_id(input: &str) -> IResult<&str, &str> {
     recognize(
-        pair(nom::character::complete::char('.'), tag("text"))
+        pair(winnow::character::complete::char('.'), tag("text"))
     )(input)
 }
 
@@ -36,7 +36,7 @@ macro_rules! label_name {
     ($($ins:expr)?) => {
         recognize(
             tuple((
-                opt(nom::character::complete::char('.')),
+                opt(winnow::character::complete::char('.')),
                 $($ins,)?
                 alpha1,
                 alphanumeric0
@@ -52,7 +52,7 @@ pub fn parse_label_name(input: &str) -> IResult<&str, &str> {
 pub fn parse_label_definition(input: &str) -> IResult<&str, &str> {
     let (rest, parsed) = pair(
         parse_label_name,
-        nom::character::complete::char(':')
+        winnow::character::complete::char(':')
     )(input)?;
 
     Ok((rest, parsed.0))
@@ -60,8 +60,8 @@ pub fn parse_label_definition(input: &str) -> IResult<&str, &str> {
 
 pub fn parse_label_definition_priv(input: &str) -> IResult<&str, &str> {
     let (rest, parsed) = pair(
-        label_name!(nom::character::complete::char('_')),
-        nom::character::complete::char(':')
+        label_name!(winnow::character::complete::char('_')),
+        winnow::character::complete::char(':')
     )(input)?;
 
     Ok((rest, parsed.0))
@@ -140,13 +140,13 @@ fn from_bigbinary(input: &str) -> Result<i128, std::num::ParseIntError> {
 }
 
 pub fn parse_bigimm(input: &str) -> IResult<&str, i128> {
-    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0x"))(input) {
+    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0x"))(input) {
         // Hexadecimal
         map_res(
             recognize(tuple((hex_digit1, opt(one_of("suSU"))))), 
             from_bighex
         )(rest)
-    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0b"))(input) {
+    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0b"))(input) {
         // Binary
         map_res(
             recognize(tuple((is_a("01"), opt(one_of("suSU"))))), 
@@ -162,13 +162,13 @@ pub fn parse_bigimm(input: &str) -> IResult<&str, i128> {
 }
 
 pub fn parse_imm(input: &str) -> IResult<&str, Imm> {
-    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0x"))(input) {
+    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0x"))(input) {
         // Hexadecimal
         map_res(
             recognize(tuple((hex_digit1, opt(one_of("suSU"))))), 
             from_hex
         )(rest)
-    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0b"))(input) {
+    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0b"))(input) {
         // Binary
         map_res(
             recognize(tuple((is_a("01"), opt(one_of("suSU"))))), 
@@ -189,7 +189,7 @@ pub fn parse_decimal(input: &str) -> IResult<&str, Imm> {
 pub fn parse_reg(input: &str) -> IResult<&str, Reg> {
     let (rest, reg) = alt((
         pair(
-            nom::character::complete::char('x'), 
+            winnow::character::complete::char('x'), 
             map_res(map_res(digit1, str::parse::<u8>), Reg::num_to_enum)
         ),
         pair(

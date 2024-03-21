@@ -20,12 +20,12 @@ python_lib = ["dep:pyo3"]
 maintenance = { status = "experimental" }
 
 [dependencies]
-nom = { workspace = true }
 indicatif = { workspace = true }
 console = { workspace = true }
 log = { workspace = true }
 smartstring = { workspace = true }
 pyo3 = { workspace = true, optional = true }
+winnow = "0.3"
 
 [dev-dependencies]
 predicates = { workspace = true }

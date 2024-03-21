@@ -8,7 +8,7 @@
 
 mod op_exp;
 
-use nom::{
+use winnow::{
     IResult,
     branch::alt,
     combinator::{
@@ -620,7 +620,7 @@ mod tests {
 
     macro_rules! assert_equ_line {
         ($pars_line:literal, $rest:literal, $struct:ident { $( $field:ident: $val:expr ),*}) => {
-            let (rest, parsed) = parse_line($pars_line)?;
+            let (rest, parsed) = parse_line($pars_line).unwrap();
             assert_eq!(rest, $rest);
             assert_eq!(parsed.as_any().downcast_ref::<$struct>().unwrap(), &$struct { $( $field: $val ),* });
         };
@@ -642,7 +642,7 @@ mod tests {
 
     macro_rules! assert_equ_line_priv {
         ($pars_line:literal, $rest:literal, $struct:ident { $( $field:ident: $val:expr ),*}) => {
-            let (rest, parsed) = parse_line_priv($pars_line)?;
+            let (rest, parsed) = parse_line_priv($pars_line).unwrap();
             assert_eq!(rest, $rest);
             assert_eq!(parsed.as_any().downcast_ref::<$struct>().unwrap(), &$struct { $( $field: $val ),* });
         };

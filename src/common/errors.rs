@@ -151,8 +151,8 @@ impl From<OptimizerError> for LibraryError {
     }
 }
 
-impl <I: std::fmt::Debug> From<nom::Err<nom::error::Error<I>>> for LibraryError {
-    fn from(value: nom::Err<nom::error::Error<I>>) -> Self {
+impl <I: std::fmt::Debug> From<winnow::Err<winnow::error::Error<I>>> for LibraryError {
+    fn from(value: winnow::Err<winnow::error::Error<I>>) -> Self {
         LibraryError::ParserError(format!("{value}"))
     }
 }

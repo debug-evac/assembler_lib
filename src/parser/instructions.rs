@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use nom::{
+use winnow::{
     branch::alt, bytes::complete::tag, character::complete::{digit1, space1}, combinator::{
         fail, map_opt, map_res, opt, recognize, value
     }, multi::separated_list1, sequence::{
@@ -237,9 +237,9 @@ impl InstrType {
                 match imm {
                     Some(offset) => { // s{b|w|h} x[0-31], IMM
                         if let (rest, Some(mem_reg)) = opt(delimited(
-                            nom::character::complete::char('('),
+                            winnow::character::complete::char('('),
                             parse_reg,
-                            nom::character::complete::char(')')
+                            winnow::character::complete::char(')')
                         ))(rest)? { // s{b|w|h} x[0-31], IMM(x[0-31])
                             Ok((rest, match interop {
                                 IntermediateOp::Sb => Instruction::Sb(treg, mem_reg, offset),
@@ -272,9 +272,9 @@ impl InstrType {
                     },
                     None => { // s{b|w|h} x[0-31], 
                         if let (rest, Some(mem_reg)) = opt(delimited(
-                            nom::character::complete::char('('),
+                            winnow::character::complete::char('('),
                             parse_reg,
-                            nom::character::complete::char(')')
+                            winnow::character::complete::char(')')
                         ))(rest)? { // s{b|w|h} x[0-31], (x[0-31])
                             Ok((rest, match interop {
                                 IntermediateOp::Sb => Instruction::Sb(treg, mem_reg, 0),
@@ -312,9 +312,9 @@ impl InstrType {
                 match imm {
                     Some(offset) => { // l{b|w|h|bu|hu} x[0-31], IMM
                         if let (rest, Some(mem_reg)) = opt(delimited(
-                            nom::character::complete::char('('),
+                            winnow::character::complete::char('('),
                             parse_reg,
-                            nom::character::complete::char(')')
+                            winnow::character::complete::char(')')
                         ))(rest)? { // l{b|w|h|bu|hu} x[0-31], IMM(x[0-31])
                             Ok((rest, match interop {
                                 IntermediateOp::Lb => Instruction::Lb(treg, mem_reg, offset),
@@ -351,9 +351,9 @@ impl InstrType {
                     },
                     None => { // l{b|w|h|bu|hu} x[0-31], 
                         if let (rest, Some(mem_reg)) = opt(delimited(
-                            nom::character::complete::char('('),
+                            winnow::character::complete::char('('),
                             parse_reg,
-                            nom::character::complete::char(')')
+                            winnow::character::complete::char(')')
                         ))(rest)? { // l{b|w|h|bu|hu} x[0-31], (x[0-31])
                             Ok((rest, match interop {
                                 IntermediateOp::Lb => Instruction::Lb(treg, mem_reg, 0),
@@ -378,9 +378,9 @@ impl InstrType {
                             let (rest, (label, mem_reg)) = pair(
                                 parse_low_label,
                                 delimited(
-                                    nom::character::complete::char('('),
+                                    winnow::character::complete::char('('),
                                     parse_reg,
-                                    nom::character::complete::char(')')
+                                    winnow::character::complete::char(')')
                                 )
                             )(rest)?; // l{b|w|h|bu|hu} x[0-31], %lo(LABEL)(x[0-31])
 
@@ -496,8 +496,8 @@ enum IntermediateOp {
 
 pub fn parse_seper(input: &str) -> IResult<&str, &str> {
     recognize(
-        pair(nom::character::complete::char(','), 
-        opt(nom::character::complete::char(' ')))
+        pair(winnow::character::complete::char(','), 
+        opt(winnow::character::complete::char(' ')))
     )(input)
 }
 
@@ -505,9 +505,9 @@ fn parse_low_label(input: &str) -> IResult<&str, &str> {
     preceded(
         tag("%lo"),
         delimited(
-            nom::character::complete::char('('),
+            winnow::character::complete::char('('),
             parse_label_name,
-            nom::character::complete::char(')')
+            winnow::character::complete::char(')')
         )
     )(input)
 }
@@ -516,9 +516,9 @@ fn parse_high_label(input: &str) -> IResult<&str, &str> {
     preceded(
         tag("%hi"),
         delimited(
-            nom::character::complete::char('('),
+            winnow::character::complete::char('('),
             parse_label_name,
-            nom::character::complete::char(')')
+            winnow::character::complete::char(')')
         )
     )(input)
 }

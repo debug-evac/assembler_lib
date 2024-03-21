@@ -13,11 +13,11 @@ mod data;
 mod symbols;
 
 use log::{debug, warn};
-use nom::{
+use winnow::{
     bytes::complete::escaped, 
     character::complete::{multispace1, not_line_ending}, 
     combinator::opt, 
-    multi::many0, 
+    multi::many_m_n, 
     sequence::tuple, 
     IResult
 };
@@ -55,14 +55,17 @@ fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType,
 }
 
 fn parse_multiline_comments(input: &str) -> IResult<&str, bool> {
-    let (rest, parsed) = opt(
-        many0(
+    // many_m_n since winnow detects a chance for infinite loops (bogus)
+    let (rest, parsed): (&str, Option<Vec<&str>>) = opt(
+        many_m_n(
+            0,
+            1000000000,
             escaped(multispace1, ';', not_line_ending)
         )
     )(input)?;
     if parsed.is_none() {
         // is only None at EOF
-        let (rest, _) = nom::bytes::complete::take::<usize, &str, nom::error::Error<&str>>(rest.len())(rest)?;
+        let (rest, _) = winnow::bytes::complete::take::<usize, &str, winnow::error::Error<&str>>(rest.len())(rest)?;
         return Ok((rest, true))
     }
     Ok((rest, false))

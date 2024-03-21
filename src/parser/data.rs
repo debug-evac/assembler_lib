@@ -9,7 +9,7 @@
 use std::{any::Any, fmt::Display};
 
 use log::{debug, error};
-use nom::{
+use winnow::{
     branch::alt,
     bytes::complete::{is_not, tag},
     character::complete::{digit1, space1},
@@ -179,11 +179,11 @@ fn parse_directive(input: &str) -> IResult<&str, Directive> {
             }
         )),
         separated_pair(tag(".ascii"), space1, map(
-            delimited(nom::character::complete::char('"'), is_not("\n\";"), nom::character::complete::char('"')),
+            delimited(winnow::character::complete::char('"'), is_not("\n\";"), winnow::character::complete::char('"')),
             |ascii_str: &str| string_to_le_words(ascii_str.to_string()).into()
         )),
         separated_pair(tag(".asciz"), space1, map(
-            delimited(nom::character::complete::char('"'), is_not("\n\";"), nom::character::complete::char('"')),
+            delimited(winnow::character::complete::char('"'), is_not("\n\";"), winnow::character::complete::char('"')),
             |ascii_str: &str| {
                 let mut ascii_string = ascii_str.to_string(); 
                 ascii_string.push('\0');
@@ -191,7 +191,7 @@ fn parse_directive(input: &str) -> IResult<&str, Directive> {
             } 
         )),
         separated_pair(tag(".string"), space1, map(
-            delimited(nom::character::complete::char('"'), is_not("\n\";"), nom::character::complete::char('"')),
+            delimited(winnow::character::complete::char('"'), is_not("\n\";"), winnow::character::complete::char('"')),
             |ascii_str: &str| {
                 let mut ascii_string = ascii_str.to_string(); 
                 ascii_string.push('\0');
@@ -644,7 +644,7 @@ mod tests {
 
     macro_rules! assert_equ_line {
         ($pars_line:literal, $rest:literal, $struct:ident { $( $field:ident: $val:expr ),*}) => {
-            let (rest, parsed) = parse_line($pars_line)?;
+            let (rest, parsed) = parse_line($pars_line).unwrap();
             assert_eq!(rest, $rest);
             assert_eq!(parsed.as_any().downcast_ref::<$struct>().unwrap(), &$struct { $( $field: $val ),* });
         };

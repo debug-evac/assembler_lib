@@ -8,8 +8,8 @@
 
 use winnow::{
     ascii::{alpha1, alphanumeric0, alphanumeric1, digit1, hex_digit1},
-    combinator::{alt, opt, success, terminated, preceded},
-    token::{one_of, tag, tag_no_case, take_while},
+    combinator::{alt, opt, empty, terminated, preceded},
+    token::{one_of, literal, take_while},
     PResult,
     Parser
 };
@@ -17,13 +17,13 @@ use winnow::{
 use crate::common::{Imm, Reg};
 
 pub fn parse_data_segment_id<'a>(input: &mut &'a str) -> PResult<&'a str> {
-    ('.', tag("data"))
+    ('.', literal("data"))
     .recognize()
     .parse_next(input)
 }
 
 pub fn parse_text_segment_id<'a>(input: &mut &'a str) -> PResult<&'a str> {
-    ('.', tag("text"))
+    ('.', literal("text"))
     .recognize()
     .parse_next(input)
 }
@@ -131,31 +131,31 @@ fn from_bigbinary(input: &str) -> Result<i128, std::num::ParseIntError> {
 }
 
 pub fn parse_bigimm(input: &mut &str) -> PResult<i128> {
-    if let Ok(Some(_)) = opt(tag_no_case::<&str, &str, winnow::error::InputError<&str>>("0x")).parse_next(input) {
+    if let Ok(Some(_)) = opt::<&str, &str, winnow::error::ContextError, _>(literal(winnow::ascii::Caseless("0x"))).parse_next(input) {
         // Hexadecimal
         (hex_digit1, opt(one_of(['s', 'u', 'S', 'U']))).recognize()
         .try_map(from_bighex)
         .parse_next(input)
-    } else if let Ok(Some(_)) = opt(tag_no_case::<&str, &str, winnow::error::InputError<&str>>("0b")).parse_next(input) {
+    } else if let Ok(Some(_)) = opt::<&str, &str, winnow::error::ContextError, _>(literal(winnow::ascii::Caseless("0b"))).parse_next(input) {
         // Binary
         (take_while(1.., ['0', '1']), opt(one_of(['s', 'u', 'S', 'U']))).recognize()
         .try_map(from_bigbinary)
         .parse_next(input)
     } else {
         // Decimal
-        (opt(tag("-")), digit1).recognize()
+        (opt(literal("-")), digit1).recognize()
         .try_map(str::parse)
         .parse_next(input)
     }
 }
 
 pub fn parse_imm(input: &mut &str) -> PResult<Imm> {
-    if let Ok(Some(_)) = opt(tag_no_case::<&str, &str, winnow::error::InputError<&str>>("0x")).parse_next(input) {
+    if let Ok(Some(_)) = opt::<&str, &str, winnow::error::ContextError, _>(literal(winnow::ascii::Caseless("0x"))).parse_next(input) {
         // Hexadecimal
         (hex_digit1, opt(one_of(['s', 'u', 'S', 'U']))).recognize()
         .try_map(from_hex)
         .parse_next(input)
-    } else if let Ok(Some(_)) = opt(tag_no_case::<&str, &str, winnow::error::InputError<&str>>("0b")).parse_next(input) {
+    } else if let Ok(Some(_)) = opt::<&str, &str, winnow::error::ContextError, _>(literal(winnow::ascii::Caseless("0b"))).parse_next(input) {
         // Binary
         (take_while(1.., ['0', '1']), opt(one_of(['s', 'u', 'S', 'U']))).recognize()
         .try_map(from_binary)
@@ -166,7 +166,7 @@ pub fn parse_imm(input: &mut &str) -> PResult<Imm> {
 }
 
 pub fn parse_decimal(input: &mut &str) -> PResult<Imm> {
-    (opt(tag("-")), digit1).recognize()
+    (opt(literal("-")), digit1).recognize()
     .try_map(str::parse)
     .parse_next(input)
 }
@@ -177,11 +177,11 @@ pub fn parse_reg(input: &mut &str) -> PResult<Reg> {
             'x', 
             digit1.try_map(|x: &str| {
                 let num = str::parse::<u8>(x).unwrap_or(50);
-                Reg::num_to_enum(num)
+                Reg::try_from(num)
             })
         ),
         preceded(
-            success('n'),
+            empty.value('n'),
             alphanumeric1.try_map(Reg::str_to_enum)
         )
     )).parse_next(input)

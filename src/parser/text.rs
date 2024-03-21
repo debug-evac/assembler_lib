@@ -10,7 +10,7 @@ mod op_exp;
 
 use winnow::{
     ascii::space1, combinator::{
-        alt, fail, separated_pair, success
+        alt, empty, fail, separated_pair
     }, error::StrContext, PResult, Parser
 };
 use std::{any::Any, cmp::Ordering};
@@ -87,10 +87,10 @@ fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         ),
         (
             parse_label_definition.map(Some), 
-            success(None)
+            empty.value(None)
         ),
         (
-            success(None),
+            empty.value(None),
             parse_instruction.map(Some)
         ),
     ))
@@ -111,10 +111,10 @@ fn parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         ),
         (
             parse_label_definition_priv.map(Some), 
-            success(None)
+            empty.value(None)
         ),
         (
-            success(None),
+            empty.value(None),
             parse_instruction.map(Some)
         ),
     ))

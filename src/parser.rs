@@ -16,7 +16,7 @@ use log::{debug, warn};
 use winnow::ascii::space1;
 use winnow::combinator::{alt, eof, repeat, terminated};
 use winnow::{
-    ascii::{not_line_ending, line_ending, escaped},
+    ascii::{till_line_ending, line_ending, escaped},
     combinator::opt,
     Parser,
     PResult
@@ -196,7 +196,7 @@ where
 
 fn parse_multiline_comments(input: &mut &str) -> PResult<bool> {
     //let parsed: Option<Vec<&str>> = opt(
-    let parsed: Vec<&str> =
+    let _parsed: Vec<&str> =
         /*many_m_n(
             0,
             1000000000,*/
@@ -204,7 +204,7 @@ fn parse_multiline_comments(input: &mut &str) -> PResult<bool> {
         repeat(
             0..,
             terminated(
-                escaped(space1, ';', not_line_ending),
+                escaped(space1, ';', till_line_ending),
                 alt((line_ending.void(), eof.void()))
             )
             //escaped(multispace1, ';', until_newline)

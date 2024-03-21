@@ -11,9 +11,9 @@ use std::{any::Any, fmt::Display};
 use log::{debug, error};
 use winnow::{
     Parser,
-    token::{tag, take_till1},
+    token::{literal, take_till},
     ascii::{digit1, space1},
-    combinator::{fail, opt, success, alt, delimited, separated_pair, separated1},
+    combinator::{fail, opt, empty, alt, delimited, separated_pair, separated},
     error::StrContext,
     PResult
 };
@@ -49,7 +49,8 @@ impl Display for Directive {
 }
 
 fn parse_byte(input: &mut &str) -> PResult<MemData> {
-    separated1(
+    separated(
+        1..,
         alt((
             parse_imm.map(|imm| imm.into()),
             parse_label_name.map(|label| {
@@ -67,7 +68,8 @@ fn parse_byte(input: &mut &str) -> PResult<MemData> {
 }
 
 fn parse_half(input: &mut &str) -> PResult<MemData> {
-    separated1(
+    separated(
+        1..,
         alt((
             parse_imm.map(|imm| imm.into()),
             parse_label_name.map(|label| {
@@ -85,7 +87,8 @@ fn parse_half(input: &mut &str) -> PResult<MemData> {
 }
 
 fn parse_word(input: &mut &str) -> PResult<MemData> {
-    separated1(
+    separated(
+        1..,
         alt((
             parse_bigimm.map(|imm| imm.into()),
             parse_label_name.map(|label| {
@@ -103,7 +106,8 @@ fn parse_word(input: &mut &str) -> PResult<MemData> {
 }
 
 fn parse_dword(input: &mut &str) -> PResult<MemData> {
-    separated1(
+    separated(
+        1..,
         alt((
             parse_bigimm.map(|imm| imm.into()),
             parse_label_name.map(|label| {
@@ -159,11 +163,11 @@ fn string_to_le_words(input: String) -> MemData {
 
 fn parse_directive(input: &mut &str) -> PResult<Directive> {
     let (_, directive) = alt((
-        separated_pair(tag(".byte"), space1, parse_byte.map(Directive::Data)),
-        separated_pair(tag(".half"), space1, parse_half.map(Directive::Data)),
-        separated_pair(tag(".word"), space1, parse_word.map(Directive::Data)),
-        separated_pair(tag(".dword"), space1, parse_dword.map(Directive::Data)),
-        separated_pair(tag(".space"), space1,
+        separated_pair(literal(".byte"), space1, parse_byte.map(Directive::Data)),
+        separated_pair(literal(".half"), space1, parse_half.map(Directive::Data)),
+        separated_pair(literal(".word"), space1, parse_word.map(Directive::Data)),
+        separated_pair(literal(".dword"), space1, parse_dword.map(Directive::Data)),
+        separated_pair(literal(".space"), space1,
             digit1.try_map(|num| {
                 let mut vec_data = vec![];
                 for _ in 0..str::parse(num)? {
@@ -172,27 +176,27 @@ fn parse_directive(input: &mut &str) -> PResult<Directive> {
                 Ok::<Directive, <usize as core::str::FromStr>::Err>(MemData::Bytes(vec_data, true).into())
             }
         )),
-        separated_pair(tag(".ascii"), space1,
-            delimited('"', take_till1(['\n', '\"', ';']), '"').map(
+        separated_pair(literal(".ascii"), space1,
+            delimited('"', take_till(1.., ['\n', '\"', ';']), '"').map(
             |ascii_str: &str| string_to_le_words(ascii_str.to_string()).into()
         )),
-        separated_pair(tag(".asciz"), space1,
-            delimited('"', take_till1(['\n', '\"', ';']), '"').map(
+        separated_pair(literal(".asciz"), space1,
+            delimited('"', take_till(1.., ['\n', '\"', ';']), '"').map(
             |ascii_str: &str| {
                 let mut ascii_string = ascii_str.to_string(); 
                 ascii_string.push('\0');
                 string_to_le_words(ascii_string).into()
             } 
         )),
-        separated_pair(tag(".string"), space1,
-            delimited('"', take_till1(['\n', '\"', ';']), '"').map(
+        separated_pair(literal(".string"), space1,
+            delimited('"', take_till(1.., ['\n', '\"', ';']), '"').map(
             |ascii_str: &str| {
                 let mut ascii_string = ascii_str.to_string(); 
                 ascii_string.push('\0');
                 string_to_le_words(ascii_string).into()
             }
         )),
-        separated_pair(tag(".eqv"), space1, parse_eqv)
+        separated_pair(literal(".eqv"), space1, parse_eqv)
     )).parse_next(input)?;
 
     Ok(directive)
@@ -211,10 +215,10 @@ fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         ),
         (
             parse_label_definition.map(Some), 
-            success(None)
+            empty.value(None)
         ),
         (
-            success(None),
+            empty.value(None),
             parse_directive.map(Some)
         ),
     ))

@@ -310,31 +310,73 @@ impl Translate for MacroInstr {
 
             MacroInstr::Beq(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 0b01_11111_11111_i32 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 2047))
+                } else if clines < -2048 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -2048))
+                }
                 instructions.push(Instruction::Beq(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Bne(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 0b01_11111_11111_i32 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 2047))
+                } else if clines < -2048 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -2048))
+                }
                 instructions.push(Instruction::Bne(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Blt(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 0b01_11111_11111_i32 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 2047))
+                } else if clines < -2048 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -2048))
+                }
                 instructions.push(Instruction::Blt(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Bltu(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 0b01_11111_11111_i32 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 2047))
+                } else if clines < -2048 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -2048))
+                }
                 instructions.push(Instruction::Bltu(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Bge(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 0b01_11111_11111_i32 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 2047))
+                } else if clines < -2048 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -2048))
+                }
                 instructions.push(Instruction::Bge(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Bgeu(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 0b01_11111_11111_i32 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 2047))
+                } else if clines < -2048 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -2048))
+                }
                 instructions.push(Instruction::Bgeu(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
             MacroInstr::Jal(reg, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 524287 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 524287))
+                } else if clines < -524288 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -524288))
+                }
                 instructions.push(Instruction::Jal(reg.to_owned(), lines));
             },
             MacroInstr::Jalr(reg1, reg2, labl, part) => {

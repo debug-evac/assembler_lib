@@ -60,7 +60,8 @@ impl ExitErrorCode for LinkError {
 pub enum OptimizerError {
     LabelNonExistent(smartstring::alias::String),
     LabelSubNotRequiredFor(MacroInstr),
-    LabelTooFar(TryFromIntError)
+    LabelTooFar(TryFromIntError),
+    JumpTooFar(MacroInstr, usize, i32, i32) // Macro, line, difference, must be equal or under
 }
 
 impl std::fmt::Display for OptimizerError {
@@ -69,6 +70,8 @@ impl std::fmt::Display for OptimizerError {
             OptimizerError::LabelNonExistent(label) => write!(f, "Label '{}' is not existent!", label),
             OptimizerError::LabelSubNotRequiredFor(macro_in) => write!(f, "Label substitution not required for Macro '{:?}'", macro_in),
             OptimizerError::LabelTooFar(std_err) => write!(f, "{std_err}"),
+            OptimizerError::JumpTooFar(macro_in, cur_line, dif, under_equal) => 
+            write!(f, "[Operation #{cur_line}] Jump in '{macro_in}' too far away: {dif} > {under_equal}!"),
         }
     }
 }

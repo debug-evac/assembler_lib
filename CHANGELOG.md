@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- [BREAKING] Label checks for jump macros
+  - Branching to a label that is more than 12 bits away will return an `OptimizerError`
+  - `Jal` to a label that is more than 20 bits away will return an `OptimizerError`
 - [BREAKING] Symbols
   - `.eqv` no longer emits labels, instead symbols are emitted
   - Symbols are local only and can be used in instructions and macros instead of immediates
@@ -59,7 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [BREAKING] Removed immediate variants of `la`, `call` and `tail`
   - `la t1, 20`, `call 0x10` and `tail 15` are no longer accepted!
 - [BREAKING] Removed `jal <IMM>` and `j <IMM>`
-- [BREAKING] Removed label variant of `li`, `auipc`, `slli`, `srli`, and `srai`
+- [BREAKING] Removed label variant of `li`, `jalr`, `auipc`, `slli`, `srli`, and `srai`
+  - You can use symbols with most of these
 - Dependency on `asm_core_lib` crate
   - No API changes
 

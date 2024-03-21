@@ -117,10 +117,6 @@ impl InstrType {
                     IntermediateOp::Bltu => MacroInstr::Bltu(args.0, args.1, args.2.into()).into(),
                     IntermediateOp::Bge => MacroInstr::Bge(args.0, args.1, args.2.into()).into(),
                     IntermediateOp::Bgeu => MacroInstr::Bgeu(args.0, args.1, args.2.into()).into(),
-                    
-                    // this may be removed
-                    IntermediateOp::Jalr => MacroInstr::Jalr(args.0, args.1, args.2.into(), Part::None).into(),
-                    // until here
             
                     IntermediateOp::Sb => MacroInstr::SbLabl(args.0, args.1, args.2.into()).into(),
                     IntermediateOp::Sh => MacroInstr::ShLabl(args.0, args.1, args.2.into()).into(),
@@ -594,8 +590,6 @@ fn parse_macro_1labl2reg(input: &str) -> IResult<&str, Operation> {
         value(InstrType::Reg2Labl(IntermediateOp::Bgeu), tag("bgeu")),
         value(InstrType::Reg2Labl(IntermediateOp::Blt), tag("blt")),
         value(InstrType::Reg2Labl(IntermediateOp::Bge), tag("bge")),
-
-        value(InstrType::Reg2Labl(IntermediateOp::Jalr), tag("jalr")),
 
         value(InstrType::Reg2Labl(IntermediateOp::Lbu), tag("lbu")),
         value(InstrType::Reg2Labl(IntermediateOp::Lhu), tag("lhu")),

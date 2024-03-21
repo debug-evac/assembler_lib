@@ -7,64 +7,58 @@
  */
 
 use winnow::{
-    branch::alt, bytes::complete::{
-        is_a, tag, tag_no_case
-    }, character::complete::{
-        alpha1, alphanumeric0, alphanumeric1, digit1, hex_digit1, one_of
-    }, combinator::{
-        map_res, opt, recognize, success
-    }, sequence::{
-        pair, tuple
-    }, IResult
+    Parser,
+    bytes::{tag, tag_no_case, one_of, take_while1},
+    character::{alpha1, alphanumeric0, alphanumeric1, digit1, hex_digit1},
+    branch::alt,
+    combinator::{
+        opt, success
+    },
+    sequence::terminated, IResult
 };
 
 use crate::common::{Imm, Reg};
 
 pub fn parse_data_segment_id(input: &str) -> IResult<&str, &str> {
-    recognize(
-        tuple((winnow::character::complete::char('.'), tag("data")))
-    )(input)
+    ('.', tag("data"))
+    .recognize()
+    .parse_next(input)
 }
 
 pub fn parse_text_segment_id(input: &str) -> IResult<&str, &str> {
-    recognize(
-        pair(winnow::character::complete::char('.'), tag("text"))
-    )(input)
+    ('.', tag("text"))
+    .recognize()
+    .parse_next(input)
 }
 
 macro_rules! label_name {
     ($($ins:expr)?) => {
-        recognize(
-            tuple((
-                opt(winnow::character::complete::char('.')),
-                $($ins,)?
-                alpha1,
-                alphanumeric0
-            )
-        ))
+        (
+            opt('.'),
+            $($ins,)?
+            alpha1,
+            alphanumeric0
+        )
+        .recognize()
     };
 }
 
 pub fn parse_label_name(input: &str) -> IResult<&str, &str> {
-    label_name!()(input)
+    label_name!().parse_next(input)
 }
 
 pub fn parse_label_definition(input: &str) -> IResult<&str, &str> {
-    let (rest, parsed) = pair(
+    terminated(
         parse_label_name,
-        winnow::character::complete::char(':')
-    )(input)?;
-
-    Ok((rest, parsed.0))
+        ':'
+    )(input)
 }
 
 pub fn parse_label_definition_priv(input: &str) -> IResult<&str, &str> {
-    let (rest, parsed) = pair(
-        label_name!(winnow::character::complete::char('_')),
-        winnow::character::complete::char(':')
-    )(input)?;
-
-    Ok((rest, parsed.0))
+    terminated(
+        label_name!('_'),
+        ':'
+    )(input)
 }
 
 fn from_hex(input: &str) -> Result<Imm, std::num::ParseIntError> {
@@ -142,59 +136,54 @@ fn from_bigbinary(input: &str) -> Result<i128, std::num::ParseIntError> {
 pub fn parse_bigimm(input: &str) -> IResult<&str, i128> {
     if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0x"))(input) {
         // Hexadecimal
-        map_res(
-            recognize(tuple((hex_digit1, opt(one_of("suSU"))))), 
-            from_bighex
-        )(rest)
+        (hex_digit1, opt(one_of("suSU"))).recognize()
+        .map_res(from_bighex)
+        .parse_next(rest)
     } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0b"))(input) {
         // Binary
-        map_res(
-            recognize(tuple((is_a("01"), opt(one_of("suSU"))))), 
-            from_bigbinary
-        )(rest)
+        (take_while1("01"), opt(one_of("suSU"))).recognize()
+        .map_res(from_bigbinary)
+        .parse_next(rest)
     } else {
         // Decimal
-        map_res(
-            recognize(tuple((opt(tag("-")), digit1))),
-            str::parse
-        )(input)
+        (opt(tag("-")), digit1).recognize()
+        .map_res(str::parse)
+        .parse_next(input)
     }
 }
 
 pub fn parse_imm(input: &str) -> IResult<&str, Imm> {
     if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0x"))(input) {
         // Hexadecimal
-        map_res(
-            recognize(tuple((hex_digit1, opt(one_of("suSU"))))), 
-            from_hex
-        )(rest)
+        (hex_digit1, opt(one_of("suSU"))).recognize()
+        .map_res(from_hex)
+        .parse_next(rest)
     } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, winnow::error::Error<&str>>("0b"))(input) {
         // Binary
-        map_res(
-            recognize(tuple((is_a("01"), opt(one_of("suSU"))))), 
-            from_binary
-        )(rest)
+        (take_while1("01"), opt(one_of("suSU"))).recognize()
+        .map_res(from_binary)
+        .parse_next(rest)
     } else {
         parse_decimal(input)
     }
 }
 
 pub fn parse_decimal(input: &str) -> IResult<&str, Imm> {
-    map_res(
-        recognize(tuple((opt(tag("-")), digit1))),
-        str::parse
-    )(input)
+    (opt(tag("-")), digit1).recognize()
+    .map_res(str::parse)
+    .parse_next(input)
 }
 
 pub fn parse_reg(input: &str) -> IResult<&str, Reg> {
     let (rest, reg) = alt((
-        pair(
-            winnow::character::complete::char('x'), 
-            map_res(map_res(digit1, str::parse::<u8>), Reg::num_to_enum)
+        (
+            'x', 
+            digit1.map_res(str::parse::<u8>)
+            .map_res(Reg::num_to_enum)
         ),
-        pair(
+        (
             success('n'),
-            map_res(alphanumeric1, Reg::str_to_enum)
+            alphanumeric1.map_res(Reg::str_to_enum)
         )
     ))(input)?;
     Ok((rest, reg.1))

@@ -10,13 +10,13 @@ use std::{any::Any, fmt::Display};
 
 use log::{debug, error};
 use winnow::{
+    Parser,
     branch::alt,
-    bytes::complete::{is_not, tag},
-    character::complete::{digit1, space1},
-    combinator::{fail, map, map_res, opt, success, into},
-    error::context,
-    multi::separated_list1,
-    sequence::{delimited, pair, separated_pair},
+    bytes::{tag, take_till1},
+    character::{digit1, space1},
+    combinator::{fail, opt, success},
+    multi::separated1,
+    sequence::{delimited, separated_pair},
     IResult
 };
 
@@ -51,89 +51,85 @@ impl Display for Directive {
 }
 
 fn parse_byte(input: &str) -> IResult<&str, MemData> {
-    map(
-        separated_list1(
-            parse_seper,
-            alt((
-                map(parse_imm, |imm| imm.into()),
-                map(parse_label_name, |label| {
-                    let labl = smartstring::alias::String::from(label);
-                    match Symbols::symbols_read(&labl) {
-                        Some(val) => ByteData::Byte(val as i16),
-                        None => ByteData::String(labl),
-                    }
-                })
-            ))
-        ),
+    separated1(
+        alt((
+            parse_imm.map(|imm| imm.into()),
+            parse_label_name.map(|label| {
+                let labl = smartstring::alias::String::from(label);
+                match Symbols::symbols_read(&labl) {
+                    Some(val) => ByteData::Byte(val as i16),
+                    None => ByteData::String(labl),
+                }
+            })
+        )),
+        parse_seper
+    ).map(
         |data| MemData::Bytes(data, false)
-    )(input)
+    ).parse_next(input)
 }
 
 fn parse_half(input: &str) -> IResult<&str, MemData> {
-    map(
-        separated_list1(
-            parse_seper,
-            alt((
-                map(parse_imm, |imm| imm.into()),
-                map(parse_label_name, |label| {
-                    let labl = smartstring::alias::String::from(label);
-                    match Symbols::symbols_read(&labl) {
-                        Some(val) => HalfData::Half(val as i32),
-                        None => HalfData::String(labl),
-                    }
-                })
-            ))
-        ),
+    separated1(
+        alt((
+            parse_imm.map(|imm| imm.into()),
+            parse_label_name.map(|label| {
+                let labl = smartstring::alias::String::from(label);
+                match Symbols::symbols_read(&labl) {
+                    Some(val) => HalfData::Half(val as i32),
+                    None => HalfData::String(labl),
+                }
+            })
+        )),
+        parse_seper
+    ).map(
         MemData::Halfs
-    )(input)
+    ).parse_next(input)
 }
 
 fn parse_word(input: &str) -> IResult<&str, MemData> {
-    map(
-        separated_list1(
-            parse_seper,
-            alt((
-                map(parse_bigimm, |imm| imm.into()),
-                map(parse_label_name, |label| {
-                    let labl = smartstring::alias::String::from(label);
-                    match Symbols::symbols_read(&labl) {
-                        Some(val) => WordData::Word(val as i64),
-                        None => WordData::String(labl),
-                    }
-                })
-            ))
-        ),
+    separated1(
+        alt((
+            parse_bigimm.map(|imm| imm.into()),
+            parse_label_name.map(|label| {
+                let labl = smartstring::alias::String::from(label);
+                match Symbols::symbols_read(&labl) {
+                    Some(val) => WordData::Word(val as i64),
+                    None => WordData::String(labl),
+                }
+            })
+        )),
+        parse_seper
+    ).map(
         MemData::Words
-    )(input)
+    ).parse_next(input)
 }
 
 fn parse_dword(input: &str) -> IResult<&str, MemData> {
-    map(
-        separated_list1(
-            parse_seper,
-            alt((
-                map(parse_bigimm, |imm| imm.into()),
-                map(parse_label_name, |label| {
-                    let labl = smartstring::alias::String::from(label);
-                    match Symbols::symbols_read(&labl) {
-                        Some(val) => DWordData::DWord(val),
-                        None => DWordData::String(labl),
-                    }
-                })
-            ))
-        ),
+    separated1(
+        alt((
+            parse_bigimm.map(|imm| imm.into()),
+            parse_label_name.map(|label| {
+                let labl = smartstring::alias::String::from(label);
+                match Symbols::symbols_read(&labl) {
+                    Some(val) => DWordData::DWord(val),
+                    None => DWordData::String(labl),
+                }
+            })
+        )),
+        parse_seper
+    ).map(
         MemData::DWords
-    )(input)
+    ).parse_next(input)
 }
 
 fn parse_eqv(input: &str) -> IResult<&str, Directive> {
-    map(
-        separated_pair(
-            parse_label_name, 
-            parse_seper, 
-            parse_bigimm),
+    separated_pair(
+        parse_label_name, 
+        parse_seper, 
+        parse_bigimm
+    ).map(
         |(label, def)| Directive::EqvLabel(label.into(), def)
-    )(input)
+    ).parse_next(input)
 }
 
 fn string_to_le_words(input: String) -> MemData {
@@ -165,12 +161,12 @@ fn string_to_le_words(input: String) -> MemData {
 
 fn parse_directive(input: &str) -> IResult<&str, Directive> {
     let (rest, (_, directive)) = alt((
-        separated_pair(tag(".byte"), space1, map(parse_byte, Directive::Data)),
-        separated_pair(tag(".half"), space1, map(parse_half, Directive::Data)),
-        separated_pair(tag(".word"), space1, map(parse_word, Directive::Data)),
-        separated_pair(tag(".dword"), space1, map(parse_dword, Directive::Data)),
-        separated_pair(tag(".space"), space1, map_res(
-            digit1, |num| {
+        separated_pair(tag(".byte"), space1, parse_byte.map(Directive::Data)),
+        separated_pair(tag(".half"), space1, parse_half.map(Directive::Data)),
+        separated_pair(tag(".word"), space1, parse_word.map(Directive::Data)),
+        separated_pair(tag(".dword"), space1, parse_dword.map(Directive::Data)),
+        separated_pair(tag(".space"), space1,
+            digit1.map_res(|num| {
                 let mut vec_data = vec![];
                 for _ in 0..str::parse(num)? {
                     vec_data.push(ByteData::Byte(0));
@@ -178,20 +174,20 @@ fn parse_directive(input: &str) -> IResult<&str, Directive> {
                 Ok::<Directive, <usize as core::str::FromStr>::Err>(MemData::Bytes(vec_data, true).into())
             }
         )),
-        separated_pair(tag(".ascii"), space1, map(
-            delimited(winnow::character::complete::char('"'), is_not("\n\";"), winnow::character::complete::char('"')),
+        separated_pair(tag(".ascii"), space1,
+            delimited('"', take_till1("\n\";"), '"').map(
             |ascii_str: &str| string_to_le_words(ascii_str.to_string()).into()
         )),
-        separated_pair(tag(".asciz"), space1, map(
-            delimited(winnow::character::complete::char('"'), is_not("\n\";"), winnow::character::complete::char('"')),
+        separated_pair(tag(".asciz"), space1,
+            delimited('"', take_till1("\n\";"), '"').map(
             |ascii_str: &str| {
                 let mut ascii_string = ascii_str.to_string(); 
                 ascii_string.push('\0');
                 string_to_le_words(ascii_string).into()
             } 
         )),
-        separated_pair(tag(".string"), space1, map(
-            delimited(winnow::character::complete::char('"'), is_not("\n\";"), winnow::character::complete::char('"')),
+        separated_pair(tag(".string"), space1,
+            delimited('"', take_till1("\n\";"), '"').map(
             |ascii_str: &str| {
                 let mut ascii_string = ascii_str.to_string(); 
                 ascii_string.push('\0');
@@ -209,28 +205,23 @@ fn parse_line(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
     if early {
         return Ok((rest, Box::from(NoData { })))
     }
-    into(
-        alt((
+    alt((
         separated_pair(
-            map(parse_label_definition, Some),
+            parse_label_definition.map(Some),
             parse_multiline_comments,
-            map(
-                parse_directive,
-                Some
-            )
+            parse_directive.map(Some),
         ),
-        pair(
-            map(parse_label_definition, Some), 
+        (
+            parse_label_definition.map(Some), 
             success(None)
         ),
-        pair(
+        (
             success(None),
-            map(
-                parse_directive,
-                Some
-            )
+            parse_directive.map(Some)
         ),
-    )))(rest)
+    ))
+    .output_into()
+    .parse_next(rest)
 }
 
 fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usize {
@@ -421,7 +412,7 @@ pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str
 
         if let Err(e) = parsed.handle(&mut next_free_ptr, &mut dir_list, symbol_map) {
             error!("{e}");
-            return context(e.get_nom_err_text(), fail)(rest)
+            return fail.context(e.get_nom_err_text()).parse_next(rest)
         }
 
         let (rested, breakout) = delimited(parse_multiline_comments, opt(parse_text_segment_id), parse_multiline_comments)(rest)?;

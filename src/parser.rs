@@ -14,11 +14,10 @@ mod symbols;
 
 use log::{debug, warn};
 use winnow::{
-    bytes::complete::escaped, 
-    character::complete::{multispace1, not_line_ending}, 
+    Parser,
+    character::{escaped, multispace1, not_line_ending},
     combinator::opt, 
-    multi::many_m_n, 
-    sequence::tuple, 
+    multi::many_m_n,
     IResult
 };
 use std::collections::HashSet;
@@ -65,7 +64,7 @@ fn parse_multiline_comments(input: &str) -> IResult<&str, bool> {
     )(input)?;
     if parsed.is_none() {
         // is only None at EOF
-        let (rest, _) = winnow::bytes::complete::take::<usize, &str, winnow::error::Error<&str>>(rest.len())(rest)?;
+        let (rest, _) = winnow::bytes::take::<usize, &str, winnow::error::Error<&str>>(rest.len())(rest)?;
         return Ok((rest, true))
     }
     Ok((rest, false))
@@ -76,14 +75,14 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sp_
     
     Symbols::symbols_clear();
 
-    let (mut rest, parsed) = tuple((parse_multiline_comments, opt(parse_data_segment_id), parse_multiline_comments))(input)?;
+    let (mut rest, parsed) = (parse_multiline_comments, opt(parse_data_segment_id), parse_multiline_comments).parse_next(input)?;
     if parsed.1.is_some() {
         warn!("Experimental: Data sections have not been tested rigorously! Expect bugs and errors!");
         let parsed = data::parse(rest, assembly.get_labels_refmut())?;
         rest = parsed.0;
         assembly.set_data(parsed.1);
     } else {
-        let (rested, _) = tuple((parse_multiline_comments, opt(parse_text_segment_id), parse_multiline_comments))(rest)?;
+        let (rested, _) = (parse_multiline_comments, opt(parse_text_segment_id), parse_multiline_comments).parse_next(rest)?;
         rest = rested;
     }
 

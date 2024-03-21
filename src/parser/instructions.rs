@@ -7,11 +7,16 @@
  */
 
 use winnow::{
-    branch::alt, bytes::complete::tag, character::complete::{digit1, space1}, combinator::{
-        fail, map_opt, map_res, opt, recognize, value
-    }, multi::separated_list1, sequence::{
-        delimited, pair, preceded, separated_pair, terminated, tuple
-    }, IResult
+    Parser,
+    bytes::tag,
+    character::{space1, digit1},
+    branch::alt,
+    combinator::{fail, opt},
+    multi::separated1,
+    sequence::{
+        delimited, preceded, separated_pair, terminated
+    },
+    IResult
 };
 
 use crate::parser::literals::{parse_imm, parse_reg, parse_label_name};
@@ -77,10 +82,10 @@ impl InstrType {
 
                 let (rest, imm) = match opt(parse_imm)(rest)? {
                     (_, None) => {
-                        map_opt(parse_label_name, |label| {
+                        parse_label_name.verify_map(|label| {
                             let labl = smartstring::alias::String::from(label);
                             Some(Symbols::symbols_read(&labl)? as i32)
-                        })(rest)?
+                        }).parse_next(rest)?
                     },
                     (rest_f, Some(val)) => (rest_f, val),
                 };
@@ -104,11 +109,11 @@ impl InstrType {
                 }))
             },
             InstrType::Reg2Labl(interop) => {
-                let (rest, args) = tuple((
+                let (rest, args) = (
                     parse_reg,
                     preceded(parse_seper, parse_reg),
-                    preceded(parse_seper, parse_label_name)))
-                (rest)?;
+                    preceded(parse_seper, parse_label_name))
+                .parse_next(rest)?;
 
                 Ok((rest, match interop {
                     IntermediateOp::Beq => MacroInstr::Beq(args.0, args.1, args.2.into()).into(),
@@ -128,17 +133,17 @@ impl InstrType {
                 }))
             },
             InstrType::Reg2Imm(interop) => {
-                let (rest, args) = pair(
+                let (rest, args) = (
                     parse_reg,
                     delimited(parse_seper, parse_reg, parse_seper)
-                )(rest)?;
+                ).parse_next(rest)?;
 
                 let (rest, imm) = match opt(parse_imm)(rest)? {
                     (rest_f, None) => {
-                        map_opt(parse_label_name, |label| {
+                        parse_label_name.verify_map(|label| {
                             let labl = smartstring::alias::String::from(label);
                             Some(Symbols::symbols_read(&labl)? as i32)
-                        })(rest_f)?
+                        }).parse_next(rest_f)?
                     },
                     (rest_f, Some(val)) => (rest_f, val),
                 };
@@ -174,11 +179,11 @@ impl InstrType {
                 }))
             },
             InstrType::Reg3(interop) => {
-                let (rest, args) = tuple((
+                let (rest, args) = (
                     parse_reg,
                     preceded(parse_seper, parse_reg),
-                    preceded(parse_seper, parse_reg)))
-                (rest)?;
+                    preceded(parse_seper, parse_reg))
+                .parse_next(rest)?;
 
                 Ok((rest, match interop {
                     IntermediateOp::Add => Instruction::Add(args.0, args.1, args.2).into(),
@@ -212,7 +217,7 @@ impl InstrType {
                 }))
             },
             InstrType::RegVar(interop) => {
-                let (rest, args) = separated_list1(parse_seper, parse_reg)(rest)?;
+                let (rest, args) = separated1(parse_reg, parse_seper)(rest)?;
 
                 Ok((rest, match interop {
                     IntermediateOp::Push => MacroInstr::Push(args).into(),
@@ -226,7 +231,7 @@ impl InstrType {
 
                 let (rest, imm) = match opt(parse_imm)(rest)? {
                     (rest_f, None) => {
-                        opt(map_opt(parse_label_name, |label| {
+                        opt(parse_label_name.verify_map(|label| {
                             let labl = smartstring::alias::String::from(label);
                             Some(Symbols::symbols_read(&labl)? as i32)
                         }))(rest_f)?
@@ -237,9 +242,9 @@ impl InstrType {
                 match imm {
                     Some(offset) => { // s{b|w|h} x[0-31], IMM
                         if let (rest, Some(mem_reg)) = opt(delimited(
-                            winnow::character::complete::char('('),
+                            '(',
                             parse_reg,
-                            winnow::character::complete::char(')')
+                            ')'
                         ))(rest)? { // s{b|w|h} x[0-31], IMM(x[0-31])
                             Ok((rest, match interop {
                                 IntermediateOp::Sb => Instruction::Sb(treg, mem_reg, offset),
@@ -272,9 +277,9 @@ impl InstrType {
                     },
                     None => { // s{b|w|h} x[0-31], 
                         if let (rest, Some(mem_reg)) = opt(delimited(
-                            winnow::character::complete::char('('),
+                            '(',
                             parse_reg,
-                            winnow::character::complete::char(')')
+                            ')'
                         ))(rest)? { // s{b|w|h} x[0-31], (x[0-31])
                             Ok((rest, match interop {
                                 IntermediateOp::Sb => Instruction::Sb(treg, mem_reg, 0),
@@ -301,7 +306,7 @@ impl InstrType {
 
                 let (rest, imm) = match opt(parse_imm)(rest)? {
                     (rest_f, None) => {
-                        opt(map_opt(parse_label_name, |label| {
+                        opt(parse_label_name.verify_map(|label| {
                             let labl = smartstring::alias::String::from(label);
                             Some(Symbols::symbols_read(&labl)? as i32)
                         }))(rest_f)?
@@ -312,9 +317,9 @@ impl InstrType {
                 match imm {
                     Some(offset) => { // l{b|w|h|bu|hu} x[0-31], IMM
                         if let (rest, Some(mem_reg)) = opt(delimited(
-                            winnow::character::complete::char('('),
+                            '(',
                             parse_reg,
-                            winnow::character::complete::char(')')
+                            ')'
                         ))(rest)? { // l{b|w|h|bu|hu} x[0-31], IMM(x[0-31])
                             Ok((rest, match interop {
                                 IntermediateOp::Lb => Instruction::Lb(treg, mem_reg, offset),
@@ -351,9 +356,9 @@ impl InstrType {
                     },
                     None => { // l{b|w|h|bu|hu} x[0-31], 
                         if let (rest, Some(mem_reg)) = opt(delimited(
-                            winnow::character::complete::char('('),
+                            '(',
                             parse_reg,
-                            winnow::character::complete::char(')')
+                            ')'
                         ))(rest)? { // l{b|w|h|bu|hu} x[0-31], (x[0-31])
                             Ok((rest, match interop {
                                 IntermediateOp::Lb => Instruction::Lb(treg, mem_reg, 0),
@@ -375,14 +380,14 @@ impl InstrType {
                                 op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                             }.into())) // l{b|w|h|bu|hu} x[0-31], LABEL
                         } else {
-                            let (rest, (label, mem_reg)) = pair(
+                            let (rest, (label, mem_reg)) = (
                                 parse_low_label,
                                 delimited(
-                                    winnow::character::complete::char('('),
+                                    '(',
                                     parse_reg,
-                                    winnow::character::complete::char(')')
+                                    ')'
                                 )
-                            )(rest)?; // l{b|w|h|bu|hu} x[0-31], %lo(LABEL)(x[0-31])
+                            ).parse_next(rest)?; // l{b|w|h|bu|hu} x[0-31], %lo(LABEL)(x[0-31])
 
                             match interop {
                                 IntermediateOp::Lbu => fail(""),
@@ -406,7 +411,7 @@ impl InstrType {
         
                         let (rest, imm) = match opt(parse_imm)(rest)? {
                             (rest_f, None) => {
-                                opt(map_opt(parse_label_name, |label| {
+                                opt(parse_label_name.verify_map(|label| {
                                     let labl = smartstring::alias::String::from(label);
                                     Some(Symbols::symbols_read(&labl)? as i32)
                                 }))(rest_f)?
@@ -425,7 +430,7 @@ impl InstrType {
                     IntermediateOp::Lui => {
                         let (rest, imm) = match opt(parse_imm)(rest)? {
                             (rest_f, None) => {
-                                opt(map_opt(parse_label_name, |label| {
+                                opt(parse_label_name.verify_map(|label| {
                                     let labl = smartstring::alias::String::from(label);
                                     Some(Symbols::symbols_read(&labl)? as i32)
                                 }))(rest_f)?
@@ -495,19 +500,21 @@ enum IntermediateOp {
 }
 
 pub fn parse_seper(input: &str) -> IResult<&str, &str> {
-    recognize(
-        pair(winnow::character::complete::char(','), 
-        opt(winnow::character::complete::char(' ')))
-    )(input)
+    (
+        ',',
+        opt(' ')
+    )
+    .recognize()
+    .parse_next(input)
 }
 
 fn parse_low_label(input: &str) -> IResult<&str, &str> {
     preceded(
         tag("%lo"),
         delimited(
-            winnow::character::complete::char('('),
+            '(',
             parse_label_name,
-            winnow::character::complete::char(')')
+            ')'
         )
     )(input)
 }
@@ -516,20 +523,20 @@ fn parse_high_label(input: &str) -> IResult<&str, &str> {
     preceded(
         tag("%hi"),
         delimited(
-            winnow::character::complete::char('('),
+            '(',
             parse_label_name,
-            winnow::character::complete::char(')')
+            ')'
         )
     )(input)
 }
 
 fn parse_macro_noparm(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)), tag("nop")),
-        value(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)), tag("ret")),
+        tag("nop").value(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0))),
+        tag("ret").value(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0))),
 
-        value(Operation::Instr(Instruction::Ebreak), tag("ebreak")),
-        value(Operation::Instr(Instruction::Ecall), tag("ecall")),
+        tag("ebreak").value(Operation::Instr(Instruction::Ebreak)),
+        tag("ecall").value(Operation::Instr(Instruction::Ecall)),
     ))(input)?;
 
     Ok((rest, instr))
@@ -537,165 +544,165 @@ fn parse_macro_noparm(input: &str) -> IResult<&str, Operation> {
 
 fn parse_macro_1labl(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::Labl(IntermediateOp::Call), tag("call")),
-        value(InstrType::Labl(IntermediateOp::Tail), tag("tail")),
+        tag("call").value(InstrType::Labl(IntermediateOp::Call)),
+        tag("tail").value(InstrType::Labl(IntermediateOp::Tail)),
 
-        value(InstrType::Labl(IntermediateOp::Jal), tag("jal")),
-        value(InstrType::Labl(IntermediateOp::J), tag("j")),
+        tag("jal").value(InstrType::Labl(IntermediateOp::Jal)),
+        tag("j").value(InstrType::Labl(IntermediateOp::J)),
     ))(input)?;
     instr.translate_parse(rest)
 }
 
 fn parse_macro_1reg(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::Reg(IntermediateOp::Jr), tag("jr")),
-        value(InstrType::Reg(IntermediateOp::Jalr), tag("jalr")),
+        tag("jr").value(InstrType::Reg(IntermediateOp::Jr)),
+        tag("jalr").value(InstrType::Reg(IntermediateOp::Jalr)),
     ))(input)?;
     instr.translate_parse(rest)
 }
 
 fn parse_macro_1labl1reg(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::RegLabl(IntermediateOp::Jal), tag("jal")),
+        tag("jal").value(InstrType::RegLabl(IntermediateOp::Jal)),
 
-        value(InstrType::RegLabl(IntermediateOp::Li), tag("li")),
-        value(InstrType::RegLabl(IntermediateOp::La), tag("la")),
+        tag("li").value(InstrType::RegLabl(IntermediateOp::Li)),
+        tag("la").value(InstrType::RegLabl(IntermediateOp::La)),
     ))(input)?;
     instr.translate_parse(rest)
 }
 
 fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::SpecOp(IntermediateOp::Lui), tag("lui")),
-        value(InstrType::RegImm(IntermediateOp::Auipc), tag("auipc")),
-        value(InstrType::RegImm(IntermediateOp::Jal), tag("jal")),
+        tag("lui").value(InstrType::SpecOp(IntermediateOp::Lui)),
+        tag("auipc").value(InstrType::RegImm(IntermediateOp::Auipc)),
+        tag("jal").value(InstrType::RegImm(IntermediateOp::Jal)),
 
-        value(InstrType::RegImm(IntermediateOp::Li), tag("li")),
+        tag("li").value(InstrType::RegImm(IntermediateOp::Li)),
     ))(input)?;
     instr.translate_parse(rest)
 }
 
 fn parse_macro_2reg(input: &str) -> IResult<&str, Operation> {
-    let (rest, instr) = (
-        value(InstrType::Reg2(IntermediateOp::Mv), tag("mv"))
-    )(input)?;
+    let (rest, instr) = 
+    tag("mv").value(InstrType::Reg2(IntermediateOp::Mv))
+    .parse_next(input)?;
     instr.translate_parse(rest)
 }
 
 fn parse_macro_1labl2reg(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::Reg2Labl(IntermediateOp::Beq), tag("beq")),
-        value(InstrType::Reg2Labl(IntermediateOp::Bne), tag("bne")),
-        value(InstrType::Reg2Labl(IntermediateOp::Bltu), tag("bltu")),
-        value(InstrType::Reg2Labl(IntermediateOp::Bgeu), tag("bgeu")),
-        value(InstrType::Reg2Labl(IntermediateOp::Blt), tag("blt")),
-        value(InstrType::Reg2Labl(IntermediateOp::Bge), tag("bge")),
+        tag("beq").value(InstrType::Reg2Labl(IntermediateOp::Beq)),
+        tag("bne").value(InstrType::Reg2Labl(IntermediateOp::Bne)),
+        tag("bltu").value(InstrType::Reg2Labl(IntermediateOp::Bltu)),
+        tag("bgeu").value(InstrType::Reg2Labl(IntermediateOp::Bgeu)),
+        tag("blt").value(InstrType::Reg2Labl(IntermediateOp::Blt)),
+        tag("bge").value(InstrType::Reg2Labl(IntermediateOp::Bge)),
 
-        value(InstrType::Reg2Labl(IntermediateOp::Lbu), tag("lbu")),
-        value(InstrType::Reg2Labl(IntermediateOp::Lhu), tag("lhu")),
-        value(InstrType::Reg2Labl(IntermediateOp::Lb), tag("lb")),
-        value(InstrType::Reg2Labl(IntermediateOp::Lh), tag("lh")),
-        value(InstrType::Reg2Labl(IntermediateOp::Lw), tag("lw")),
+        tag("lbu").value(InstrType::Reg2Labl(IntermediateOp::Lbu)),
+        tag("lhu").value(InstrType::Reg2Labl(IntermediateOp::Lhu)),
+        tag("lb").value(InstrType::Reg2Labl(IntermediateOp::Lb)),
+        tag("lh").value(InstrType::Reg2Labl(IntermediateOp::Lh)),
+        tag("lw").value(InstrType::Reg2Labl(IntermediateOp::Lw)),
     ))(input)?;
     instr.translate_parse(rest)
 }
 
 fn parse_inst_1imm2reg_lw(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::Reg2Imm(IntermediateOp::Beq), tag("beq")),
-        value(InstrType::Reg2Imm(IntermediateOp::Bne), tag("bne")),
-        value(InstrType::Reg2Imm(IntermediateOp::Bltu), tag("bltu")),
-        value(InstrType::Reg2Imm(IntermediateOp::Bgeu), tag("bgeu")),
-        value(InstrType::Reg2Imm(IntermediateOp::Blt), tag("blt")),
-        value(InstrType::Reg2Imm(IntermediateOp::Bge), tag("bge")),
+        tag("beq").value(InstrType::Reg2Imm(IntermediateOp::Beq)),
+        tag("bne").value(InstrType::Reg2Imm(IntermediateOp::Bne)),
+        tag("bltu").value(InstrType::Reg2Imm(IntermediateOp::Bltu)),
+        tag("bgeu").value(InstrType::Reg2Imm(IntermediateOp::Bgeu)),
+        tag("blt").value(InstrType::Reg2Imm(IntermediateOp::Blt)),
+        tag("bge").value(InstrType::Reg2Imm(IntermediateOp::Bge)),
 
-        value(InstrType::Reg2Imm(IntermediateOp::Slli), tag("slli")),
-        value(InstrType::Reg2Imm(IntermediateOp::Srli), tag("srli")),
-        value(InstrType::Reg2Imm(IntermediateOp::Srai), tag("srai")),
+        tag("slli").value(InstrType::Reg2Imm(IntermediateOp::Slli)),
+        tag("srli").value(InstrType::Reg2Imm(IntermediateOp::Srli)),
+        tag("srai").value(InstrType::Reg2Imm(IntermediateOp::Srai)),
     ))(input)?;
     instr.translate_parse(rest)
 }
 
 fn parse_inst_1imm2reg_up(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::SpecOp(IntermediateOp::Addi), tag("addi")),
+        tag("addi").value(InstrType::SpecOp(IntermediateOp::Addi)),
 
-        value(InstrType::Reg2Imm(IntermediateOp::Sltiu), tag("sltiu")),
-        value(InstrType::Reg2Imm(IntermediateOp::Slti), tag("slti")),
+        tag("sltiu").value(InstrType::Reg2Imm(IntermediateOp::Sltiu)),
+        tag("slti").value(InstrType::Reg2Imm(IntermediateOp::Slti)),
 
-        value(InstrType::Reg2Imm(IntermediateOp::Xori), tag("xori")),
-        value(InstrType::Reg2Imm(IntermediateOp::Ori), tag("ori")),
-        value(InstrType::Reg2Imm(IntermediateOp::Andi), tag("andi")),
+        tag("xori").value(InstrType::Reg2Imm(IntermediateOp::Xori)),
+        tag("ori").value(InstrType::Reg2Imm(IntermediateOp::Ori)),
+        tag("andi").value(InstrType::Reg2Imm(IntermediateOp::Andi)),
 
-        value(InstrType::Reg2Imm(IntermediateOp::Jalr), tag("jalr")),
+        tag("jalr").value(InstrType::Reg2Imm(IntermediateOp::Jalr)),
 
-        value(InstrType::Reg2Imm(IntermediateOp::Srr), tag("srr")),
-        value(InstrType::Reg2Imm(IntermediateOp::Slr), tag("slr"))
+        tag("srr").value(InstrType::Reg2Imm(IntermediateOp::Srr)),
+        tag("slr").value(InstrType::Reg2Imm(IntermediateOp::Slr))
     ))(input)?;
     instr.translate_parse(rest)
 }
 
 fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::Reg3(IntermediateOp::Add), tag("add")),
-        value(InstrType::Reg3(IntermediateOp::Sub), tag("sub")),
+        tag("add").value(InstrType::Reg3(IntermediateOp::Add)),
+        tag("sub").value(InstrType::Reg3(IntermediateOp::Sub)),
 
-        value(InstrType::Reg3(IntermediateOp::Xor), tag("xor")),
-        value(InstrType::Reg3(IntermediateOp::Or), tag("or")),
-        value(InstrType::Reg3(IntermediateOp::And), tag("and")),
+        tag("xor").value(InstrType::Reg3(IntermediateOp::Xor)),
+        tag("or").value(InstrType::Reg3(IntermediateOp::Or)),
+        tag("and").value(InstrType::Reg3(IntermediateOp::And)),
 
-        value(InstrType::Reg3(IntermediateOp::Sltu), tag("sltu")),
-        value(InstrType::Reg3(IntermediateOp::Slt), tag("slt")),
+        tag("sltu").value(InstrType::Reg3(IntermediateOp::Sltu)),
+        tag("slt").value(InstrType::Reg3(IntermediateOp::Slt)),
 
-        value(InstrType::Reg3(IntermediateOp::Sll), tag("sll")),
-        value(InstrType::Reg3(IntermediateOp::Srl), tag("srl")),
-        value(InstrType::Reg3(IntermediateOp::Sra), tag("sra")),
+        tag("sll").value(InstrType::Reg3(IntermediateOp::Sll)),
+        tag("srl").value(InstrType::Reg3(IntermediateOp::Srl)),
+        tag("sra").value(InstrType::Reg3(IntermediateOp::Sra)),
 
-        value(InstrType::Reg3(IntermediateOp::Mulhsu), tag("mulhsu")),
-        value(InstrType::Reg3(IntermediateOp::Mulhu), tag("mulhu")),
-        value(InstrType::Reg3(IntermediateOp::Mulh), tag("mulh")),
-        value(InstrType::Reg3(IntermediateOp::Mul), tag("mul")),
-        value(InstrType::Reg3(IntermediateOp::Divu), tag("divu")),
-        value(InstrType::Reg3(IntermediateOp::Div), tag("div")),
-        value(InstrType::Reg3(IntermediateOp::Remu), tag("remu")),
-        value(InstrType::Reg3(IntermediateOp::Rem), tag("rem")),
+        tag("mulhsu").value(InstrType::Reg3(IntermediateOp::Mulhsu)),
+        tag("mulhu").value(InstrType::Reg3(IntermediateOp::Mulhu)),
+        tag("mulh").value(InstrType::Reg3(IntermediateOp::Mulh)),
+        tag("mul").value(InstrType::Reg3(IntermediateOp::Mul)),
+        tag("divu").value(InstrType::Reg3(IntermediateOp::Divu)),
+        tag("div").value(InstrType::Reg3(IntermediateOp::Div)),
+        tag("remu").value(InstrType::Reg3(IntermediateOp::Remu)),
+        tag("rem").value(InstrType::Reg3(IntermediateOp::Rem)),
 
-        value(InstrType::Reg3(IntermediateOp::Xnor), tag("xnor")),
-        value(InstrType::Reg3(IntermediateOp::Equal), tag("eq")),
-        value(InstrType::Reg3(IntermediateOp::Nor), tag("nor")),
+        tag("xnor").value(InstrType::Reg3(IntermediateOp::Xnor)),
+        tag("eq").value(InstrType::Reg3(IntermediateOp::Equal)),
+        tag("nor").value(InstrType::Reg3(IntermediateOp::Nor)),
     ))(input)?;
     instr.translate_parse(rest)
 }
 
 fn parse_mem_ops(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::StoreOp(IntermediateOp::Sb), tag("sb")),
-        value(InstrType::StoreOp(IntermediateOp::Sh), tag("sh")),
-        value(InstrType::StoreOp(IntermediateOp::Sw), tag("sw")),
+        tag("sb").value(InstrType::StoreOp(IntermediateOp::Sb)),
+        tag("sh").value(InstrType::StoreOp(IntermediateOp::Sh)),
+        tag("sw").value(InstrType::StoreOp(IntermediateOp::Sw)),
 
-        value(InstrType::LoadOp(IntermediateOp::Lbu), tag("lbu")),
-        value(InstrType::LoadOp(IntermediateOp::Lhu), tag("lhu")),
-        value(InstrType::LoadOp(IntermediateOp::Lb), tag("lb")),
-        value(InstrType::LoadOp(IntermediateOp::Lh), tag("lh")),
-        value(InstrType::LoadOp(IntermediateOp::Lw), tag("lw")),
+        tag("lbu").value(InstrType::LoadOp(IntermediateOp::Lbu)),
+        tag("lhu").value(InstrType::LoadOp(IntermediateOp::Lhu)),
+        tag("lb").value(InstrType::LoadOp(IntermediateOp::Lb)),
+        tag("lh").value(InstrType::LoadOp(IntermediateOp::Lh)),
+        tag("lw").value(InstrType::LoadOp(IntermediateOp::Lw)),
     ))(input)?;
     instr.translate_parse(rest)
 }
 
 fn parse_macro_multiarg(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::RegVar(IntermediateOp::Push), tag("push")),
-        value(InstrType::RegVar(IntermediateOp::Pop), tag("pop")),
+        tag("push").value(InstrType::RegVar(IntermediateOp::Push)),
+        tag("pop").value(InstrType::RegVar(IntermediateOp::Pop)),
     ))(input)?;
     instr.translate_parse(rest)
 }
 
 fn parse_special_macro(input: &str) -> IResult<&str, Operation> {
-    map_res(tuple((
+    (
         tag("rep"), 
         space1, 
-        separated_pair(map_res(digit1, str::parse), parse_seper, parse_instruction)
-    )),
+        separated_pair(digit1.map_res(str::parse), parse_seper, parse_instruction)
+    ).map_res(
     |parsed| {
         match parsed.2.1 {
             Operation::Namespace(_) |
@@ -712,7 +719,7 @@ fn parse_special_macro(input: &str) -> IResult<&str, Operation> {
             },
         }
     }
-    )(input)
+    ).parse_next(input)
 }
 
 pub fn parse_instruction(input: &str) -> IResult<&str, Operation> {

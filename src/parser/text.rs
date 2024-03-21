@@ -9,19 +9,14 @@
 mod op_exp;
 
 use winnow::{
+    Parser,
     IResult,
     branch::alt,
     combinator::{
-        map,
         success,
-        fail,
-        into
+        fail
     },
-    sequence::{
-        pair,
-        separated_pair
-    },
-    error::context
+    sequence::separated_pair
 };
 use std::{any::Any, cmp::Ordering};
 use std::collections::BTreeMap;
@@ -89,28 +84,23 @@ fn parse_line(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
     if early {
         return Ok((rest, Box::from(NoData {})))
     }
-    into(
-        alt((
+    alt((
         separated_pair(
-            map(parse_label_definition, Some),
+            parse_label_definition.map(Some),
             parse_multiline_comments,
-            map(
-                parse_instruction,
-                Some
-            )
+            parse_instruction.map(Some)
         ),
-        pair(
-            map(parse_label_definition, Some), 
+        (
+            parse_label_definition.map(Some), 
             success(None)
         ),
-        pair(
+        (
             success(None),
-            map(
-                parse_instruction,
-                Some
-            )
+            parse_instruction.map(Some)
         ),
-    )))(rest)
+    ))
+    .output_into()
+    .parse_next(rest)
 }
 
 fn parse_line_priv(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
@@ -118,28 +108,23 @@ fn parse_line_priv(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
     if early {
         return Ok((rest, Box::from(NoData {})))
     }
-    into(
-        alt((
+    alt((
         separated_pair(
-            map(parse_label_definition_priv, Some),
+            parse_label_definition_priv.map(Some),
             parse_multiline_comments,
-            map(
-                parse_instruction,
-                Some
-            )
+            parse_instruction.map(Some)
         ),
-        pair(
-            map(parse_label_definition_priv, Some), 
+        (
+            parse_label_definition_priv.map(Some), 
             success(None)
         ),
-        pair(
+        (
             success(None),
-            map(
-                parse_instruction,
-                Some
-            )
+            parse_instruction.map(Some)
         ),
-    )))(rest)
+    ))
+    .output_into()
+    .parse_next(rest)
 }
 
 fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog) {
@@ -583,7 +568,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
 
         if let Err(e) = parsed.handle(&mut instr_counter, &mut instr_list, subroutines, symbol_map, &mut abs_to_label_queue) {
             error!("{e}");
-            return context(e.get_nom_err_text(), fail)(rest)
+            return fail.context(e.get_nom_err_text()).parse_next(rest)
         }
 
         if rest.trim().is_empty() {

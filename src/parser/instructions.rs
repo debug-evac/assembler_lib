@@ -249,7 +249,7 @@ impl InstrType {
                                 op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                             }.into()))
                         } else { // s{b|w|h} x[0-31], IMM OR s{b|w|h} x[0-31], IMM, x[0-31]
-                            if offset > 0b01_11111_11111_i32 || offset < -2048 {
+                            if !(-2048..=0b01_11111_11111_i32).contains(&offset) {
                                 let (rest, temp_reg) = preceded(parse_seper, parse_reg)(rest)?;
 
                                 Ok((rest, match interop {
@@ -326,7 +326,7 @@ impl InstrType {
                                 op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                             }.into()))
                         } else { // l{b|w|h|bu|hu} x[0-31], IMM
-                            if offset > 0b01_11111_11111_i32 || offset < -2048 {
+                            if !(-2048..=0b01_11111_11111_i32).contains(&offset) {
                                 Ok((rest, match interop {
                                     IntermediateOp::Lb => MacroInstr::LbImm(treg, treg, offset),
                                     IntermediateOp::Lbu => MacroInstr::LbuImm(treg, treg, offset),

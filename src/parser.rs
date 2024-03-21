@@ -10,6 +10,7 @@ mod instructions;
 mod literals;
 mod text;
 mod data;
+mod symbols;
 
 use log::{debug, warn};
 use nom::{
@@ -22,7 +23,7 @@ use nom::{
 };
 use std::collections::HashSet;
 
-use crate::common::*;
+use crate::{common::*, parser::symbols::Symbols};
 
 use self::{errors::CommonError, literals::{parse_data_segment_id, parse_text_segment_id}};
 
@@ -69,6 +70,8 @@ fn parse_multiline_comments(input: &str) -> IResult<&str, bool> {
 
 pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sp_init: bool) -> IResult<&'a str, AssemblyCodeRecog> {
     let mut assembly: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
+    
+    Symbols::symbols_clear();
 
     let (mut rest, parsed) = tuple((parse_multiline_comments, opt(parse_data_segment_id), parse_multiline_comments))(input)?;
     if parsed.1.is_some() {

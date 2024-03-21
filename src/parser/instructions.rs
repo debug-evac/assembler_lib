@@ -8,16 +8,16 @@
 
 use nom::{
     branch::alt, bytes::complete::tag, character::complete::{digit1, space1}, combinator::{
-        map_res, opt, recognize, value
+        fail, map_opt, map_res, opt, recognize, value
     }, multi::separated_list1, sequence::{
-        delimited, pair, preceded, separated_pair, tuple
+        delimited, pair, preceded, separated_pair, terminated, tuple
     }, IResult
 };
 
 use crate::parser::literals::{parse_imm, parse_reg, parse_label_name};
 use crate::common::{MacroInstr, Instruction, Operation, Reg, Part};
 
-use super::literals::parse_decimal;
+use super::symbols::Symbols;
 
 #[derive(Clone)]
 enum InstrType {
@@ -30,7 +30,9 @@ enum InstrType {
     Reg2Imm(IntermediateOp),
     Reg3(IntermediateOp),
     RegVar(IntermediateOp),
-    MemOp(IntermediateOp)
+    StoreOp(IntermediateOp),
+    LoadOp(IntermediateOp),
+    SpecOp(IntermediateOp)
 }
 
 impl InstrType {
@@ -64,24 +66,31 @@ impl InstrType {
 
                 Ok((rest, match interop {
                     IntermediateOp::Lui => MacroInstr::Lui(args.0, args.1.into(), Part::None).into(),
-                    IntermediateOp::Auipc => MacroInstr::Auipc(args.0, args.1.into(), Part::None).into(),
                     IntermediateOp::Jal => MacroInstr::Jal(args.0, args.1.into()).into(),
                     IntermediateOp::La => MacroInstr::La(args.0, args.1.into()).into(),
-
-                    IntermediateOp::Li => MacroInstr::LiLabl(args.0, args.1.into()).into(),
 
                     op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
             },
             InstrType::RegImm(interop) => {
-                let (rest, args) = separated_pair(parse_reg, parse_seper, parse_imm)(rest)?;
+                let (rest, reg) = terminated(parse_reg, parse_seper)(rest)?;
+
+                let (rest, imm) = match opt(parse_imm)(rest)? {
+                    (_, None) => {
+                        map_opt(parse_label_name, |label| {
+                            let labl = smartstring::alias::String::from(label);
+                            Some(Symbols::symbols_read(&labl)? as i32)
+                        })(rest)?
+                    },
+                    (rest_f, Some(val)) => (rest_f, val),
+                };
 
                 Ok((rest, match interop {
-                    IntermediateOp::Lui => Instruction::Lui(args.0, args.1 << 12).into(),
-                    IntermediateOp::Auipc => Instruction::Auipc(args.0, args.1 << 12).into(),
-                    IntermediateOp::Jal => Instruction::Jal(args.0, args.1).into(),
+                    IntermediateOp::Lui => Instruction::Lui(reg, imm << 12).into(),
+                    IntermediateOp::Auipc => Instruction::Auipc(reg, imm << 12).into(),
+                    IntermediateOp::Jal => Instruction::Jal(reg, imm).into(),
             
-                    IntermediateOp::Li => MacroInstr::LiImm(args.0, args.1).into(),
+                    IntermediateOp::Li => MacroInstr::Li(reg, imm).into(),
             
                     op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
@@ -109,21 +118,9 @@ impl InstrType {
                     IntermediateOp::Bge => MacroInstr::Bge(args.0, args.1, args.2.into()).into(),
                     IntermediateOp::Bgeu => MacroInstr::Bgeu(args.0, args.1, args.2.into()).into(),
             
-                    IntermediateOp::Jalr => MacroInstr::Jalr(args.0, args.1, args.2.into(), Part::None).into(),
-            
-                    IntermediateOp::Slli => MacroInstr::Slli(args.0, args.1, args.2.into()).into(),
-                    IntermediateOp::Srli => MacroInstr::Srli(args.0, args.1, args.2.into()).into(),
-                    IntermediateOp::Srai => MacroInstr::Srai(args.0, args.1, args.2.into()).into(),
-            
-                    IntermediateOp::Sb => MacroInstr::Sb(args.0, args.1, args.2.into(), Part::None).into(),
-                    IntermediateOp::Sh => MacroInstr::Sh(args.0, args.1, args.2.into(), Part::None).into(),
-                    IntermediateOp::Sw => MacroInstr::Sw(args.0, args.1, args.2.into(), Part::None).into(),
-            
-                    IntermediateOp::Lb => MacroInstr::Lb(args.0, args.1, args.2.into(), Part::None).into(),
-                    IntermediateOp::Lbu => MacroInstr::Lbu(args.0, args.1, args.2.into()).into(),
-                    IntermediateOp::Lh => MacroInstr::Lh(args.0, args.1, args.2.into(), Part::None).into(),
-                    IntermediateOp::Lhu => MacroInstr::Lhu(args.0, args.1, args.2.into()).into(),
-                    IntermediateOp::Lw => MacroInstr::Lw(args.0, args.1, args.2.into(), Part::None).into(),
+                    IntermediateOp::Sb => MacroInstr::SbLabl(args.0, args.1, args.2.into()).into(),
+                    IntermediateOp::Sh => MacroInstr::ShLabl(args.0, args.1, args.2.into()).into(),
+                    IntermediateOp::Sw => MacroInstr::SwLabl(args.0, args.1, args.2.into()).into(),
             
                     IntermediateOp::Addi => MacroInstr::Addi(args.0, args.1, args.2.into(), Part::None).into(),
             
@@ -131,36 +128,47 @@ impl InstrType {
                 }))
             },
             InstrType::Reg2Imm(interop) => {
-                let (rest, args) = tuple((
+                let (rest, args) = pair(
                     parse_reg,
-                    preceded(parse_seper, parse_reg),
-                    preceded(parse_seper, parse_imm)))
-                (rest)?;
+                    delimited(parse_seper, parse_reg, parse_seper)
+                )(rest)?;
+
+                let (rest, imm) = match opt(parse_imm)(rest)? {
+                    (rest_f, None) => {
+                        map_opt(parse_label_name, |label| {
+                            let labl = smartstring::alias::String::from(label);
+                            Some(Symbols::symbols_read(&labl)? as i32)
+                        })(rest_f)?
+                    },
+                    (rest_f, Some(val)) => (rest_f, val),
+                };
 
                 Ok((rest, match interop {
-                    IntermediateOp::Beq => Instruction::Beq(args.0, args.1, args.2).into(),
-                    IntermediateOp::Bne => Instruction::Bne(args.0, args.1, args.2).into(),
-                    IntermediateOp::Blt => Instruction::Blt(args.0, args.1, args.2).into(),
-                    IntermediateOp::Bltu => Instruction::Bltu(args.0, args.1, args.2).into(),
-                    IntermediateOp::Bge => Instruction::Bge(args.0, args.1, args.2).into(),
-                    IntermediateOp::Bgeu => Instruction::Bgeu(args.0, args.1, args.2).into(),
+                    // these may be removed
+                    IntermediateOp::Beq => Instruction::Beq(args.0, args.1, imm).into(),
+                    IntermediateOp::Bne => Instruction::Bne(args.0, args.1, imm).into(),
+                    IntermediateOp::Blt => Instruction::Blt(args.0, args.1, imm).into(),
+                    IntermediateOp::Bltu => Instruction::Bltu(args.0, args.1, imm).into(),
+                    IntermediateOp::Bge => Instruction::Bge(args.0, args.1, imm).into(),
+                    IntermediateOp::Bgeu => Instruction::Bgeu(args.0, args.1, imm).into(),
+                    // until here
             
-                    IntermediateOp::Slli => Instruction::Slli(args.0, args.1, args.2).into(),
-                    IntermediateOp::Srli => Instruction::Srli(args.0, args.1, args.2).into(),
-                    IntermediateOp::Srai => Instruction::Srai(args.0, args.1, args.2).into(),
+                    IntermediateOp::Slli => Instruction::Slli(args.0, args.1, imm).into(),
+                    IntermediateOp::Srli => Instruction::Srli(args.0, args.1, imm).into(),
+                    IntermediateOp::Srai => Instruction::Srai(args.0, args.1, imm).into(),
             
-                    IntermediateOp::Addi => Instruction::Addi(args.0, args.1, args.2).into(),
+                    IntermediateOp::Addi => Instruction::Addi(args.0, args.1, imm).into(),
 
-                    IntermediateOp::Slti => Instruction::Slti(args.0, args.1, args.2).into(),
-                    IntermediateOp::Sltiu => Instruction::Sltiu(args.0, args.1, args.2).into(),
-                    IntermediateOp::Xori => Instruction::Xori(args.0, args.1, args.2).into(),
-                    IntermediateOp::Ori => Instruction::Ori(args.0, args.1, args.2).into(),
-                    IntermediateOp::Andi => Instruction::Andi(args.0, args.1, args.2).into(),
+                    IntermediateOp::Slti => Instruction::Slti(args.0, args.1, imm).into(),
+                    IntermediateOp::Sltiu => Instruction::Sltiu(args.0, args.1, imm).into(),
+                    IntermediateOp::Xori => Instruction::Xori(args.0, args.1, imm).into(),
+                    IntermediateOp::Ori => Instruction::Ori(args.0, args.1, imm).into(),
+                    IntermediateOp::Andi => Instruction::Andi(args.0, args.1, imm).into(),
 
-                    IntermediateOp::Jalr => Instruction::Jalr(args.0, args.1, args.2).into(),
+                    IntermediateOp::Jalr => Instruction::Jalr(args.0, args.1, imm).into(),
 
-                    IntermediateOp::Srr => MacroInstr::Srr(args.0, args.1, args.2).into(),
-                    IntermediateOp::Slr => MacroInstr::Slr(args.0, args.1, args.2).into(),
+                    IntermediateOp::Srr => MacroInstr::Srr(args.0, args.1, imm).into(),
+                    IntermediateOp::Slr => MacroInstr::Slr(args.0, args.1, imm).into(),
 
                     op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
@@ -213,28 +221,229 @@ impl InstrType {
                     op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                 }))
             },
-            InstrType::MemOp(interop) => {
-                let (rest, args) = tuple((
-                    parse_reg,
-                    preceded(parse_seper, opt(parse_decimal)),
-                    delimited(nom::character::complete::char('('), parse_reg, nom::character::complete::char(')'))))
-                (rest)?;
+            InstrType::StoreOp(interop) => {
+                let (rest, treg) = terminated(parse_reg, parse_seper)(rest)?;
 
-                let offset = args.1.unwrap_or(0);
+                let (rest, imm) = match opt(parse_imm)(rest)? {
+                    (rest_f, None) => {
+                        opt(map_opt(parse_label_name, |label| {
+                            let labl = smartstring::alias::String::from(label);
+                            Some(Symbols::symbols_read(&labl)? as i32)
+                        }))(rest_f)?
+                    },
+                    op => op,
+                };
 
-                Ok((rest, match interop {
-                    IntermediateOp::Sb => Instruction::Sb(args.0, args.2, offset),
-                    IntermediateOp::Sh => Instruction::Sh(args.0, args.2, offset),
-                    IntermediateOp::Sw => Instruction::Sw(args.0, args.2, offset),
+                match imm {
+                    Some(offset) => { // s{b|w|h} x[0-31], IMM
+                        if let (rest, Some(mem_reg)) = opt(delimited(
+                            nom::character::complete::char('('),
+                            parse_reg,
+                            nom::character::complete::char(')')
+                        ))(rest)? { // s{b|w|h} x[0-31], IMM(x[0-31])
+                            Ok((rest, match interop {
+                                IntermediateOp::Sb => Instruction::Sb(treg, mem_reg, offset),
+                                IntermediateOp::Sh => Instruction::Sh(treg, mem_reg, offset),
+                                IntermediateOp::Sw => Instruction::Sw(treg, mem_reg, offset),
             
-                    IntermediateOp::Lb => Instruction::Lb(args.0, args.2, offset),
-                    IntermediateOp::Lbu => Instruction::Lbu(args.0, args.2, offset),
-                    IntermediateOp::Lh => Instruction::Lh(args.0, args.2, offset),
-                    IntermediateOp::Lhu => Instruction::Lhu(args.0, args.2, offset),
-                    IntermediateOp::Lw => Instruction::Lw(args.0, args.2, offset),
+                                op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                            }.into()))
+                        } else { // s{b|w|h} x[0-31], IMM OR s{b|w|h} x[0-31], IMM, x[0-31]
+                            if !(-2048..=0b01_11111_11111_i32).contains(&offset) {
+                                let (rest, temp_reg) = preceded(parse_seper, parse_reg)(rest)?;
+
+                                Ok((rest, match interop {
+                                    IntermediateOp::Sb => MacroInstr::SbImm(treg, temp_reg, offset),
+                                    IntermediateOp::Sh => MacroInstr::ShImm(treg, temp_reg, offset),
+                                    IntermediateOp::Sw => MacroInstr::SwImm(treg, temp_reg, offset),
+                
+                                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                                }.into()))
+                            } else {
+                                Ok((rest, match interop {
+                                    IntermediateOp::Sb => Instruction::Sb(treg, Reg::G0, offset),
+                                    IntermediateOp::Sh => Instruction::Sh(treg, Reg::G0, offset),
+                                    IntermediateOp::Sw => Instruction::Sw(treg, Reg::G0, offset),
+                
+                                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                                }.into()))
+                            }
+                        }
+                    },
+                    None => { // s{b|w|h} x[0-31], 
+                        if let (rest, Some(mem_reg)) = opt(delimited(
+                            nom::character::complete::char('('),
+                            parse_reg,
+                            nom::character::complete::char(')')
+                        ))(rest)? { // s{b|w|h} x[0-31], (x[0-31])
+                            Ok((rest, match interop {
+                                IntermediateOp::Sb => Instruction::Sb(treg, mem_reg, 0),
+                                IntermediateOp::Sh => Instruction::Sh(treg, mem_reg, 0),
+                                IntermediateOp::Sw => Instruction::Sw(treg, mem_reg, 0),
+            
+                                op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                            }.into()))
+                        } else {
+                            let (rest, (label, temp_reg)) = separated_pair(parse_label_name, parse_seper, parse_reg)(rest)?;
+                            Ok((rest, match interop {
+                                IntermediateOp::Sb => MacroInstr::SbLabl(treg, temp_reg, label.into()),
+                                IntermediateOp::Sh => MacroInstr::ShLabl(treg, temp_reg, label.into()),
+                                IntermediateOp::Sw => MacroInstr::SwLabl(treg, temp_reg, label.into()),
+            
+                                op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                            }.into())) // s{b|w|h} x[0-31], LABEL, x[0-31]
+                        }
+                    },
+                }
+            },
+            InstrType::LoadOp(interop) => {
+                let (rest, treg) = terminated(parse_reg, parse_seper)(rest)?;
+
+                let (rest, imm) = match opt(parse_imm)(rest)? {
+                    (rest_f, None) => {
+                        opt(map_opt(parse_label_name, |label| {
+                            let labl = smartstring::alias::String::from(label);
+                            Some(Symbols::symbols_read(&labl)? as i32)
+                        }))(rest_f)?
+                    },
+                    op => op,
+                };
+
+                match imm {
+                    Some(offset) => { // l{b|w|h|bu|hu} x[0-31], IMM
+                        if let (rest, Some(mem_reg)) = opt(delimited(
+                            nom::character::complete::char('('),
+                            parse_reg,
+                            nom::character::complete::char(')')
+                        ))(rest)? { // l{b|w|h|bu|hu} x[0-31], IMM(x[0-31])
+                            Ok((rest, match interop {
+                                IntermediateOp::Lb => Instruction::Lb(treg, mem_reg, offset),
+                                IntermediateOp::Lbu => Instruction::Lbu(treg, mem_reg, offset),
+                                IntermediateOp::Lh => Instruction::Lh(treg, mem_reg, offset),
+                                IntermediateOp::Lhu => Instruction::Lhu(treg,mem_reg, offset),
+                                IntermediateOp::Lw => Instruction::Lw(treg, mem_reg, offset),
+            
+                                op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                            }.into()))
+                        } else { // l{b|w|h|bu|hu} x[0-31], IMM
+                            if !(-2048..=0b01_11111_11111_i32).contains(&offset) {
+                                Ok((rest, match interop {
+                                    IntermediateOp::Lb => MacroInstr::LbImm(treg, treg, offset),
+                                    IntermediateOp::Lbu => MacroInstr::LbuImm(treg, treg, offset),
+                                    IntermediateOp::Lh => MacroInstr::LhImm(treg, treg, offset),
+                                    IntermediateOp::Lhu => MacroInstr::LhuImm(treg, treg, offset),
+                                    IntermediateOp::Lw => MacroInstr::LwImm(treg, treg, offset),
+                
+                                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                                }.into()))
+                            } else {
+                                Ok((rest, match interop {
+                                    IntermediateOp::Lb => Instruction::Lb(treg, Reg::G0, offset),
+                                    IntermediateOp::Lbu => Instruction::Lbu(treg, Reg::G0, offset),
+                                    IntermediateOp::Lh => Instruction::Lh(treg, Reg::G0, offset),
+                                    IntermediateOp::Lhu => Instruction::Lhu(treg, Reg::G0, offset),
+                                    IntermediateOp::Lw => Instruction::Lw(treg, Reg::G0, offset),
+                
+                                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                                }.into()))
+                            }
+                        }
+                    },
+                    None => { // l{b|w|h|bu|hu} x[0-31], 
+                        if let (rest, Some(mem_reg)) = opt(delimited(
+                            nom::character::complete::char('('),
+                            parse_reg,
+                            nom::character::complete::char(')')
+                        ))(rest)? { // l{b|w|h|bu|hu} x[0-31], (x[0-31])
+                            Ok((rest, match interop {
+                                IntermediateOp::Lb => Instruction::Lb(treg, mem_reg, 0),
+                                IntermediateOp::Lbu => Instruction::Lbu(treg, mem_reg, 0),
+                                IntermediateOp::Lh => Instruction::Lh(treg, mem_reg, 0),
+                                IntermediateOp::Lhu => Instruction::Lhu(treg,mem_reg, 0),
+                                IntermediateOp::Lw => Instruction::Lw(treg, mem_reg, 0),
+            
+                                op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                            }.into()))
+                        } else if let (rest, Some(label)) = opt(parse_label_name)(rest)? {
+                            Ok((rest, match interop {
+                                IntermediateOp::Lb => MacroInstr::LbLabl(treg, treg, label.into(), Part::None),
+                                IntermediateOp::Lbu => MacroInstr::LbuLabl(treg, treg, label.into()),
+                                IntermediateOp::Lh => MacroInstr::LhLabl(treg, treg, label.into(), Part::None),
+                                IntermediateOp::Lhu => MacroInstr::LhuLabl(treg, treg, label.into()),
+                                IntermediateOp::Lw => MacroInstr::LwLabl(treg, treg, label.into(), Part::None),
+            
+                                op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                            }.into())) // l{b|w|h|bu|hu} x[0-31], LABEL
+                        } else {
+                            let (rest, (label, mem_reg)) = pair(
+                                parse_low_label,
+                                delimited(
+                                    nom::character::complete::char('('),
+                                    parse_reg,
+                                    nom::character::complete::char(')')
+                                )
+                            )(rest)?; // l{b|w|h|bu|hu} x[0-31], %lo(LABEL)(x[0-31])
+
+                            match interop {
+                                IntermediateOp::Lbu => fail(""),
+                                IntermediateOp::Lhu => fail(""),
+                                IntermediateOp::Lb => Ok((rest, MacroInstr::LbLabl(treg, mem_reg, label.into(), Part::Lower).into())),
+                                IntermediateOp::Lh => Ok((rest, MacroInstr::LhLabl(treg, mem_reg, label.into(), Part::Lower).into())),
+                                IntermediateOp::Lw => Ok((rest, MacroInstr::LwLabl(treg, mem_reg, label.into(), Part::Lower).into())),
+
+                                op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+                            }
+                        }
+                    },
+                }
+            },
+            InstrType::SpecOp(interop) => {
+                let (rest, reg1) = terminated(parse_reg, parse_seper)(rest)?;
+
+                match interop {
+                    IntermediateOp::Addi => {
+                        let (rest, reg2) = terminated(parse_reg, parse_seper)(rest)?;
+        
+                        let (rest, imm) = match opt(parse_imm)(rest)? {
+                            (rest_f, None) => {
+                                opt(map_opt(parse_label_name, |label| {
+                                    let labl = smartstring::alias::String::from(label);
+                                    Some(Symbols::symbols_read(&labl)? as i32)
+                                }))(rest_f)?
+                            },
+                            op => op,
+                        };
+
+                        if let Some(imm) = imm {
+                            Ok((rest, Instruction::Addi(reg1, reg2, imm).into()))
+                        } else {
+                            let (rest, label) = parse_low_label(rest)?;
+
+                            Ok((rest, MacroInstr::Addi(reg1, reg2, label.into(), Part::None).into()))
+                        }
+                    },
+                    IntermediateOp::Lui => {
+                        let (rest, imm) = match opt(parse_imm)(rest)? {
+                            (rest_f, None) => {
+                                opt(map_opt(parse_label_name, |label| {
+                                    let labl = smartstring::alias::String::from(label);
+                                    Some(Symbols::symbols_read(&labl)? as i32)
+                                }))(rest_f)?
+                            },
+                            op => op,
+                        };
+
+                        if let Some(imm) = imm {
+                            Ok((rest, Instruction::Lui(reg1, imm << 12).into()))
+                        } else {
+                            let (rest, label) = parse_high_label(rest)?;
+
+                            Ok((rest, MacroInstr::Lui(reg1, label.into(), Part::None).into()))
+                        }
+                    },
 
                     op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
-                }.into()))
+                }
             },
         }
     }
@@ -292,6 +501,28 @@ pub fn parse_seper(input: &str) -> IResult<&str, &str> {
     )(input)
 }
 
+fn parse_low_label(input: &str) -> IResult<&str, &str> {
+    preceded(
+        tag("%lo"),
+        delimited(
+            nom::character::complete::char('('),
+            parse_label_name,
+            nom::character::complete::char(')')
+        )
+    )(input)
+}
+
+fn parse_high_label(input: &str) -> IResult<&str, &str> {
+    preceded(
+        tag("%hi"),
+        delimited(
+            nom::character::complete::char('('),
+            parse_label_name,
+            nom::character::complete::char(')')
+        )
+    )(input)
+}
+
 fn parse_macro_noparm(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
         value(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)), tag("nop")),
@@ -325,8 +556,6 @@ fn parse_macro_1reg(input: &str) -> IResult<&str, Operation> {
 
 fn parse_macro_1labl1reg(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::RegLabl(IntermediateOp::Lui), tag("lui")),
-        value(InstrType::RegLabl(IntermediateOp::Auipc), tag("auipc")),
         value(InstrType::RegLabl(IntermediateOp::Jal), tag("jal")),
 
         value(InstrType::RegLabl(IntermediateOp::Li), tag("li")),
@@ -337,7 +566,7 @@ fn parse_macro_1labl1reg(input: &str) -> IResult<&str, Operation> {
 
 fn parse_inst_1imm1reg(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::RegImm(IntermediateOp::Lui), tag("lui")),
+        value(InstrType::SpecOp(IntermediateOp::Lui), tag("lui")),
         value(InstrType::RegImm(IntermediateOp::Auipc), tag("auipc")),
         value(InstrType::RegImm(IntermediateOp::Jal), tag("jal")),
 
@@ -362,23 +591,11 @@ fn parse_macro_1labl2reg(input: &str) -> IResult<&str, Operation> {
         value(InstrType::Reg2Labl(IntermediateOp::Blt), tag("blt")),
         value(InstrType::Reg2Labl(IntermediateOp::Bge), tag("bge")),
 
-        value(InstrType::Reg2Labl(IntermediateOp::Jalr), tag("jalr")),
-
-        value(InstrType::Reg2Labl(IntermediateOp::Slli), tag("slli")),
-        value(InstrType::Reg2Labl(IntermediateOp::Srli), tag("srli")),
-        value(InstrType::Reg2Labl(IntermediateOp::Srai), tag("srai")),
-
-        value(InstrType::Reg2Labl(IntermediateOp::Sb), tag("sb")),
-        value(InstrType::Reg2Labl(IntermediateOp::Sh), tag("sh")),
-        value(InstrType::Reg2Labl(IntermediateOp::Sw), tag("sw")),
-
         value(InstrType::Reg2Labl(IntermediateOp::Lbu), tag("lbu")),
         value(InstrType::Reg2Labl(IntermediateOp::Lhu), tag("lhu")),
         value(InstrType::Reg2Labl(IntermediateOp::Lb), tag("lb")),
         value(InstrType::Reg2Labl(IntermediateOp::Lh), tag("lh")),
         value(InstrType::Reg2Labl(IntermediateOp::Lw), tag("lw")),
-
-        value(InstrType::Reg2Labl(IntermediateOp::Addi), tag("addi")),
     ))(input)?;
     instr.translate_parse(rest)
 }
@@ -395,23 +612,13 @@ fn parse_inst_1imm2reg_lw(input: &str) -> IResult<&str, Operation> {
         value(InstrType::Reg2Imm(IntermediateOp::Slli), tag("slli")),
         value(InstrType::Reg2Imm(IntermediateOp::Srli), tag("srli")),
         value(InstrType::Reg2Imm(IntermediateOp::Srai), tag("srai")),
-
-        value(InstrType::MemOp(IntermediateOp::Sb), tag("sb")),
-        value(InstrType::MemOp(IntermediateOp::Sh), tag("sh")),
-        value(InstrType::MemOp(IntermediateOp::Sw), tag("sw")),
-
-        value(InstrType::MemOp(IntermediateOp::Lbu), tag("lbu")),
-        value(InstrType::MemOp(IntermediateOp::Lhu), tag("lhu")),
-        value(InstrType::MemOp(IntermediateOp::Lb), tag("lb")),
-        value(InstrType::MemOp(IntermediateOp::Lh), tag("lh")),
-        value(InstrType::MemOp(IntermediateOp::Lw), tag("lw")),
     ))(input)?;
     instr.translate_parse(rest)
 }
 
 fn parse_inst_1imm2reg_up(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
-        value(InstrType::Reg2Imm(IntermediateOp::Addi), tag("addi")),
+        value(InstrType::SpecOp(IntermediateOp::Addi), tag("addi")),
 
         value(InstrType::Reg2Imm(IntermediateOp::Sltiu), tag("sltiu")),
         value(InstrType::Reg2Imm(IntermediateOp::Slti), tag("slti")),
@@ -460,6 +667,21 @@ fn parse_inst_3reg(input: &str) -> IResult<&str, Operation> {
     instr.translate_parse(rest)
 }
 
+fn parse_mem_ops(input: &str) -> IResult<&str, Operation> {
+    let (rest, instr) = alt((
+        value(InstrType::StoreOp(IntermediateOp::Sb), tag("sb")),
+        value(InstrType::StoreOp(IntermediateOp::Sh), tag("sh")),
+        value(InstrType::StoreOp(IntermediateOp::Sw), tag("sw")),
+
+        value(InstrType::LoadOp(IntermediateOp::Lbu), tag("lbu")),
+        value(InstrType::LoadOp(IntermediateOp::Lhu), tag("lhu")),
+        value(InstrType::LoadOp(IntermediateOp::Lb), tag("lb")),
+        value(InstrType::LoadOp(IntermediateOp::Lh), tag("lh")),
+        value(InstrType::LoadOp(IntermediateOp::Lw), tag("lw")),
+    ))(input)?;
+    instr.translate_parse(rest)
+}
+
 fn parse_macro_multiarg(input: &str) -> IResult<&str, Operation> {
     let (rest, instr) = alt((
         value(InstrType::RegVar(IntermediateOp::Push), tag("push")),
@@ -494,9 +716,10 @@ fn parse_special_macro(input: &str) -> IResult<&str, Operation> {
 }
 
 pub fn parse_instruction(input: &str) -> IResult<&str, Operation> {
-    let (rest, op) = alt((
+    alt((
         parse_special_macro,
         parse_macro_multiarg,
+        parse_mem_ops,
         parse_inst_3reg,
         parse_inst_1imm2reg_up,
         parse_inst_1imm2reg_lw,
@@ -507,14 +730,19 @@ pub fn parse_instruction(input: &str) -> IResult<&str, Operation> {
         parse_macro_1reg,
         parse_macro_1labl,
         parse_macro_noparm,
-    ))(input)?;
-
-    Ok((rest, op))
+    ))(input)
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::symbols::Symbols;
+
     use super::*;
+
+    fn setup_symbols(symbol: smartstring::alias::String, def: i128) {
+        Symbols::symbols_clear();
+        Symbols::symbols_write(symbol, def);
+    }
 
     #[test]
     fn test_parse_seper() {
@@ -559,9 +787,7 @@ mod tests {
     #[test]
     fn test_parse_instr1labl1reg() {
         assert_ne!(parse_macro_1labl1reg(""), Ok(("", Instruction::Addi(Reg::G0, Reg::G0, 0).into())));
-        assert_ne!(parse_macro_1labl1reg("lui"), Ok(("", MacroInstr::Lui(Reg::G0, "".into(), Part::None).into())));
-        assert_eq!(parse_macro_1labl1reg("lui a2, stop"), Ok(("", MacroInstr::Lui(Reg::G12, "stop".into(), Part::None).into())));
-        assert_eq!(parse_macro_1labl1reg("auipc s2, helloWorld"), Ok(("", MacroInstr::Auipc(Reg::G18, "helloWorld".into(), Part::None).into())));
+        assert_ne!(parse_macro_1labl1reg("auipc s2, helloWorld"), Ok(("", MacroInstr::Auipc(Reg::G18, "helloWorld".into()).into())));
         assert_eq!(parse_macro_1labl1reg("jal   x20, test"), Ok(("", MacroInstr::Jal(Reg::G20, "test".into()).into())));
         assert_ne!(parse_macro_1labl1reg("jal x19, train "), Ok(("", MacroInstr::Jal(Reg::G19, "train".into()).into())));
         assert_eq!(parse_macro_1labl1reg("la x19, HELLOWORLD"), Ok(("", MacroInstr::La(Reg::G19, "HELLOWORLD".into()).into())));
@@ -576,10 +802,17 @@ mod tests {
         assert_ne!(parse_inst_1imm1reg(""), Ok(("", Instruction::Addi(Reg::G0, Reg::G0, 0).into())));
         assert_ne!(parse_inst_1imm1reg("lui"), Ok(("", Instruction::Lui(Reg::G0, 0).into())));
         assert_eq!(parse_inst_1imm1reg("lui x12, 12"), Ok(("", Instruction::Lui(Reg::G12, 49152).into())));
+        assert_eq!(parse_inst_1imm1reg("lui a2, %hi(stop)"), Ok(("", MacroInstr::Lui(Reg::G12, "stop".into(), Part::None).into())));
         assert_eq!(parse_inst_1imm1reg("auipc x18, 0x20"), Ok(("", Instruction::Auipc(Reg::G18, 131072).into())));
         assert_eq!(parse_inst_1imm1reg("jal x20, 5"), Ok(("", Instruction::Jal(Reg::G20, 5).into())));
         assert_ne!(parse_inst_1imm1reg("jal x19, 125 "), Ok(("", Instruction::Jal(Reg::G19, 125).into())));
         assert_ne!(parse_inst_1imm1reg("la x19, 0x0F"), Ok(("", MacroInstr::La(Reg::G19, "0x0F".into()).into())));
+
+        setup_symbols("TEST".into(), 25);
+
+        assert_eq!(parse_inst_1imm1reg("li  x11, TEST"), Ok(("", MacroInstr::Li(Reg::G11, 25).into())));
+        assert_eq!(parse_inst_1imm1reg("lui x15, TEST"), Ok(("", Instruction::Lui(Reg::G15, 102400).into())));
+        assert_ne!(parse_inst_1imm1reg("auipc x15, .TEST"), Ok(("", Instruction::Auipc(Reg::G15, 102400).into())));
     }
 
     #[test]
@@ -596,16 +829,10 @@ mod tests {
     fn test_parse_instr1labl2reg() {
         assert_ne!(parse_macro_1labl2reg("invalid"), Ok(("", Instruction::Addi(Reg::G0, Reg::G0, 0).into())));
         assert_ne!(parse_macro_1labl2reg("   "), Ok(("", Instruction::Addi(Reg::G0, Reg::G0, 0).into())));
-        assert_ne!(parse_macro_1labl2reg("sb x1, x6"), Ok(("", MacroInstr::Sb(Reg::G1, Reg::G6, "".into(), Part::None).into())));
-        assert_ne!(parse_macro_1labl2reg("lb x1, total"), Ok(("", MacroInstr::Lb(Reg::G1, Reg::G0, "total".into(), Part::None).into())));
         assert_eq!(parse_macro_1labl2reg("bgeu  x1, x4, sTaRt"), Ok(("", MacroInstr::Bgeu(Reg::G1, Reg::G4, "sTaRt".into()).into())));
-        assert_ne!(parse_macro_1labl2reg("slli x1x4,eNND"), Ok(("", MacroInstr::Slli(Reg::G1, Reg::G4, "eNND".into()).into())));
         assert_eq!(parse_macro_1labl2reg("blt x10,x10, last"), Ok(("", MacroInstr::Blt(Reg::G10, Reg::G10, "last".into()).into())));
         assert_ne!(parse_macro_1labl2reg("jalr  x6,  x8,test"), Ok(("", MacroInstr::Jalr(Reg::G6, Reg::G8, "test".into(), Part::None).into())));
-        assert_eq!(parse_macro_1labl2reg("lhu x1, x2, hans"), Ok(("", MacroInstr::Lhu(Reg::G1, Reg::G2, "hans".into()).into())));
-        assert_eq!(parse_macro_1labl2reg("sb x13,x15,loading"), Ok(("", MacroInstr::Sb(Reg::G13, Reg::G15, "loading".into(), Part::None).into())));
         assert_ne!(parse_macro_1labl2reg("beqx1x15,start"), Ok(("", MacroInstr::Beq(Reg::G1, Reg::G15, "start".into()).into())));
-        assert_ne!(parse_macro_1labl2reg("lbu x12, x15,  dasletzte"), Ok(("", MacroInstr::Lbu(Reg::G12, Reg::G15, "dasletzte".into()).into())));
     }
 
     #[test]
@@ -613,13 +840,7 @@ mod tests {
         assert_ne!(parse_inst_1imm2reg_lw("invalid"), Ok(("", Instruction::Addi(Reg::G0, Reg::G0, 0).into())));
         assert_ne!(parse_inst_1imm2reg_lw("   "), Ok(("", Instruction::Addi(Reg::G0, Reg::G0, 0).into())));
         assert_ne!(parse_inst_1imm2reg_lw("addi x1, x6"), Ok(("", Instruction::Addi(Reg::G1, Reg::G6, 0).into())));
-        assert_ne!(parse_inst_1imm2reg_lw("lbu x1, 0xAA"), Ok(("", Instruction::Lbu(Reg::G1, Reg::G0, 0xAA).into())));
         assert_eq!(parse_inst_1imm2reg_lw("blt x1, x4, 5"), Ok(("", Instruction::Blt(Reg::G1, Reg::G4, 5).into())));
-        assert_ne!(parse_inst_1imm2reg_lw("lb x1x4,0x6"), Ok(("", Instruction::Lb(Reg::G1, Reg::G4, 6).into())));
-        assert_eq!(parse_inst_1imm2reg_lw("sb x10,51(x10)"), Ok(("", Instruction::Sb(Reg::G10, Reg::G10, 51).into())));
-        assert_eq!(parse_inst_1imm2reg_lw("lb x10,(x10)"), Ok(("", Instruction::Lb(Reg::G10, Reg::G10, 0).into())));
-        assert_eq!(parse_inst_1imm2reg_lw("lw x10, -1(x10)"), Ok(("", Instruction::Lw(Reg::G10, Reg::G10, -1).into())));
-        assert_ne!(parse_inst_1imm2reg_lw("lw x10,x10)"), Ok(("", Instruction::Lw(Reg::G10, Reg::G10, 0).into())));
         assert_ne!(parse_inst_1imm2reg_lw("bge x6,  x8,5"), Ok(("", Instruction::Bge(Reg::G6, Reg::G8, 5).into())));
 
         assert_eq!(parse_inst_1imm2reg_up("addi x1, x2, 0xAA"), Ok(("", Instruction::Addi(Reg::G1, Reg::G2, 0xAA).into())));
@@ -627,6 +848,49 @@ mod tests {
         assert_ne!(parse_inst_1imm2reg_up("sltix1x15,6"), Ok(("", Instruction::Slti(Reg::G1, Reg::G15, 6).into())));
         assert_ne!(parse_inst_1imm2reg_up("slli x12, x15,  6"), Ok(("", Instruction::Slli(Reg::G12, Reg::G15, 6).into())));
         // TODO: More tests
+
+        setup_symbols("HelloWorld".into(), 404);
+
+        assert_eq!(parse_inst_1imm2reg_lw("blt x1, x4, HelloWorld"), Ok(("", Instruction::Blt(Reg::G1, Reg::G4, 404).into())));
+    }
+
+    #[test]
+    fn test_parse_mem_ops() {
+        assert_eq!(parse_mem_ops("sb x10,51(x10)"), Ok(("", Instruction::Sb(Reg::G10, Reg::G10, 51).into())));
+        assert_eq!(parse_mem_ops("sh x1, (x10)"), Ok(("", Instruction::Sh(Reg::G1, Reg::G10, 0).into())));
+        assert_eq!(parse_mem_ops("sw x12, 12(x16)"), Ok(("", Instruction::Sw(Reg::G12, Reg::G16, 12).into())));
+
+        assert_eq!(parse_mem_ops("sb x17, -12"), Ok(("", Instruction::Sb(Reg::G17, Reg::G0, -12).into())));
+        assert_eq!(parse_mem_ops("sh x11, 1506"), Ok(("", Instruction::Sh(Reg::G11, Reg::G0, 1506).into())));
+        assert_ne!(parse_mem_ops("sh x12, 15060"), Ok(("", Instruction::Sh(Reg::G12, Reg::G0, 15060).into())));
+        assert_ne!(parse_mem_ops("sw x15, -12515"), Ok(("", Instruction::Sw(Reg::G15, Reg::G0, -12515).into())));
+        
+        assert_eq!(parse_mem_ops("sb x17, 151500, x10"), Ok(("", MacroInstr::SbImm(Reg::G17, Reg::G10, 151500).into())));
+        assert_eq!(parse_mem_ops("sh x11, -151251, x17"), Ok(("", MacroInstr::ShImm(Reg::G11, Reg::G17, -151251).into())));
+        assert_eq!(parse_mem_ops("sw x10, 15006, x2"), Ok(("", MacroInstr::SwImm(Reg::G10, Reg::G2, 15006).into())));
+        
+        assert_ne!(parse_mem_ops("sb x1, x6"), Ok(("", MacroInstr::SbLabl(Reg::G1, Reg::G6, "".into()).into())));
+        assert_eq!(parse_mem_ops("sb x17, dasLabel, x10"), Ok(("", MacroInstr::SbLabl(Reg::G17, Reg::G10, "dasLabel".into()).into())));
+        assert_eq!(parse_mem_ops("sh x13,loading,x15"), Ok(("", MacroInstr::ShLabl(Reg::G13, Reg::G15, "loading".into()).into())));
+        assert_eq!(parse_mem_ops("sw x10, randa, x2"), Ok(("", MacroInstr::SwLabl(Reg::G10, Reg::G2, "randa".into()).into())));
+
+        assert_eq!(parse_mem_ops("lbu x1, 0xAA"), Ok(("", Instruction::Lbu(Reg::G1, Reg::G0, 0xAA).into())));
+        assert_ne!(parse_mem_ops("lb x1x4,0x6"), Ok(("", Instruction::Lb(Reg::G1, Reg::G4, 6).into())));
+        assert_eq!(parse_mem_ops("lb x10,(x10)"), Ok(("", Instruction::Lb(Reg::G10, Reg::G10, 0).into())));
+        assert_eq!(parse_mem_ops("lw x10, -1(x10)"), Ok(("", Instruction::Lw(Reg::G10, Reg::G10, -1).into())));
+        assert_eq!(parse_mem_ops("lb x26, 0x500(zero)"), Ok(("", Instruction::Lb(Reg::G26, Reg::G0, 0x500).into())));
+        assert_ne!(parse_mem_ops("lw x10,x10)"), Ok(("", Instruction::Lw(Reg::G10, Reg::G10, 0).into())));
+
+        assert_ne!(parse_mem_ops("lb x1, total"), Ok(("", MacroInstr::LbLabl(Reg::G1, Reg::G0, "total".into(), Part::None).into())));
+        assert_ne!(parse_mem_ops("lhu x1, x2, hans"), Ok(("", MacroInstr::LhuLabl(Reg::G1, Reg::G2, "hans".into()).into())));
+        assert_ne!(parse_mem_ops("lbu x12, x15,  dasletzte"), Ok(("", MacroInstr::LbuLabl(Reg::G12, Reg::G15, "dasletzte".into()).into())));
+
+        setup_symbols("HelloWorld".into(), 404);
+
+        assert_eq!(parse_mem_ops("sw x10,HelloWorld(x10)"), Ok(("", Instruction::Sw(Reg::G10, Reg::G10, 404).into())));
+
+        assert_eq!(parse_mem_ops("lbu x1, HelloWorld"), Ok(("", Instruction::Lbu(Reg::G1, Reg::G0, 404).into())));
+        assert_ne!(parse_mem_ops("lb x1x4,0x6"), Ok(("", Instruction::Lb(Reg::G1, Reg::G4, 6).into())));
     }
 
     #[test]

@@ -60,7 +60,8 @@ impl ExitErrorCode for LinkError {
 pub enum OptimizerError {
     LabelNonExistent(smartstring::alias::String),
     LabelSubNotRequiredFor(MacroInstr),
-    LabelTooFar(TryFromIntError)
+    LabelTooFar(TryFromIntError),
+    JumpTooFar(MacroInstr, usize, i32, i32) // Macro, line, difference, must be equal or under
 }
 
 impl std::fmt::Display for OptimizerError {
@@ -69,6 +70,8 @@ impl std::fmt::Display for OptimizerError {
             OptimizerError::LabelNonExistent(label) => write!(f, "Label '{}' is not existent!", label),
             OptimizerError::LabelSubNotRequiredFor(macro_in) => write!(f, "Label substitution not required for Macro '{:?}'", macro_in),
             OptimizerError::LabelTooFar(std_err) => write!(f, "{std_err}"),
+            OptimizerError::JumpTooFar(macro_in, cur_line, dif, under_equal) => 
+            write!(f, "[Operation #{cur_line}] Jump in '{macro_in}' too far away: {dif} > {under_equal}!"),
         }
     }
 }
@@ -184,7 +187,9 @@ impl std::convert::From<LibraryError> for PyErr {
 }
 pub enum ParserError {
     NoTextSection,
-    CommonError(CommonError)
+    CommonError(CommonError),
+    LockNotWritable(smartstring::alias::String),
+    NumberTooLarge(TryFromIntError)
 }
 
 impl ParserError {
@@ -192,6 +197,8 @@ impl ParserError {
         match self {
             ParserError::NoTextSection => "Specified .data section without .text section!",
             ParserError::CommonError(_) => "Label is already defined!",
+            ParserError::LockNotWritable(_) => "Could not emit label into symbol map!",
+            ParserError::NumberTooLarge(_) => "Number is too large!",
         }
     }
 }
@@ -205,9 +212,17 @@ impl From<CommonError> for ParserError {
 impl std::fmt::Display for ParserError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParserError::NoTextSection => write!(f, "Specified .data section without .text section!"),
+            ParserError::NoTextSection => write!(f, "{}", self.get_nom_err_text()),
             ParserError::CommonError(com_err) => write!(f, "{com_err}"),
+            ParserError::LockNotWritable(labl) => write!(f, "Could not emit label '{labl}' into symbol map!"),
+            ParserError::NumberTooLarge(std_err) => write!(f, "{std_err}"),
         }
+    }
+}
+
+impl From<TryFromIntError> for ParserError {
+    fn from(value: TryFromIntError) -> Self {
+        ParserError::NumberTooLarge(value)
     }
 }
 

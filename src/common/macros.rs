@@ -35,30 +35,34 @@ pub enum MacroInstr {
     Jalr(Reg, Reg, smartstring::alias::String, Part),
 
     Lui(Reg, smartstring::alias::String, Part),
-    Auipc(Reg, smartstring::alias::String, Part),
+    Auipc(Reg, smartstring::alias::String),
+    
+    LbLabl(Reg, Reg, smartstring::alias::String, Part), //Load byte
+    LhLabl(Reg, Reg, smartstring::alias::String, Part), //Load half
+    LwLabl(Reg, Reg, smartstring::alias::String, Part), //Load word
+    LbImm(Reg, Reg, Imm), //Load byte
+    LhImm(Reg, Reg, Imm), //Load half
+    LwImm(Reg, Reg, Imm), //Load word
+    
+    LbuLabl(Reg, Reg, smartstring::alias::String),
+    LhuLabl(Reg, Reg, smartstring::alias::String),
+    LbuImm(Reg, Reg, Imm),
+    LhuImm(Reg, Reg, Imm),
+    
+    SbLabl(Reg, Reg, smartstring::alias::String), //Store byte
+    ShLabl(Reg, Reg, smartstring::alias::String), //Store half
+    SwLabl(Reg, Reg, smartstring::alias::String), //Store word
 
-    Slli(Reg, Reg, smartstring::alias::String),
-    Srli(Reg, Reg, smartstring::alias::String),
-    Srai(Reg, Reg, smartstring::alias::String),
-    
-    Lb(Reg, Reg, smartstring::alias::String, Part), //Load byte
-    Lh(Reg, Reg, smartstring::alias::String, Part), //Load half
-    Lw(Reg, Reg, smartstring::alias::String, Part), //Load word
-    
-    Lbu(Reg, Reg, smartstring::alias::String),
-    Lhu(Reg, Reg, smartstring::alias::String),
-    
-    Sb(Reg, Reg, smartstring::alias::String, Part), //Store byte
-    Sh(Reg, Reg, smartstring::alias::String, Part), //Store half
-    Sw(Reg, Reg, smartstring::alias::String, Part), //Store word
+    SbImm(Reg, Reg, Imm), //Store byte
+    ShImm(Reg, Reg, Imm), //Store half
+    SwImm(Reg, Reg, Imm), //Store word
 
     Addi(Reg, Reg, smartstring::alias::String, Part),
 
     Srr(Reg, Reg, Imm),
     Slr(Reg, Reg, Imm),
 
-    LiImm(Reg, Imm),
-    LiLabl(Reg, smartstring::alias::String),
+    Li(Reg, Imm),
     La(Reg, smartstring::alias::String),
 
     Call(smartstring::alias::String),
@@ -90,30 +94,47 @@ impl Display for MacroInstr {
             MacroInstr::Jalr(reg1, reg2, label, _) => write!(f, "jalr {reg1}, {reg2}, {label}"),
 
             MacroInstr::Lui(reg, label, _) => write!(f, "lui {reg}, {label}"),
-            MacroInstr::Auipc(reg, label, _) => write!(f, "auipc {reg}, {label}"),
+            MacroInstr::Auipc(reg, label) => write!(f, "auipc {reg}, {label}"),
+            
+            MacroInstr::LbLabl(reg1, reg2, label, part) => {
+                if let Part::None = part {
+                    write!(f, "lb {reg1}, {label}")
+                } else {
+                    write!(f, "lb {reg1}, %lo({label})({reg2})")
+                }
+            },
+            MacroInstr::LhLabl(reg1, reg2, label, part) => {
+                if let Part::None = part {
+                    write!(f, "lh {reg1}, {label}")
+                } else {
+                    write!(f, "lh {reg1}, %lo({label})({reg2})")
+                }
+            },
+            MacroInstr::LwLabl(reg1, reg2, label, part) => {
+                if let Part::None = part {
+                    write!(f, "lw {reg1}, {label}")
+                } else {
+                    write!(f, "lw {reg1}, %lo({label})({reg2})")
+                }
+            },
+            
+            MacroInstr::LbuLabl(reg1, _, label) => write!(f, "lbu {reg1}, {label}"),
+            MacroInstr::LhuLabl(reg1, _, label) => write!(f, "lhu {reg1}, {label}"),
+            
+            MacroInstr::SbLabl(reg1, reg2, label) => write!(f, "sb {reg1}, {label}, {reg2}"),
+            MacroInstr::ShLabl(reg1, reg2, label) => write!(f, "sh {reg1}, {label}, {reg2}"),
+            MacroInstr::SwLabl(reg1, reg2, label) => write!(f, "sw {reg1}, {label}, {reg2}"),
 
-            MacroInstr::Slli(reg1, reg2, label) => write!(f, "slli {reg1}, {reg2}, {label}"),
-            MacroInstr::Srli(reg1, reg2, label) => write!(f, "srli {reg1}, {reg2}, {label}"),
-            MacroInstr::Srai(reg1, reg2, label) => write!(f, "srai {reg1}, {reg2}, {label}"),
-            
-            MacroInstr::Lb(reg1, reg2, label, _) => write!(f, "lb {reg1}, {reg2}, {label}"),
-            MacroInstr::Lh(reg1, reg2, label, _) => write!(f, "lh {reg1}, {reg2}, {label}"),
-            MacroInstr::Lw(reg1, reg2, label, _) => write!(f, "lw {reg1}, {reg2}, {label}"),
-            
-            MacroInstr::Lbu(reg1, reg2, label) => write!(f, "lbu {reg1}, {reg2}, {label}"),
-            MacroInstr::Lhu(reg1, reg2, label) => write!(f, "lhu {reg1}, {reg2}, {label}"),
-            
-            MacroInstr::Sb(reg1, reg2, label, _) => write!(f, "sb {reg1}, {reg2}, {label}"),
-            MacroInstr::Sh(reg1, reg2, label, _) => write!(f, "sh {reg1}, {reg2}, {label}"),
-            MacroInstr::Sw(reg1, reg2, label, _) => write!(f, "sw {reg1}, {reg2}, {label}"),
+            MacroInstr::SbImm(reg1, reg2, imm) => write!(f, "sb {reg1}, {imm}, {reg2}"),
+            MacroInstr::ShImm(reg1, reg2, imm) => write!(f, "sh {reg1}, {imm}, {reg2}"),
+            MacroInstr::SwImm(reg1, reg2, imm) => write!(f, "sw {reg1}, {imm}, {reg2}"),
 
             MacroInstr::Addi(reg1, reg2, label, _) => write!(f, "addi {reg1}, {reg2}, {label}"),
 
             MacroInstr::Srr(reg1, reg2, imm) => write!(f, "srr {reg1}, {reg2}, {imm}"),
             MacroInstr::Slr(reg1, reg2, imm) => write!(f, "slr {reg1}, {reg2}, {imm}"),
 
-            MacroInstr::LiImm(reg, imm) => write!(f, "li {reg}, {imm}"),
-            MacroInstr::LiLabl(reg, label) => write!(f, "li {reg}, {label}"),
+            MacroInstr::Li(reg, imm) => write!(f, "li {reg}, {imm}"),
             MacroInstr::La(reg, label) => write!(f, "la {reg}, {label}"),
 
             MacroInstr::Call(label) => write!(f, "call {label}"),
@@ -135,7 +156,13 @@ impl Display for MacroInstr {
             },
 
             MacroInstr::RepMacro(imm, macro_in) => write!(f, "rep {imm}, {macro_in}"),
-            MacroInstr::RepInstr(imm, instr) => write!(f, "rep {imm}, {:?}", instr)
+            MacroInstr::RepInstr(imm, instr) => write!(f, "rep {imm}, {:?}", instr),
+
+            MacroInstr::LbImm(reg1, _, imm) => write!(f, "lb {reg1}, {imm}"),
+            MacroInstr::LhImm(reg1, _, imm) => write!(f, "lh {reg1}, {imm}"),
+            MacroInstr::LwImm(reg1, _, imm) => write!(f, "lw {reg1}, {imm}"),
+            MacroInstr::LbuImm(reg1, _, imm) => write!(f, "lbu {reg1}, {imm}"),
+            MacroInstr::LhuImm(reg1, _, imm) => write!(f, "lhu {reg1}, {imm}"),
         }
     }
 }

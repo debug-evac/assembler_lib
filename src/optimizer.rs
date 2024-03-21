@@ -210,24 +210,21 @@ impl From<&Operation> for RegActType {
                     MacroInstr::Bgeu(reg1, reg2, _) => RegActType::Read2(*reg1, *reg2),
 
                     MacroInstr::Lui(reg, _, _) |
-                    MacroInstr::Auipc(reg, _, _) |
+                    MacroInstr::Auipc(reg, _) |
                     MacroInstr::Jal(reg, _) => RegActType::Write(*reg),
 
                     MacroInstr::Addi(reg1, reg2, _, _) |
-                    MacroInstr::Slli(reg1, reg2, _) |
-                    MacroInstr::Srli(reg1, reg2, _) |
-                    MacroInstr::Srai(reg1, reg2, _) |
                     MacroInstr::Jalr(reg1, reg2, _, _) => RegActType::WriteRead(*reg1, *reg2),
 
-                    MacroInstr::Lb(reg1, reg2, _, _) |
-                    MacroInstr::Lh(reg1, reg2, _, _) |
-                    MacroInstr::Lw(reg1, reg2, _, _) |
-                    MacroInstr::Lbu(reg1, reg2, _) |
-                    MacroInstr::Lhu(reg1, reg2, _) => RegActType::Load(*reg2, *reg1),
+                    MacroInstr::LbLabl(reg1, reg2, _, _) |
+                    MacroInstr::LhLabl(reg1, reg2, _, _) |
+                    MacroInstr::LwLabl(reg1, reg2, _, _) |
+                    MacroInstr::LbuLabl(reg1, reg2, _) |
+                    MacroInstr::LhuLabl(reg1, reg2, _) => RegActType::Load(*reg2, *reg1),
 
-                    MacroInstr::Sh(reg1, reg2, _, _) |
-                    MacroInstr::Sb(reg1, reg2, _, _) |
-                    MacroInstr::Sw(reg1, reg2, _, _) => RegActType::Store(*reg1, *reg2),
+                    MacroInstr::ShLabl(reg1, reg2, _) |
+                    MacroInstr::SbLabl(reg1, reg2, _) |
+                    MacroInstr::SwLabl(reg1, reg2, _) => RegActType::Store(*reg1, *reg2),
 
                     _ => unreachable!(),
                 }
@@ -313,31 +310,73 @@ impl Translate for MacroInstr {
 
             MacroInstr::Beq(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 0b01_11111_11111_i32 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 2047))
+                } else if clines < -2048 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -2048))
+                }
                 instructions.push(Instruction::Beq(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Bne(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 0b01_11111_11111_i32 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 2047))
+                } else if clines < -2048 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -2048))
+                }
                 instructions.push(Instruction::Bne(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Blt(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 0b01_11111_11111_i32 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 2047))
+                } else if clines < -2048 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -2048))
+                }
                 instructions.push(Instruction::Blt(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Bltu(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 0b01_11111_11111_i32 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 2047))
+                } else if clines < -2048 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -2048))
+                }
                 instructions.push(Instruction::Bltu(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Bge(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 0b01_11111_11111_i32 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 2047))
+                } else if clines < -2048 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -2048))
+                }
                 instructions.push(Instruction::Bge(reg1.to_owned(), reg2.to_owned(), lines));
             },
             MacroInstr::Bgeu(reg1, reg2, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 0b01_11111_11111_i32 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 2047))
+                } else if clines < -2048 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -2048))
+                }
                 instructions.push(Instruction::Bgeu(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
             MacroInstr::Jal(reg, labl) => {
                 let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                let clines = lines >> 1;
+                if clines > 524287 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, 524287))
+                } else if clines < -524288 {
+                    return Err(OptimizerError::JumpTooFar(self.clone(), instructions.len(), clines, -524288))
+                }
                 instructions.push(Instruction::Jal(reg.to_owned(), lines));
             },
             MacroInstr::Jalr(reg1, reg2, labl, part) => {
@@ -351,62 +390,52 @@ impl Translate for MacroInstr {
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Lui(reg.to_owned(), lines));
             },
-            MacroInstr::Auipc(reg, labl, part) => {
+            MacroInstr::Auipc(reg, labl) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                handle_part(&mut lines, part);
+                handle_part(&mut lines, &Part::Upper);
                 instructions.push(Instruction::Auipc(reg.to_owned(), lines));
             },
 
-            MacroInstr::Slli(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                instructions.push(Instruction::Slli(reg1.to_owned(), reg2.to_owned(), lines));
-            },
-            MacroInstr::Srli(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                instructions.push(Instruction::Srli(reg1.to_owned(), reg2.to_owned(), lines));
-            },
-            MacroInstr::Srai(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                instructions.push(Instruction::Srai(reg1.to_owned(), reg2.to_owned(), lines));
-            },
-
-            MacroInstr::Lb(reg1, reg2, labl, part) => {
+            MacroInstr::LbLabl(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Lb(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Lh(reg1, reg2, labl, part) => {
+            MacroInstr::LhLabl(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Lh(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Lw(reg1, reg2, labl, part) => {
+            MacroInstr::LwLabl(reg1, reg2, labl, part) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
                 handle_part(&mut lines, part);
                 instructions.push(Instruction::Lw(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Lbu(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+
+            MacroInstr::LbuLabl(reg1, reg2, labl) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                handle_part(&mut lines, &Part::Lower);
                 instructions.push(Instruction::Lbu(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Lhu(reg1, reg2, labl) => {
-                let lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+            MacroInstr::LhuLabl(reg1, reg2, labl) => {
+                let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
+                handle_part(&mut lines, &Part::Lower);
                 instructions.push(Instruction::Lhu(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
-            MacroInstr::Sb(reg1, reg2, labl, part) => {
+            MacroInstr::SbLabl(reg1, reg2, labl) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                handle_part(&mut lines, part);
+                handle_part(&mut lines, &Part::Lower);
                 instructions.push(Instruction::Sb(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Sh(reg1, reg2, labl, part) => {
+            MacroInstr::ShLabl(reg1, reg2, labl) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                handle_part(&mut lines, part);
+                handle_part(&mut lines, &Part::Lower);
                 instructions.push(Instruction::Sh(reg1.to_owned(), reg2.to_owned(), lines));
             },
-            MacroInstr::Sw(reg1, reg2, labl, part) => {
+            MacroInstr::SwLabl(reg1, reg2, labl) => {
                 let mut lines = translate_label(instructions.len() as i128, labl.to_owned(), namespace, *current_space)?;
-                handle_part(&mut lines, part);
+                handle_part(&mut lines, &Part::Lower);
                 instructions.push(Instruction::Sw(reg1.to_owned(), reg2.to_owned(), lines));
             },
 
@@ -1316,9 +1345,6 @@ mod tests {
         let mut test_macros: Vec<(MacroInstr, Instruction)> = vec![];
 
         test_macros.push((MacroInstr::Lui(Reg::G21, "GLOBAL".into(), Part::None), Instruction::Lui(Reg::G21, -8)));
-        test_macros.push((MacroInstr::Slli(Reg::G30, Reg::G19, ".LOCAL".into()), Instruction::Slli(Reg::G30, Reg::G19, -4)));
-        test_macros.push((MacroInstr::Srli(Reg::G5, Reg::G20, "GLOBAL".into()), Instruction::Srli(Reg::G5, Reg::G20, -8)));
-        test_macros.push((MacroInstr::Srai(Reg::G7, Reg::G15, ".LOCAL".into()), Instruction::Srai(Reg::G7, Reg::G15, -4)));
 
         for (test, corr) in test_macros {
             let _ = test.translate(&mut namespace, &cs, &mut instructions);

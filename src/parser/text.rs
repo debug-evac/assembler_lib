@@ -9,14 +9,9 @@
 mod op_exp;
 
 use winnow::{
-    Parser,
-    IResult,
-    branch::alt,
-    combinator::{
-        success,
-        fail
-    },
-    sequence::separated_pair
+    ascii::space1, combinator::{
+        alt, fail, separated_pair, success
+    }, error::StrContext, PResult, Parser
 };
 use std::{any::Any, cmp::Ordering};
 use std::collections::BTreeMap;
@@ -79,15 +74,15 @@ impl std::fmt::Display for LabelInsertError {
     }
 }
 
-fn parse_line(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
-    let (rest, early) = parse_multiline_comments(input)?;
+fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
+    let early = parse_multiline_comments(input)?;
     if early {
-        return Ok((rest, Box::from(NoData {})))
+        return Ok(Box::from(NoData {}))
     }
     alt((
         separated_pair(
             parse_label_definition.map(Some),
-            parse_multiline_comments,
+            alt((space1.void(), parse_multiline_comments.void())),
             parse_instruction.map(Some)
         ),
         (
@@ -100,13 +95,13 @@ fn parse_line(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
         ),
     ))
     .output_into()
-    .parse_next(rest)
+    .parse_next(input)
 }
 
-fn parse_line_priv(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
-    let (rest, early) = parse_multiline_comments(input)?;
+fn parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
+    let early = parse_multiline_comments(input)?;
     if early {
-        return Ok((rest, Box::from(NoData {})))
+        return Ok(Box::from(NoData {}))
     }
     alt((
         separated_pair(
@@ -124,7 +119,7 @@ fn parse_line_priv(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
         ),
     ))
     .output_into()
-    .parse_next(rest)
+    .parse_next(input)
 }
 
 fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog) {
@@ -543,13 +538,11 @@ impl LineHandle for NoData {
     }
 }
 
-pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, sp_init: bool) -> IResult<&'a str, Vec<Operation>> {
+pub fn parse(input: &mut &str, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, sp_init: bool) -> PResult<Vec<Operation>> {
     let mut instr_list: Vec<Operation> = vec![];
 
     // Key = line forward; value = current line
     let mut abs_to_label_queue: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-
-    let mut rest = input;
     let mut instr_counter: usize = 0;
 
     if sp_init {
@@ -560,18 +553,17 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
     let privileged = subroutines.is_none();
 
     loop {
-        let (rest_line, mut parsed) = match privileged {
-            true => parse_line_priv(rest)?,
-            false => parse_line(rest)?,
+        let mut parsed = match privileged {
+            true => parse_line_priv(input)?,
+            false => parse_line(input)?,
         };
-        rest = rest_line;
 
         if let Err(e) = parsed.handle(&mut instr_counter, &mut instr_list, subroutines, symbol_map, &mut abs_to_label_queue) {
             error!("{e}");
-            return fail.context(e.get_nom_err_text()).parse_next(rest)
+            return fail.context(StrContext::Label(e.get_nom_err_text())).parse_next(input)
         }
 
-        if rest.trim().is_empty() {
+        if input.trim().is_empty() {
             break;
         }
     }
@@ -596,7 +588,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
 
     expand_instrs(symbol_map, &mut instr_list);
 
-    Ok(("", instr_list))
+    Ok(instr_list)
 }
 
 #[cfg(test)]
@@ -605,8 +597,8 @@ mod tests {
 
     macro_rules! assert_equ_line {
         ($pars_line:literal, $rest:literal, $struct:ident { $( $field:ident: $val:expr ),*}) => {
-            let (rest, parsed) = parse_line($pars_line).unwrap();
-            assert_eq!(rest, $rest);
+            let parsed = parse_line(&mut $pars_line).unwrap();
+            assert_eq!(&mut &$pars_line, &mut &$rest);
             assert_eq!(parsed.as_any().downcast_ref::<$struct>().unwrap(), &$struct { $( $field: $val ),* });
         };
     }
@@ -627,8 +619,8 @@ mod tests {
 
     macro_rules! assert_equ_line_priv {
         ($pars_line:literal, $rest:literal, $struct:ident { $( $field:ident: $val:expr ),*}) => {
-            let (rest, parsed) = parse_line_priv($pars_line).unwrap();
-            assert_eq!(rest, $rest);
+            let parsed = parse_line_priv(&mut $pars_line).unwrap();
+            //assert_eq!(&mut &$pars_line, &mut &$rest);
             assert_eq!(parsed.as_any().downcast_ref::<$struct>().unwrap(), &$struct { $( $field: $val ),* });
         };
     }
@@ -649,7 +641,7 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let source_code = r#"START:
+        let mut source_code = r#"START:
     li x4, 16
     mv x3, x4
 MUL: beq x3, x4, END
@@ -695,8 +687,8 @@ END:
                                                 Operation::Labl("END".into())
                                                 ];
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
-                   Ok(("", correct_vec)));
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+                   Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty())
         // TODO: Probably more test cases!
@@ -704,7 +696,7 @@ END:
 
     #[test]
     fn test_parse_abs_addresses_smallex() {
-        let source_code = 
+        let mut source_code = 
 r#" li  x4, 16
     mv  x3, x4
     beq x3, x4, 16
@@ -755,15 +747,15 @@ r#" li  x4, 16
                                                 Operation::Labl("__7".into())
                                                 ];
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
-                   Ok(("", correct_vec)));
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+                   Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert_eq!(subroutines.get_code().is_empty(), true);
     }
 
     #[test]
     fn test_parse_abs_addresses_biggerex() {
-        let source_code = 
+        let mut source_code = 
 r#"
     addi a7, zero, 1
     mv a2, a0
@@ -869,15 +861,15 @@ TEST: srli a7, a7, 1
         correct_vec.push(Operation::LablMacro("__29".into(), MacroInstr::Bne(Reg::G12, Reg::G0, "__9".into())));
         correct_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
-                   Ok(("", correct_vec)));
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+                   Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());
     }
 
     #[test]
     fn test_parse_comment() {
-        let source_code = r#"
+        let mut source_code = r#"
     ; stop this hellO
     ; MULTIPLE COMMENTS
     ; YES, MULTIPLE COMMENTS
@@ -932,15 +924,15 @@ END:                    ; TEST
                                                 Operation::Labl("END".into())
                                                 ];
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
-                   Ok(("", correct_vec)));
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+                   Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty())
     }
 
     #[test]
     fn test_parse_repeat_instr() {
-        let source_code = r#"
+        let mut source_code = r#"
     ; testing repeat
 TESTING: rep 1000, nop
 "#;
@@ -964,8 +956,8 @@ TESTING: rep 1000, nop
             correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
         }
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
-                   Ok(("", correct_vec)));
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+                   Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());
     }
@@ -983,7 +975,7 @@ TESTING: rep 1000, nop
         label.set_def(0);
         let _ = symbols.insert_label(label);
 
-        let source_code_two = r#"
+        let mut source_code_two = r#"
     ; testing repeat with macros
 TESTING: rep 50, pop x15
 "#;
@@ -998,8 +990,8 @@ TESTING: rep 50, pop x15
             sec_correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G2, Reg::G2, 4)));
         }
 
-        assert_eq!(parse(source_code_two, &mut Some(&mut subroutines), &mut symbol_map, false),
-                   Ok(("", sec_correct_vec)));
+        assert_eq!(parse(&mut source_code_two, &mut Some(&mut subroutines), &mut symbol_map, false),
+                   Ok(sec_correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());
     }

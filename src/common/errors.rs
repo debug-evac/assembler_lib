@@ -151,8 +151,8 @@ impl From<OptimizerError> for LibraryError {
     }
 }
 
-impl <I: std::fmt::Debug> From<winnow::error::ErrMode<winnow::error::Error<I>>> for LibraryError {
-    fn from(value: winnow::error::ErrMode<winnow::error::Error<I>>) -> Self {
+impl <I: std::fmt::Debug + std::clone::Clone> From<winnow::error::ErrMode<winnow::error::ContextError<I>>> for LibraryError {
+    fn from(value: winnow::error::ErrMode<winnow::error::ContextError<I>>) -> Self {
         LibraryError::ParserError(format!("{value}"))
     }
 }
@@ -185,12 +185,17 @@ impl std::convert::From<LibraryError> for PyErr {
         PyRuntimeError::new_err(err.to_string())
     }
 }
+
+#[derive(Debug)]
 pub enum ParserError {
     NoTextSection,
     CommonError(CommonError),
     LockNotWritable(smartstring::alias::String),
-    NumberTooLarge(TryFromIntError)
+    NumberTooLarge(TryFromIntError),
+    NestedRepeat,
 }
+
+impl std::error::Error for ParserError {}
 
 impl ParserError {
     pub fn get_nom_err_text(&self) -> &'static str {
@@ -199,6 +204,7 @@ impl ParserError {
             ParserError::CommonError(_) => "Label is already defined!",
             ParserError::LockNotWritable(_) => "Could not emit label into symbol map!",
             ParserError::NumberTooLarge(_) => "Number is too large!",
+            ParserError::NestedRepeat => "Nested repeats are not allowed!",
         }
     }
 }
@@ -216,6 +222,7 @@ impl std::fmt::Display for ParserError {
             ParserError::CommonError(com_err) => write!(f, "{com_err}"),
             ParserError::LockNotWritable(labl) => write!(f, "Could not emit label '{labl}' into symbol map!"),
             ParserError::NumberTooLarge(std_err) => write!(f, "{std_err}"),
+            ParserError::NestedRepeat => write!(f, "{}", self.get_nom_err_text()),
         }
     }
 }
@@ -231,7 +238,9 @@ pub enum CommonError {
     LabelsNameNotEqual(LabelElem, LabelElem),
     MultipleGlobalDefined(LabelElem),
     LabelAlreadyDefined(LabelElem),
-    TooManyInstructions(TryFromIntError)
+    TooManyInstructions(TryFromIntError),
+    RegisterUnknownNum(usize),
+    RegisterUnknownStr(String),
 }
 
 impl std::fmt::Display for CommonError {
@@ -241,9 +250,13 @@ impl std::fmt::Display for CommonError {
             CommonError::MultipleGlobalDefined(labelel) => write!(f, "Global label '{}' defined multiple times!", labelel.get_name()),
             CommonError::LabelAlreadyDefined(labelel) => write!(f, "Label '{}' already defined!", labelel.get_name()),
             CommonError::TooManyInstructions(std_err) => write!(f, "{std_err}"),
+            CommonError::RegisterUnknownNum(al_reg) => write!(f, "Register x{al_reg} does not exist!"),
+            CommonError::RegisterUnknownStr(al_reg) => write!(f, "Register '{al_reg}' does not exist!"),
         }
     }
 }
+
+impl std::error::Error for CommonError {}
 
 impl From<TryFromIntError> for CommonError {
     fn from(value: TryFromIntError) -> Self {

@@ -60,11 +60,11 @@ impl <'a> ParseLinkBuilder<'a> {
         let mut subroutine = parser::Subroutines::new();
 
         for (counter, code) in self.assembly_code.iter().enumerate() {
-            parsed_vector.push(parser::parse(code, &mut Some(&mut subroutine), counter == 0 && self.sp_init)?.1);
+            parsed_vector.push(parser::parse(&mut code.as_str(), &mut Some(&mut subroutine), counter == 0 && self.sp_init)?);
         }
 
         for code in subroutine.get_code() {
-            parsed_vector.push(parser::parse(&code, &mut None, false)?.1)
+            parsed_vector.push(parser::parse(&mut code.as_str(), &mut None, false)?)
         }
 
         Ok(parsed_vector)

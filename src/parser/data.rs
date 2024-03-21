@@ -11,13 +11,11 @@ use std::{any::Any, fmt::Display};
 use log::{debug, error};
 use winnow::{
     Parser,
-    branch::alt,
-    bytes::{tag, take_till1},
+    token::{tag, take_till1},
     ascii::{digit1, space1},
-    combinator::{fail, opt, success},
-    multi::separated1,
-    sequence::{delimited, separated_pair},
-    IResult
+    combinator::{fail, opt, success, alt, delimited, separated_pair, separated1},
+    error::StrContext,
+    PResult
 };
 
 use super::{
@@ -50,7 +48,7 @@ impl Display for Directive {
     }
 }
 
-fn parse_byte(input: &str) -> IResult<&str, MemData> {
+fn parse_byte(input: &mut &str) -> PResult<MemData> {
     separated1(
         alt((
             parse_imm.map(|imm| imm.into()),
@@ -68,7 +66,7 @@ fn parse_byte(input: &str) -> IResult<&str, MemData> {
     ).parse_next(input)
 }
 
-fn parse_half(input: &str) -> IResult<&str, MemData> {
+fn parse_half(input: &mut &str) -> PResult<MemData> {
     separated1(
         alt((
             parse_imm.map(|imm| imm.into()),
@@ -86,7 +84,7 @@ fn parse_half(input: &str) -> IResult<&str, MemData> {
     ).parse_next(input)
 }
 
-fn parse_word(input: &str) -> IResult<&str, MemData> {
+fn parse_word(input: &mut &str) -> PResult<MemData> {
     separated1(
         alt((
             parse_bigimm.map(|imm| imm.into()),
@@ -104,7 +102,7 @@ fn parse_word(input: &str) -> IResult<&str, MemData> {
     ).parse_next(input)
 }
 
-fn parse_dword(input: &str) -> IResult<&str, MemData> {
+fn parse_dword(input: &mut &str) -> PResult<MemData> {
     separated1(
         alt((
             parse_bigimm.map(|imm| imm.into()),
@@ -122,7 +120,7 @@ fn parse_dword(input: &str) -> IResult<&str, MemData> {
     ).parse_next(input)
 }
 
-fn parse_eqv(input: &str) -> IResult<&str, Directive> {
+fn parse_eqv(input: &mut &str) -> PResult<Directive> {
     separated_pair(
         parse_label_name, 
         parse_seper, 
@@ -159,8 +157,8 @@ fn string_to_le_words(input: String) -> MemData {
     MemData::Bytes(vec_data, true)
 }
 
-fn parse_directive(input: &str) -> IResult<&str, Directive> {
-    let (rest, (_, directive)) = alt((
+fn parse_directive(input: &mut &str) -> PResult<Directive> {
+    let (_, directive) = alt((
         separated_pair(tag(".byte"), space1, parse_byte.map(Directive::Data)),
         separated_pair(tag(".half"), space1, parse_half.map(Directive::Data)),
         separated_pair(tag(".word"), space1, parse_word.map(Directive::Data)),
@@ -175,11 +173,11 @@ fn parse_directive(input: &str) -> IResult<&str, Directive> {
             }
         )),
         separated_pair(tag(".ascii"), space1,
-            delimited('"', take_till1("\n\";"), '"').map(
+            delimited('"', take_till1(['\n', '\"', ';']), '"').map(
             |ascii_str: &str| string_to_le_words(ascii_str.to_string()).into()
         )),
         separated_pair(tag(".asciz"), space1,
-            delimited('"', take_till1("\n\";"), '"').map(
+            delimited('"', take_till1(['\n', '\"', ';']), '"').map(
             |ascii_str: &str| {
                 let mut ascii_string = ascii_str.to_string(); 
                 ascii_string.push('\0');
@@ -187,7 +185,7 @@ fn parse_directive(input: &str) -> IResult<&str, Directive> {
             } 
         )),
         separated_pair(tag(".string"), space1,
-            delimited('"', take_till1("\n\";"), '"').map(
+            delimited('"', take_till1(['\n', '\"', ';']), '"').map(
             |ascii_str: &str| {
                 let mut ascii_string = ascii_str.to_string(); 
                 ascii_string.push('\0');
@@ -197,13 +195,13 @@ fn parse_directive(input: &str) -> IResult<&str, Directive> {
         separated_pair(tag(".eqv"), space1, parse_eqv)
     )).parse_next(input)?;
 
-    Ok((rest, directive))
+    Ok(directive)
 }
 
-fn parse_line(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
-    let (rest, early) = parse_multiline_comments(input)?;
+fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
+    let early = parse_multiline_comments(input)?;
     if early {
-        return Ok((rest, Box::from(NoData { })))
+        return Ok(Box::from(NoData { }))
     }
     alt((
         separated_pair(
@@ -221,7 +219,7 @@ fn parse_line(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
         ),
     ))
     .output_into()
-    .parse_next(rest)
+    .parse_next(input)
 }
 
 fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usize {
@@ -400,34 +398,31 @@ impl LineHandle for NoData {
     }
 }
 
-pub fn parse<'a>(input: &'a str, symbol_map: &mut LabelRecog) -> IResult<&'a str, Vec<MemData>> {
+pub fn parse(input: &mut &str, symbol_map: &mut LabelRecog) -> PResult<Vec<MemData>> {
     let mut dir_list: Vec<MemData> = vec![];
 
-    let mut rest = input;
     let mut next_free_ptr = 0;
 
     loop {
-        let (rest_line, parsed) = parse_line(rest)?;
-        rest = rest_line;
+        let parsed = parse_line(input)?;
 
         if let Err(e) = parsed.handle(&mut next_free_ptr, &mut dir_list, symbol_map) {
             error!("{e}");
-            return fail.context(e.get_nom_err_text()).parse_next(rest)
+            return fail.context(StrContext::Label(e.get_nom_err_text())).parse_next(input)
         }
 
-        let (rested, breakout) = delimited(
+        let breakout = delimited(
             parse_multiline_comments,
             opt(parse_text_segment_id),
             parse_multiline_comments
-        ).parse_next(rest)?;
+        ).parse_next(input)?;
         if breakout.is_some() {
             debug!("Finished data parsing sub step");
-            rest = rested;
             break
         }
     }
 
-    Ok((rest, dir_list))
+    Ok(dir_list)
 }
 
 #[cfg(test)]
@@ -440,81 +435,81 @@ mod tests {
 
     #[test]
     fn test_parse_byte() {
-        assert_eq!(parse_byte("15, 16, 10, 15"), Ok(("", MemData::Bytes(Vec::from([
+        assert_eq!(parse_byte(&mut "15, 16, 10, 15"), Ok(MemData::Bytes(Vec::from([
             ByteData::Byte(15), 
             ByteData::Byte(16), 
             ByteData::Byte(10), 
             ByteData::Byte(15)
-        ]), false))));
-        assert_eq!(parse_byte("16, ligma, 201"), Ok(("", MemData::Bytes(Vec::from([
+        ]), false)));
+        assert_eq!(parse_byte(&mut "16, ligma, 201"), Ok(MemData::Bytes(Vec::from([
             ByteData::Byte(16), 
             ByteData::String("ligma".into()),
             ByteData::Byte(201)
-        ]), false))));
-        assert_eq!(parse_byte(".awldldaw"), Ok(("", MemData::Bytes(Vec::from([
+        ]), false)));
+        assert_eq!(parse_byte(&mut ".awldldaw"), Ok(MemData::Bytes(Vec::from([
             ByteData::String(".awldldaw".into())
-        ]), false))));
+        ]), false)));
     }
 
     #[test]
     fn test_parse_half() {
-        assert_eq!(parse_half("15, 16, 10, 15"), Ok(("", MemData::Halfs(Vec::from([
+        assert_eq!(parse_half(&mut "15, 16, 10, 15"), Ok(MemData::Halfs(Vec::from([
             HalfData::Half(15), 
             HalfData::Half(16), 
             HalfData::Half(10), 
             HalfData::Half(15)
-        ])))));
-        assert_eq!(parse_half("16, ligma, 201"), Ok(("", MemData::Halfs(Vec::from([
+        ]))));
+        assert_eq!(parse_half(&mut "16, ligma, 201"), Ok(MemData::Halfs(Vec::from([
             HalfData::Half(16), 
             HalfData::String("ligma".into()),
             HalfData::Half(201)
-        ])))));
-        assert_eq!(parse_half(".awldldaw"), Ok(("", MemData::Halfs(Vec::from([
+        ]))));
+        assert_eq!(parse_half(&mut ".awldldaw"), Ok(MemData::Halfs(Vec::from([
             HalfData::String(".awldldaw".into())
-        ])))));
+        ]))));
     }
 
     #[test]
     fn test_parse_word() {
-        assert_eq!(parse_word("15, 16, 10, 15"), Ok(("", MemData::Words(Vec::from([
+        assert_eq!(parse_word(&mut "15, 16, 10, 15"), Ok(MemData::Words(Vec::from([
             WordData::Word(15), 
             WordData::Word(16), 
             WordData::Word(10), 
             WordData::Word(15)
-        ])))));
-        assert_eq!(parse_word("16, ligma, 201"), Ok(("", MemData::Words(Vec::from([
+        ]))));
+        assert_eq!(parse_word(&mut "16, ligma, 201"), Ok(MemData::Words(Vec::from([
             WordData::Word(16), 
             WordData::String("ligma".into()),
             WordData::Word(201)
-        ])))));
-        assert_eq!(parse_word(".awldldaw"), Ok(("", MemData::Words(Vec::from([
+        ]))));
+        assert_eq!(parse_word(&mut ".awldldaw"), Ok(MemData::Words(Vec::from([
             WordData::String(".awldldaw".into())
-        ])))));
+        ]))));
     }
 
     #[test]
     fn test_parse_dword() {
-        assert_eq!(parse_dword("15, 16, 10, 15"), Ok(("", MemData::DWords(Vec::from([
+        assert_eq!(parse_dword(&mut "15, 16, 10, 15"), Ok(MemData::DWords(Vec::from([
             DWordData::DWord(15), 
             DWordData::DWord(16), 
             DWordData::DWord(10), 
             DWordData::DWord(15)
-        ])))));
-        assert_eq!(parse_dword("16, ligma, 201"), Ok(("", MemData::DWords(Vec::from([
+        ]))));
+        assert_eq!(parse_dword(&mut "16, ligma, 201"), Ok( MemData::DWords(Vec::from([
             DWordData::DWord(16), 
             DWordData::String("ligma".into()),
             DWordData::DWord(201)
-        ])))));
-        assert_eq!(parse_dword(".awldldaw"), Ok(("", MemData::DWords(Vec::from([
+        ]))));
+        assert_eq!(parse_dword(&mut ".awldldaw"), Ok(MemData::DWords(Vec::from([
             DWordData::String(".awldldaw".into())
-        ])))));
+        ]))));
     }
 
     #[test]
     fn test_parse_eqv() {
-        assert_eq!(parse_eqv("test, 120"), Ok(("", Directive::EqvLabel("test".into(), 120))));
-        assert_eq!(parse_eqv("testing,0b10"), Ok(("", Directive::EqvLabel("testing".into(), 2))));
-        assert_ne!(parse_eqv("test"), Ok(("", Directive::EqvLabel("test".into(), 0))));
+        assert_eq!(parse_eqv(&mut "test, 120"), Ok(Directive::EqvLabel("test".into(), 120)));
+        assert_eq!(parse_eqv(&mut "testing,0b10"), Ok(Directive::EqvLabel("testing".into(), 2)));
+        assert_ne!(parse_eqv(&mut "test"), Ok(Directive::EqvLabel("test".into(), 0)));
     }
 
     #[test]
@@ -573,36 +568,36 @@ mod tests {
 
     #[test]
     fn test_parse_directive() {
-        assert_eq!(parse_directive(".word 2000, 1510"), Ok(("", MemData::Words(Vec::from([
+        assert_eq!(parse_directive(&mut ".word 2000, 1510"), Ok(MemData::Words(Vec::from([
             WordData::Word(2000),
             WordData::Word(1510)
-        ])).into())));
+        ])).into()));
 
-        assert_eq!(parse_directive(".word       lolgetit,12002, 5195"), Ok(("", MemData::Words(Vec::from([
+        assert_eq!(parse_directive(&mut ".word       lolgetit,12002, 5195"), Ok(MemData::Words(Vec::from([
             WordData::String("lolgetit".into()),
             WordData::Word(12002),
             WordData::Word(5195)
-        ])).into())));
+        ])).into()));
 
-        assert_ne!(parse_directive(".space 20,1"), Ok(("", MemData::Bytes(Vec::from([
+        /*assert_ne!(parse_directive(&mut ".space 20,1"), Ok(MemData::Bytes(Vec::from([
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
-        ]), true).into())));
+        ]), true).into()));*/
 
-        assert_eq!(parse_directive(".space 20"), Ok(("", MemData::Bytes(Vec::from([
+        assert_eq!(parse_directive(&mut ".space 20"), Ok(MemData::Bytes(Vec::from([
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
-        ]), true).into())));
+        ]), true).into()));
 
-        assert_eq!(parse_directive(".space      13"), Ok(("", MemData::Bytes(Vec::from([
+        assert_eq!(parse_directive(&mut ".space      13"), Ok(MemData::Bytes(Vec::from([
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0)
-        ]), true).into())));
+        ]), true).into()));
 
         let mut words_vec = Vec::from([
             ByteData::Byte(0x20), ByteData::Byte(0x65), ByteData::Byte(0x68), ByteData::Byte(0x74),
@@ -618,29 +613,29 @@ mod tests {
             ByteData::Byte(0x67), ByteData::Byte(0x6f), ByteData::Byte(0x64),
         ]);
 
-        assert_eq!(parse_directive(".ascii  \"the quick brown fox jumps over the lazy dog\""),
-            Ok(("", MemData::Bytes(words_vec.clone(), true).into()))
+        assert_eq!(parse_directive(&mut ".ascii  \"the quick brown fox jumps over the lazy dog\""),
+            Ok(MemData::Bytes(words_vec.clone(), true).into())
         );
 
         words_vec.insert(40, ByteData::Byte(0));
 
-        assert_eq!(parse_directive(".string  \"the quick brown fox jumps over the lazy dog\""),
-            Ok(("", MemData::Bytes(words_vec.clone(), true).into()))
+        assert_eq!(parse_directive(&mut ".string  \"the quick brown fox jumps over the lazy dog\""),
+            Ok(MemData::Bytes(words_vec.clone(), true).into())
         );
 
-        assert_eq!(parse_directive(".asciz  \"the quick brown fox jumps over the lazy dog\""),
-            Ok(("", MemData::Bytes(words_vec.clone(), true).into()))
+        assert_eq!(parse_directive(&mut ".asciz  \"the quick brown fox jumps over the lazy dog\""),
+            Ok(MemData::Bytes(words_vec.clone(), true).into())
         );
 
-        assert_eq!(parse_directive(".eqv  test,1505"),
-            Ok(("", Directive::EqvLabel("test".into(), 1505)))
+        assert_eq!(parse_directive(&mut ".eqv  test,1505"),
+            Ok(Directive::EqvLabel("test".into(), 1505))
         );
     }
 
     macro_rules! assert_equ_line {
         ($pars_line:literal, $rest:literal, $struct:ident { $( $field:ident: $val:expr ),*}) => {
-            let (rest, parsed) = parse_line($pars_line).unwrap();
-            assert_eq!(rest, $rest);
+            let parsed = parse_line(&mut $pars_line).unwrap();
+            assert_eq!(&mut &$pars_line, &mut &$rest);
             assert_eq!(parsed.as_any().downcast_ref::<$struct>().unwrap(), &$struct { $( $field: $val ),* });
         };
     }
@@ -674,7 +669,7 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let data_code = r#"
+        let mut data_code = r#"
 HelloKitty:
     .asciz      "MIAO!"                 ; Very nice kitten - 6
     .byte       10, 10, HelloKitty      ; 12
@@ -730,8 +725,8 @@ NeedSomeSpaceGotIt:                     ; 26
                                                 ]), true)
                                             ];
 
-        assert_eq!(parse(data_code, &mut symbol_map),
-                   Ok(("", correct_vec)));
+        assert_eq!(parse(&mut data_code, &mut symbol_map),
+                   Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
     }
 }

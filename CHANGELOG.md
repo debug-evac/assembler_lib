@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Explicit error for nested repeats (though these will be represented as parser errors)
+- Explicit errors for number and string to `Reg` (though these will be represented as parser errors)
+- Impl of `std::error::Error` for `ParserError` and `CommonError`
 - [BREAKING] Label checks for jump macros
   - Branching to a label that is more than 12 bits away will return an `OptimizerError`
   - `Jal` to a label that is more than 20 bits away will return an `OptimizerError`
@@ -29,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Dependency from `nom` to `winnow`
+  - Removed nom error from `LibraryError` enum and instead used winnow errors
+  - `parse_line` functions will now parse lines instead of components
 - [BREAKING] Syntax of memory operations (exactly the same to RARS)
   - `lb t1, 4(t2)` instead of `lb t1, t2, 4`
   - You can also use `lb t1, (t2)` which is equivalent to former syntax `lb t1, t2, 0`

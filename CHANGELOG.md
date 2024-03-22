@@ -73,6 +73,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependency on `asm_core_lib` crate
   - No API changes
 
+### Fixed
+
+- Data memory alignment
+- `la` (load address) for loading data addresses
+
 ## [1.3.1] - 2024-03-15
 
 ### Added

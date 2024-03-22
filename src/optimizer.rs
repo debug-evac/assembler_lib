@@ -453,12 +453,16 @@ fn translate_label(current_line: i128, label: smartstring::alias::String, namesp
             return Ok(<i128 as TryInto<i32>>::try_into((*label_elem.get_def() * 4) - (current_line * 4))?);
         }
         if *label_elem.get_type() == LabelType::Data {
-            /*#[cfg(feature = "raw_nop")]
-            return Ok(<i128 as TryInto<i32>>::try_into(*label_elem.get_def() - 16)?);
-            #[cfg(not(feature = "raw_nop"))]
-            return Ok(<i128 as TryInto<i32>>::try_into(*label_elem.get_def() - 4)?);*/
-            panic!("Loading data addresses is currently not working correctly!")
-            //return Ok(<i128 as TryInto<i32>>::try_into(*label_elem.get_def() - (current_line * 4))?);
+            #[cfg(feature = "raw_nop")] 
+                return Ok(<i128 as TryInto<i32>>::try_into((*label_elem.get_def() - 12) - (current_line * 4))?);
+            #[cfg(not(feature = "raw_nop"))] {
+                let current_linex4 = current_line * 4;
+                if *label_elem.get_def() > current_linex4 {
+                    return Ok(<i128 as TryInto<i32>>::try_into(*label_elem.get_def() - current_linex4)?);
+                } else {
+                    return Ok(<i128 as TryInto<i32>>::try_into((*label_elem.get_def() - 4) - current_linex4)?);
+                }
+            }
         }
     }
     Err(OptimizerError::LabelNonExistent(label))

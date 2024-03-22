@@ -12,7 +12,7 @@ mod text;
 mod data;
 mod symbols;
 
-use log::{debug, warn};
+use log::debug;
 use winnow::{
     combinator::{opt, terminated}, token::{literal, take_until}, PResult, Parser
 };
@@ -56,7 +56,6 @@ pub fn parse(input: &mut &str, subroutines: &mut Option<&mut Subroutines>, sp_in
 
     let parsed = opt(terminated(take_until(0.., ".data"), literal(".data"))).parse_next(input)?;
     if parsed.is_some() {
-        warn!("Experimental: Data sections have not been tested rigorously! Expect bugs and errors!");
         let parsed = data::parse(input, assembly.get_labels_refmut())?;
         assembly.set_data(parsed);
     } else {

@@ -8,20 +8,10 @@
 
 mod op_exp;
 
-use nom::{
-    IResult,
-    branch::alt,
-    combinator::{
-        map,
-        success,
-        fail,
-        into
-    },
-    sequence::{
-        pair,
-        separated_pair
-    },
-    error::context
+use winnow::{
+    ascii::{escaped, space0, space1, till_line_ending}, combinator::{
+        alt, delimited, empty, eof, fail, not, opt, preceded, separated_pair
+    }, error::StrContext, token::none_of, PResult, Parser
 };
 use std::{any::Any, cmp::Ordering};
 use std::collections::BTreeMap;
@@ -36,8 +26,6 @@ use crate::parser::{
 use crate::common::*;
 
 use self::{errors::ParserError, op_exp::expand_instrs};
-
-use super::parse_multiline_comments;
 
 impl Subroutines {
     const SRR_SUB: &'static str = r#"
@@ -84,62 +72,64 @@ impl std::fmt::Display for LabelInsertError {
     }
 }
 
-fn parse_line(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
-    let (rest, early) = parse_multiline_comments(input)?;
-    if early {
-        return Ok((rest, Box::from(NoData {})))
-    }
-    into(
-        alt((
+fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
+    alt((
         separated_pair(
-            map(parse_label_definition, Some),
-            parse_multiline_comments,
-            map(
-                parse_instruction,
-                Some
-            )
+            parse_label_definition.map(Some),
+            space1,
+            parse_instruction.map(Some)
         ),
-        pair(
-            map(parse_label_definition, Some), 
-            success(None)
+        (
+            parse_label_definition.map(Some), 
+            empty.value(None)
         ),
-        pair(
-            success(None),
-            map(
-                parse_instruction,
-                Some
-            )
+        (
+            empty.value(None),
+            parse_instruction.map(Some)
         ),
-    )))(rest)
+        (
+            empty.value(None),
+            not(none_of(('\n', ';', '\r'))).value(None)
+        )
+    ))
+    .output_into()
+    .parse_next(input)
 }
 
-fn parse_line_priv(input: &str) -> IResult<&str, Box<dyn LineHandle>> {
-    let (rest, early) = parse_multiline_comments(input)?;
-    if early {
-        return Ok((rest, Box::from(NoData {})))
-    }
-    into(
-        alt((
+fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
+    escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
+    .and_then(delimited(space0, real_parse_line, space0))
+    .parse_next(input)
+}
+
+fn real_parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
+    alt((
         separated_pair(
-            map(parse_label_definition_priv, Some),
-            parse_multiline_comments,
-            map(
-                parse_instruction,
-                Some
-            )
+            parse_label_definition_priv.map(Some),
+            space1,
+            parse_instruction.map(Some)
         ),
-        pair(
-            map(parse_label_definition_priv, Some), 
-            success(None)
+        (
+            parse_label_definition_priv.map(Some), 
+            empty.value(None)
         ),
-        pair(
-            success(None),
-            map(
-                parse_instruction,
-                Some
-            )
+        (
+            empty.value(None),
+            parse_instruction.map(Some)
         ),
-    )))(rest)
+        (
+            empty.value(None),
+            not(none_of(('\n', ';', '\r'))).value(None)
+        )
+    ))
+    .output_into()
+    .parse_next(input)
+}
+
+fn parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
+    escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
+    .and_then(delimited(space0, real_parse_line_priv, space0))
+    .parse_next(input)
 }
 
 fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog) {
@@ -260,8 +250,7 @@ fn handle_instr_substitution(instr_list: &mut [Operation], elem: &[usize], jump_
                     Instruction::Jal(reg, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Jal(reg.to_owned(), jump_label.into())),
                     Instruction::Jalr(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Jalr(reg1.to_owned(), reg2.to_owned(), jump_label.into(), Part::None)),
                     op => {
-                        println!("Matched instr: {:?}", op);
-                        unreachable!()
+                        unreachable!("Matched instr: {:?}", op)
                     },
                 }
             },
@@ -276,14 +265,12 @@ fn handle_instr_substitution(instr_list: &mut [Operation], elem: &[usize], jump_
                     Instruction::Jal(reg, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Jal(reg.to_owned(), jump_label.into())),
                     Instruction::Jalr(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Jalr(reg1.to_owned(), reg2.to_owned(), jump_label.into(), Part::None)),
                     op => {
-                        println!("Matched labl: {}, matched instr: {:?}", labl, op);
-                        unreachable!()
+                        unreachable!("Matched labl: {}, matched instr: {:?}", labl, op)
                     },
                 }
             },
             op => {
-                println!("Matched operation: {:?}", op);
-                unreachable!()
+                unreachable!("Matched operation: {:?}", op)
             },
         }
     }
@@ -400,19 +387,32 @@ impl LineHandle for OperationData {
             _ => (),
         }
 
-        if let Some(list) = abs_to_label_queue.remove(&(*instr_counter + 1)) {
-            let jump_label = smartstring::alias::String::from("__") + instr_counter.to_string().as_str();
-            symbol_map.crt_def_ref(&jump_label, false, LabelType::Address, *instr_counter as i128);
-            handle_instr_substitution(instr_list, &list, &jump_label);
+        if let Some(Operation::Labl(labl)) = instr_list.last() {
+            let label = labl.clone();
+            let length = instr_list.len() - 1;
             match &instr {
-                Operation::Instr(instr_in) => *instr = Operation::LablInstr(jump_label, instr_in.to_owned()),
-                Operation::Macro(macro_in) => *instr = Operation::LablMacro(jump_label, macro_in.to_owned()),
-                _ => unreachable!()
+                Operation::Instr(instr_in) => instr_list[length] = Operation::LablInstr(labl.clone(), instr_in.to_owned()),
+                Operation::Macro(macro_in) => instr_list[length] = Operation::LablMacro(labl.clone(), macro_in.to_owned()),
+                op => unreachable!("{op}")
             }
-        };
+            if let Some(list) = abs_to_label_queue.remove(&(*instr_counter + 1)) {
+                handle_instr_substitution(instr_list, &list, &label);
+            }
+        } else {
+            if let Some(list) = abs_to_label_queue.remove(&(*instr_counter + 1)) {
+                let jump_label = smartstring::alias::String::from("__") + instr_counter.to_string().as_str();
+                symbol_map.crt_def_ref(&jump_label, false, LabelType::Address, *instr_counter as i128);
+                handle_instr_substitution(instr_list, &list, &jump_label);
+                match &instr {
+                    Operation::Instr(instr_in) => *instr = Operation::LablInstr(jump_label, instr_in.to_owned()),
+                    Operation::Macro(macro_in) => *instr = Operation::LablMacro(jump_label, macro_in.to_owned()),
+                    _ => unreachable!()
+                }
+            }
+            instr_list.push(instr.to_owned());
+        }
 
         *instr_counter += 1;
-        instr_list.push(instr.to_owned());
         Ok(())
     }
 }
@@ -558,13 +558,11 @@ impl LineHandle for NoData {
     }
 }
 
-pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, sp_init: bool) -> IResult<&'a str, Vec<Operation>> {
+pub fn parse(input: &mut &str, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, sp_init: bool) -> PResult<Vec<Operation>> {
     let mut instr_list: Vec<Operation> = vec![];
 
     // Key = line forward; value = current line
     let mut abs_to_label_queue: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-
-    let mut rest = input;
     let mut instr_counter: usize = 0;
 
     if sp_init {
@@ -575,18 +573,17 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
     let privileged = subroutines.is_none();
 
     loop {
-        let (rest_line, mut parsed) = match privileged {
-            true => parse_line_priv(rest)?,
-            false => parse_line(rest)?,
-        };
-        rest = rest_line;
+        let mut parsed = preceded(opt('\n'), match privileged {
+            true =>  parse_line_priv,
+            false => parse_line,
+        }).parse_next(input)?;
 
         if let Err(e) = parsed.handle(&mut instr_counter, &mut instr_list, subroutines, symbol_map, &mut abs_to_label_queue) {
             error!("{e}");
-            return context(e.get_nom_err_text(), fail)(rest)
+            return fail.context(StrContext::Label(e.get_nom_err_text())).parse_next(input)
         }
 
-        if rest.trim().is_empty() {
+        if opt(eof).parse_next(input)?.is_some() {
             break;
         }
     }
@@ -611,7 +608,7 @@ pub fn parse<'a>(input: &'a str, subroutines: &mut Option<&mut Subroutines>, sym
 
     expand_instrs(symbol_map, &mut instr_list);
 
-    Ok(("", instr_list))
+    Ok(instr_list)
 }
 
 #[cfg(test)]
@@ -620,30 +617,34 @@ mod tests {
 
     macro_rules! assert_equ_line {
         ($pars_line:literal, $rest:literal, $struct:ident { $( $field:ident: $val:expr ),*}) => {
-            let (rest, parsed) = parse_line($pars_line)?;
-            assert_eq!(rest, $rest);
+            let parsed = parse_line(&mut $pars_line).unwrap();
+            //assert_eq!(&mut &$pars_line, &mut &$rest);
             assert_eq!(parsed.as_any().downcast_ref::<$struct>().unwrap(), &$struct { $( $field: $val ),* });
         };
     }
 
     #[test]
-    fn test_parse_line() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_parse_line_o() -> Result<(), Box<dyn std::error::Error>> {
         assert_equ_line!("label: add x1, x5, x6", "",
                          LabelOperationData { label: "label".into(), op: Instruction::Add(Reg::G1, Reg::G5, Reg::G6).into() });
         assert_equ_line!("\ntest:\n\nsub x6, x5, x11", "",
-                         LabelOperationData { label: "test".into(), op: Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into() });
-        assert_equ_line!("\n\n\nreturn:\n", "\n", LabelDef { label: "return".into() });
+                         NoData { });
+        assert_equ_line!("test:\n\nsub x6, x5, x11", "",
+                         LabelDef { label: "test".into() });
+        assert_equ_line!("\n\n\nreturn:\n", "\n", NoData { });
+        assert_equ_line!("test: sub x6, x5, x11", "",
+                        LabelOperationData { label: "test".into(), op: Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into() });
         assert_equ_line!("mv x15, x12\naddi x12, x10, 0x05", "\naddi x12, x10, 0x05",
                          OperationData { op: Instruction::Addi(Reg::G15, Reg::G12, 0).into() });
-        assert_equ_line!("label:\ndiv x14, x13, x10", "",
+        assert_equ_line!("label:        div x14, x13, x10", "",
                          LabelOperationData { label: "label".into(), op: Instruction::Div(Reg::G14, Reg::G13, Reg::G10).into() });
         Ok(())
     }
 
     macro_rules! assert_equ_line_priv {
         ($pars_line:literal, $rest:literal, $struct:ident { $( $field:ident: $val:expr ),*}) => {
-            let (rest, parsed) = parse_line_priv($pars_line)?;
-            assert_eq!(rest, $rest);
+            let parsed = parse_line_priv(&mut $pars_line).unwrap();
+            //assert_eq!(&mut &$pars_line, &mut &$rest);
             assert_eq!(parsed.as_any().downcast_ref::<$struct>().unwrap(), &$struct { $( $field: $val ),* });
         };
     }
@@ -653,18 +654,22 @@ mod tests {
         assert_equ_line_priv!("_label: add x1, x5, x6", "",
                          LabelOperationData { label: "_label".into(), op: Instruction::Add(Reg::G1, Reg::G5, Reg::G6).into() });
         assert_equ_line_priv!("\n_test:\n\nsub x6, x5, x11", "",
-                         LabelOperationData { label: "_test".into(), op: Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into() });
-        assert_equ_line_priv!("\n\n\n_return:\n", "\n", LabelDef { label: "_return".into() });
+                         NoData { });
+        assert_equ_line_priv!("_test:\n\nsub x6, x5, x11", "",
+                         LabelDef { label: "_test".into() });
+        assert_equ_line_priv!("\n\n\n_return:\n", "\n", NoData { });
+        assert_equ_line_priv!("_test: sub x6, x5, x11", "",
+                        LabelOperationData { label: "_test".into(), op: Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into() });
         assert_equ_line_priv!("mv x15, x12\naddi x12, x10, 0x05", "\naddi x12, x10, 0x05",
                          OperationData { op: Instruction::Addi(Reg::G15, Reg::G12, 0).into() });
-        assert_equ_line_priv!("_label:\ndiv x14, x13, x10", "",
+        assert_equ_line_priv!("_label:        div x14, x13, x10", "",
                          LabelOperationData { label: "_label".into(), op: Instruction::Div(Reg::G14, Reg::G13, Reg::G10).into() });
         Ok(())
     }
 
     #[test]
-    fn test_parse() {
-        let source_code = r#"START:
+    fn test_parse_o() {
+        let mut source_code = r#"START:
     li x4, 16
     mv x3, x4
 MUL: beq x3, x4, END
@@ -710,8 +715,8 @@ END:
                                                 Operation::Labl("END".into())
                                                 ];
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
-                   Ok(("", correct_vec)));
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+                   Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty())
         // TODO: Probably more test cases!
@@ -719,7 +724,7 @@ END:
 
     #[test]
     fn test_parse_abs_addresses_smallex() {
-        let source_code = 
+        let mut source_code = 
 r#" li  x4, 16
     mv  x3, x4
     beq x3, x4, 16
@@ -770,15 +775,15 @@ r#" li  x4, 16
                                                 Operation::Labl("__7".into())
                                                 ];
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
-                   Ok(("", correct_vec)));
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+                   Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert_eq!(subroutines.get_code().is_empty(), true);
     }
 
     #[test]
     fn test_parse_abs_addresses_biggerex() {
-        let source_code = 
+        let mut source_code = 
 r#"
     addi a7, zero, 1
     mv a2, a0
@@ -884,15 +889,15 @@ TEST: srli a7, a7, 1
         correct_vec.push(Operation::LablMacro("__29".into(), MacroInstr::Bne(Reg::G12, Reg::G0, "__9".into())));
         correct_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
-                   Ok(("", correct_vec)));
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+                   Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());
     }
 
     #[test]
     fn test_parse_comment() {
-        let source_code = r#"
+        let mut source_code = r#"
     ; stop this hellO
     ; MULTIPLE COMMENTS
     ; YES, MULTIPLE COMMENTS
@@ -947,15 +952,15 @@ END:                    ; TEST
                                                 Operation::Labl("END".into())
                                                 ];
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
-                   Ok(("", correct_vec)));
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+                   Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty())
     }
 
     #[test]
     fn test_parse_repeat_instr() {
-        let source_code = r#"
+        let mut source_code = r#"
     ; testing repeat
 TESTING: rep 1000, nop
 "#;
@@ -979,8 +984,8 @@ TESTING: rep 1000, nop
             correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
         }
 
-        assert_eq!(parse(source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
-                   Ok(("", correct_vec)));
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+                   Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());
     }
@@ -998,7 +1003,7 @@ TESTING: rep 1000, nop
         label.set_def(0);
         let _ = symbols.insert_label(label);
 
-        let source_code_two = r#"
+        let mut source_code_two = r#"
     ; testing repeat with macros
 TESTING: rep 50, pop x15
 "#;
@@ -1013,8 +1018,8 @@ TESTING: rep 50, pop x15
             sec_correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G2, Reg::G2, 4)));
         }
 
-        assert_eq!(parse(source_code_two, &mut Some(&mut subroutines), &mut symbol_map, false),
-                   Ok(("", sec_correct_vec)));
+        assert_eq!(parse(&mut source_code_two, &mut Some(&mut subroutines), &mut symbol_map, false),
+                   Ok(sec_correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());
     }

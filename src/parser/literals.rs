@@ -6,65 +6,57 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use nom::{
-    branch::alt, bytes::complete::{
-        is_a, tag, tag_no_case
-    }, character::complete::{
-        alpha1, alphanumeric0, alphanumeric1, digit1, hex_digit1, one_of
-    }, combinator::{
-        map_res, opt, recognize, success
-    }, sequence::{
-        pair, tuple
-    }, IResult
+use winnow::{
+    ascii::{alpha1, alphanumeric0, alphanumeric1, digit1, hex_digit1},
+    combinator::{alt, opt, empty, terminated, preceded},
+    token::{one_of, literal, take_while},
+    PResult,
+    Parser
 };
 
 use crate::common::{Imm, Reg};
 
-pub fn parse_data_segment_id(input: &str) -> IResult<&str, &str> {
-    recognize(
-        tuple((nom::character::complete::char('.'), tag("data")))
-    )(input)
+#[allow(dead_code)]
+pub fn parse_data_segment_id<'a>(input: &mut &'a str) -> PResult<&'a str> {
+    ('.', literal("data"))
+    .recognize()
+    .parse_next(input)
 }
 
-pub fn parse_text_segment_id(input: &str) -> IResult<&str, &str> {
-    recognize(
-        pair(nom::character::complete::char('.'), tag("text"))
-    )(input)
+pub fn parse_text_segment_id<'a>(input: &mut &'a str) -> PResult<&'a str> {
+    ('.', literal("text"))
+    .recognize()
+    .parse_next(input)
 }
 
 macro_rules! label_name {
     ($($ins:expr)?) => {
-        recognize(
-            tuple((
-                opt(nom::character::complete::char('.')),
-                $($ins,)?
-                alpha1,
-                alphanumeric0
-            )
-        ))
+        (
+            opt('.'),
+            $($ins,)?
+            alpha1,
+            alphanumeric0
+        )
+        .recognize()
     };
 }
 
-pub fn parse_label_name(input: &str) -> IResult<&str, &str> {
-    label_name!()(input)
+pub fn parse_label_name<'a>(input: &mut &'a str) -> PResult<&'a str> {
+    label_name!().parse_next(input)
 }
 
-pub fn parse_label_definition(input: &str) -> IResult<&str, &str> {
-    let (rest, parsed) = pair(
+pub fn parse_label_definition<'a>(input: &mut &'a str) -> PResult<&'a str> {
+    terminated(
         parse_label_name,
-        nom::character::complete::char(':')
-    )(input)?;
-
-    Ok((rest, parsed.0))
+        ':'
+    ).parse_next(input)
 }
 
-pub fn parse_label_definition_priv(input: &str) -> IResult<&str, &str> {
-    let (rest, parsed) = pair(
-        label_name!(nom::character::complete::char('_')),
-        nom::character::complete::char(':')
-    )(input)?;
-
-    Ok((rest, parsed.0))
+pub fn parse_label_definition_priv<'a>(input: &mut &'a str) -> PResult<&'a str> {
+    terminated(
+        label_name!('_'),
+        ':'
+    ).parse_next(input)
 }
 
 fn from_hex(input: &str) -> Result<Imm, std::num::ParseIntError> {
@@ -139,65 +131,61 @@ fn from_bigbinary(input: &str) -> Result<i128, std::num::ParseIntError> {
     }
 }
 
-pub fn parse_bigimm(input: &str) -> IResult<&str, i128> {
-    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0x"))(input) {
+pub fn parse_bigimm(input: &mut &str) -> PResult<i128> {
+    if let Ok(Some(_)) = opt::<&str, &str, winnow::error::ContextError, _>(literal(winnow::ascii::Caseless("0x"))).parse_next(input) {
         // Hexadecimal
-        map_res(
-            recognize(tuple((hex_digit1, opt(one_of("suSU"))))), 
-            from_bighex
-        )(rest)
-    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0b"))(input) {
+        (hex_digit1, opt(one_of(['s', 'u', 'S', 'U']))).recognize()
+        .try_map(from_bighex)
+        .parse_next(input)
+    } else if let Ok(Some(_)) = opt::<&str, &str, winnow::error::ContextError, _>(literal(winnow::ascii::Caseless("0b"))).parse_next(input) {
         // Binary
-        map_res(
-            recognize(tuple((is_a("01"), opt(one_of("suSU"))))), 
-            from_bigbinary
-        )(rest)
+        (take_while(1.., ['0', '1']), opt(one_of(['s', 'u', 'S', 'U']))).recognize()
+        .try_map(from_bigbinary)
+        .parse_next(input)
     } else {
         // Decimal
-        map_res(
-            recognize(tuple((opt(tag("-")), digit1))),
-            str::parse
-        )(input)
+        (opt(literal("-")), digit1).recognize()
+        .try_map(str::parse)
+        .parse_next(input)
     }
 }
 
-pub fn parse_imm(input: &str) -> IResult<&str, Imm> {
-    if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0x"))(input) {
+pub fn parse_imm(input: &mut &str) -> PResult<Imm> {
+    if let Ok(Some(_)) = opt::<&str, &str, winnow::error::ContextError, _>(literal(winnow::ascii::Caseless("0x"))).parse_next(input) {
         // Hexadecimal
-        map_res(
-            recognize(tuple((hex_digit1, opt(one_of("suSU"))))), 
-            from_hex
-        )(rest)
-    } else if let Ok((rest, Some(_))) = opt(tag_no_case::<&str, &str, nom::error::Error<&str>>("0b"))(input) {
+        (hex_digit1, opt(one_of(['s', 'u', 'S', 'U']))).recognize()
+        .try_map(from_hex)
+        .parse_next(input)
+    } else if let Ok(Some(_)) = opt::<&str, &str, winnow::error::ContextError, _>(literal(winnow::ascii::Caseless("0b"))).parse_next(input) {
         // Binary
-        map_res(
-            recognize(tuple((is_a("01"), opt(one_of("suSU"))))), 
-            from_binary
-        )(rest)
+        (take_while(1.., ['0', '1']), opt(one_of(['s', 'u', 'S', 'U']))).recognize()
+        .try_map(from_binary)
+        .parse_next(input)
     } else {
         parse_decimal(input)
     }
 }
 
-pub fn parse_decimal(input: &str) -> IResult<&str, Imm> {
-    map_res(
-        recognize(tuple((opt(tag("-")), digit1))),
-        str::parse
-    )(input)
+pub fn parse_decimal(input: &mut &str) -> PResult<Imm> {
+    (opt(literal("-")), digit1).recognize()
+    .try_map(str::parse)
+    .parse_next(input)
 }
 
-pub fn parse_reg(input: &str) -> IResult<&str, Reg> {
-    let (rest, reg) = alt((
-        pair(
-            nom::character::complete::char('x'), 
-            map_res(map_res(digit1, str::parse::<u8>), Reg::num_to_enum)
+pub fn parse_reg(input: &mut &str) -> PResult<Reg> {
+    alt((
+        preceded(
+            'x', 
+            digit1.try_map(|x: &str| {
+                let num = str::parse::<u8>(x).unwrap_or(50);
+                Reg::try_from(num)
+            })
         ),
-        pair(
-            success('n'),
-            map_res(alphanumeric1, Reg::str_to_enum)
+        preceded(
+            empty.value('n'),
+            alphanumeric1.try_map(Reg::str_to_enum)
         )
-    ))(input)?;
-    Ok((rest, reg.1))
+    )).parse_next(input)
 }
 
 #[cfg(test)]
@@ -206,49 +194,49 @@ mod tests {
 
     #[test]
     fn test_parse_label() {
-        assert_ne!(parse_label_definition("invalid"), Ok(("", "invalid")));
-        assert_eq!(parse_label_definition("valid0:"), Ok(("", "valid0")));
-        assert_ne!(parse_label_definition("invalid :"), Ok(("", "invalid")));
-        assert_ne!(parse_label_definition(" "), Ok(("", "")));
-        assert_eq!(parse_label_definition("valid:"), Ok(("", "valid")));
-        assert_ne!(parse_label_definition("0invalid:"), Ok(("", "0invalid")));
-        assert_eq!(parse_label_definition("v415alid:"), Ok(("", "v415alid")));
-        assert_eq!(parse_label_definition(".veryvalid:"), Ok(("", ".veryvalid")));
+        assert_ne!(parse_label_definition(&mut "invalid"), Ok("invalid"));
+        assert_eq!(parse_label_definition(&mut "valid0:"), Ok("valid0"));
+        assert_ne!(parse_label_definition(&mut "invalid :"), Ok("invalid"));
+        assert_ne!(parse_label_definition(&mut " "), Ok(""));
+        assert_eq!(parse_label_definition(&mut "valid:"), Ok("valid"));
+        assert_ne!(parse_label_definition(&mut "0invalid:"), Ok( "0invalid"));
+        assert_eq!(parse_label_definition(&mut "v415alid:"), Ok("v415alid"));
+        assert_eq!(parse_label_definition(&mut ".veryvalid:"), Ok(".veryvalid"));
     }
 
     #[test]
     fn test_parse_label_privileged() {
-        assert_ne!(parse_label_definition_priv("invalid"), Ok(("", "invalid")));
-        assert_ne!(parse_label_definition_priv("invalid0:"), Ok(("", "invalid0")));
-        assert_ne!(parse_label_definition_priv("invalid :"), Ok(("", "invalid")));
-        assert_ne!(parse_label_definition_priv(" "), Ok(("", "")));
-        assert_eq!(parse_label_definition_priv("_valid:"), Ok(("", "_valid")));
-        assert_ne!(parse_label_definition_priv("0invalid:"), Ok(("", "0invalid")));
-        assert_eq!(parse_label_definition_priv("_v415alid:"), Ok(("", "_v415alid")));
-        assert_eq!(parse_label_definition_priv("_veryvalid:"), Ok(("", "_veryvalid")));
+        assert_ne!(parse_label_definition_priv(&mut "invalid"), Ok("invalid"));
+        assert_ne!(parse_label_definition_priv(&mut "invalid0:"), Ok("invalid0"));
+        assert_ne!(parse_label_definition_priv(&mut "invalid :"), Ok("invalid"));
+        assert_ne!(parse_label_definition_priv(&mut " "), Ok(""));
+        assert_eq!(parse_label_definition_priv(&mut "_valid:"), Ok("_valid"));
+        assert_ne!(parse_label_definition_priv(&mut "0invalid:"), Ok("0invalid"));
+        assert_eq!(parse_label_definition_priv(&mut "_v415alid:"), Ok("_v415alid"));
+        assert_eq!(parse_label_definition_priv(&mut "_veryvalid:"), Ok("_veryvalid"));
     }
 
     #[test]
     fn test_parse_imm() {
-        assert_ne!(parse_imm("invalid"), Ok(("", 0)));
-        assert_ne!(parse_imm(" "), Ok(("", 0)));
-        assert_eq!(parse_imm("10"), Ok(("", 10)));
-        assert_eq!(parse_imm("0xA"), Ok(("", 10)));
-        assert_eq!(parse_imm("-10"), Ok(("", -10)));
-        assert_eq!(parse_imm("0xAAs"), Ok(("", -86)));
-        assert_eq!(parse_imm("0xAAS"), Ok(("", -86)));
-        assert_eq!(parse_imm("0b1111u"), Ok(("", 15)));
-        assert_eq!(parse_imm("0b1100s"), Ok(("", -4)));
+        assert_ne!(parse_imm(&mut "invalid"), Ok(0));
+        assert_ne!(parse_imm(&mut " "), Ok(0));
+        assert_eq!(parse_imm(&mut "10"), Ok(10));
+        assert_eq!(parse_imm(&mut "0xA"), Ok(10));
+        assert_eq!(parse_imm(&mut "-10"), Ok(-10));
+        assert_eq!(parse_imm(&mut "0xAAs"), Ok(-86));
+        assert_eq!(parse_imm(&mut "0xAAS"), Ok(-86));
+        assert_eq!(parse_imm(&mut "0b1111u"), Ok(15));
+        assert_eq!(parse_imm(&mut "0b1100s"), Ok(-4));
     }
 
     #[test]
     fn test_parse_reg() {
-        assert_ne!(parse_reg("invalid"), Ok(("", Reg::G0)));
-        assert_ne!(parse_reg(" "), Ok(("", Reg::G0)));
-        assert_ne!(parse_reg("  "), Ok(("", Reg::G0)));
-        assert_eq!(parse_reg("x3"), Ok(("", Reg::G3)));
-        assert_eq!(parse_reg("s1"), Ok(("", Reg::G9)));
-        assert_eq!(parse_reg("zero"), Ok(("", Reg::G0)));
-        assert_eq!(parse_reg("t3"), Ok(("", Reg::G28)));
+        assert_ne!(parse_reg(&mut "invalid"), Ok(Reg::G0));
+        assert_ne!(parse_reg(&mut " "), Ok(Reg::G0));
+        assert_ne!(parse_reg(&mut "  "), Ok(Reg::G0));
+        assert_eq!(parse_reg(&mut "x3"), Ok(Reg::G3));
+        assert_eq!(parse_reg(&mut "s1"), Ok(Reg::G9));
+        assert_eq!(parse_reg(&mut "zero"), Ok(Reg::G0));
+        assert_eq!(parse_reg(&mut "t3"), Ok(Reg::G28));
     }
 }

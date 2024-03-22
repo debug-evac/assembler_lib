@@ -11,6 +11,8 @@
 
 use std::fmt::Display;
 
+use super::errors::CommonError;
+
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Reg {
@@ -19,9 +21,11 @@ pub enum Reg {
     G30, G31
 }
 
-impl Reg {
-    pub fn num_to_enum(reg: u8) -> Result<Reg, &'static str> {
-        match reg {
+impl TryFrom<u8> for Reg {
+    type Error = CommonError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
             reg if reg == Reg::G0 as u8 => Ok(Reg::G0),
             reg if reg == Reg::G1 as u8 => Ok(Reg::G1),
             reg if reg == Reg::G2 as u8 => Ok(Reg::G2),
@@ -54,11 +58,18 @@ impl Reg {
             reg if reg == Reg::G29 as u8 => Ok(Reg::G29),
             reg if reg == Reg::G30 as u8 => Ok(Reg::G30),
             reg if reg == Reg::G31 as u8 => Ok(Reg::G31),
-            _ => Err("No Register with that name found!"),
+            reg => Err(CommonError::RegisterUnknownNum(reg as usize)),
         }
     }
+}
 
-    pub fn str_to_enum(reg: &str) -> Result<Reg, &str> {
+impl Reg {
+    #[deprecated = "Use try_from instead"]
+    pub fn num_to_enum(reg: u8) -> Result<Reg, CommonError> {
+        reg.try_into()
+    }
+
+    pub fn str_to_enum(reg: &str) -> Result<Reg, CommonError> {
         match reg {
             "zero" => Ok(Reg::G0),
             "ra" => Ok(Reg::G1),
@@ -93,7 +104,7 @@ impl Reg {
             "t5" => Ok(Reg::G30),
             "t6" => Ok(Reg::G31),
 
-            _ => Err("No Register with that name found!"),
+            _ => Err(CommonError::RegisterUnknownStr(reg.to_string())),
         }
     }
 }

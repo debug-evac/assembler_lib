@@ -275,7 +275,7 @@ fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut [MemDa
     match direct {
         MemData::Bytes(_, _) => 0,
         MemData::Halfs(_) => {
-            if (*next_free_ptr - 1) % 2 != 0 {
+            if *next_free_ptr % 2 != 0 {
                 if let MemData::Bytes(byte_data, _) = dir_list.last_mut().unwrap() {
                     byte_data.push(ByteData::Byte(0));
                 }
@@ -296,11 +296,11 @@ fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut [MemDa
                         }
                         let num = real_bytes;
                         *next_free_ptr += num;
-                        num + 1
+                        num
                     },
                     MemData::Halfs(half_data) => {
                         half_data.push(HalfData::Half(0));
-                        let num = 1;
+                        let num = 2;
                         *next_free_ptr += num;
                         num
                     },
@@ -734,7 +734,7 @@ NeedSomeSpaceGotIt:                     ; 24
         label.set_name("VeryGood".into());
         label.set_type(LabelType::Data);
         label.set_scope(true);
-        label.set_def(13);
+        label.set_def(12);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new();
@@ -764,9 +764,105 @@ NeedSomeSpaceGotIt:                     ; 24
                                                 ]), true)
                                             ];
 
-        //parse(&mut data_code, &mut symbol_map);
         assert_eq!(parse(&mut data_code, &mut symbol_map),
                    Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
+    }
+
+    #[test]
+    fn test_align_data() -> Result<(), Box<dyn std::error::Error>> {
+        let mut dir_list = Vec::new();
+        let next_free_ptr = 1;
+        dir_list.push(MemData::Bytes(Vec::from([ByteData::Byte(1)]), false));
+
+        {
+            let mut dir_list = dir_list.clone();
+            let mut next_free_ptr = next_free_ptr;
+            let direct = MemData::Halfs(Vec::from([HalfData::Half(1)]));
+            assert_eq!(align_data(&direct, &mut next_free_ptr, &mut dir_list), 1);
+            assert_eq!(dir_list[0], MemData::Bytes(Vec::from([ByteData::Byte(1),ByteData::Byte(0)]), false));
+            assert_eq!(next_free_ptr, 2);
+        }
+        {
+            let mut dir_list = dir_list.clone();
+            let mut next_free_ptr = next_free_ptr;
+            let direct = MemData::Words(Vec::from([WordData::Word(1)]));
+            assert_eq!(align_data(&direct, &mut next_free_ptr, &mut dir_list), 3);
+            assert_eq!(dir_list[0], MemData::Bytes(Vec::from([ByteData::Byte(1),ByteData::Byte(0),ByteData::Byte(0),ByteData::Byte(0)]), false));
+            assert_eq!(next_free_ptr, 4);
+        }
+        {
+            let mut dir_list = dir_list.clone();
+            let mut next_free_ptr = next_free_ptr;
+            let direct = MemData::DWords(Vec::from([DWordData::DWord(1)]));
+            assert_eq!(align_data(&direct, &mut next_free_ptr, &mut dir_list), 3);
+            assert_eq!(dir_list[0], MemData::Bytes(Vec::from([ByteData::Byte(1),ByteData::Byte(0),ByteData::Byte(0),ByteData::Byte(0)]), false));
+            assert_eq!(next_free_ptr, 4);
+        }
+
+        let next_free_ptr = 2;
+        dir_list.clear();
+        dir_list.push(MemData::Bytes(Vec::from([ByteData::Byte(1),ByteData::Byte(2)]), false));
+
+        {
+            let mut dir_list = dir_list.clone();
+            let mut next_free_ptr = next_free_ptr;
+            let direct = MemData::Words(Vec::from([WordData::Word(1)]));
+            assert_eq!(align_data(&direct, &mut next_free_ptr, &mut dir_list), 2);
+            assert_eq!(dir_list[0], MemData::Bytes(Vec::from([ByteData::Byte(1),ByteData::Byte(2),ByteData::Byte(0),ByteData::Byte(0)]), false));
+            assert_eq!(next_free_ptr, 4);
+        }
+        {
+            let mut dir_list = dir_list.clone();
+            let mut next_free_ptr = next_free_ptr;
+            let direct = MemData::DWords(Vec::from([DWordData::DWord(1)]));
+            assert_eq!(align_data(&direct, &mut next_free_ptr, &mut dir_list), 2);
+            assert_eq!(dir_list[0], MemData::Bytes(Vec::from([ByteData::Byte(1),ByteData::Byte(2),ByteData::Byte(0),ByteData::Byte(0)]), false));
+            assert_eq!(next_free_ptr, 4);
+        }
+
+        let next_free_ptr = 3;
+        dir_list.clear();
+        dir_list.push(MemData::Bytes(Vec::from([ByteData::Byte(1),ByteData::Byte(2),ByteData::Byte(3)]), false));
+
+        {
+            let mut dir_list = dir_list.clone();
+            let mut next_free_ptr = next_free_ptr;
+            let direct = MemData::Words(Vec::from([WordData::Word(1)]));
+            assert_eq!(align_data(&direct, &mut next_free_ptr, &mut dir_list), 1);
+            assert_eq!(dir_list[0], MemData::Bytes(Vec::from([ByteData::Byte(1),ByteData::Byte(2),ByteData::Byte(3),ByteData::Byte(0)]), false));
+            assert_eq!(next_free_ptr, 4);
+        }
+        {
+            let mut dir_list = dir_list.clone();
+            let mut next_free_ptr = next_free_ptr;
+            let direct = MemData::DWords(Vec::from([DWordData::DWord(1)]));
+            assert_eq!(align_data(&direct, &mut next_free_ptr, &mut dir_list), 1);
+            assert_eq!(dir_list[0], MemData::Bytes(Vec::from([ByteData::Byte(1),ByteData::Byte(2),ByteData::Byte(3),ByteData::Byte(0)]), false));
+            assert_eq!(next_free_ptr, 4);
+        }
+
+        let next_free_ptr = 2;
+        dir_list.clear();
+        dir_list.push(MemData::Halfs(Vec::from([HalfData::Half(1)])));
+
+        {
+            let mut dir_list = dir_list.clone();
+            let mut next_free_ptr = next_free_ptr;
+            let direct = MemData::Words(Vec::from([WordData::Word(1)]));
+            assert_eq!(align_data(&direct, &mut next_free_ptr, &mut dir_list), 2);
+            assert_eq!(dir_list[0], MemData::Halfs(Vec::from([HalfData::Half(1),HalfData::Half(0)])));
+            assert_eq!(next_free_ptr, 4);
+        }
+        {
+            let mut dir_list = dir_list.clone();
+            let mut next_free_ptr = next_free_ptr;
+            let direct = MemData::DWords(Vec::from([DWordData::DWord(1)]));
+            assert_eq!(align_data(&direct, &mut next_free_ptr, &mut dir_list), 2);
+            assert_eq!(dir_list[0], MemData::Halfs(Vec::from([HalfData::Half(1),HalfData::Half(0)])));
+            assert_eq!(next_free_ptr, 4);
+        }
+
+        Ok(())
     }
 }

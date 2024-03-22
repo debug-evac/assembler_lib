@@ -128,7 +128,7 @@ fn real_parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
 
 fn parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
     escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
-    .and_then(real_parse_line_priv)
+    .and_then(delimited(space0, real_parse_line_priv, space0))
     .parse_next(input)
 }
 
@@ -250,8 +250,7 @@ fn handle_instr_substitution(instr_list: &mut [Operation], elem: &[usize], jump_
                     Instruction::Jal(reg, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Jal(reg.to_owned(), jump_label.into())),
                     Instruction::Jalr(reg1, reg2, _) => instr_list[*origin] = Operation::Macro(MacroInstr::Jalr(reg1.to_owned(), reg2.to_owned(), jump_label.into(), Part::None)),
                     op => {
-                        println!("Matched instr: {:?}", op);
-                        unreachable!()
+                        unreachable!("Matched instr: {:?}", op)
                     },
                 }
             },
@@ -266,14 +265,12 @@ fn handle_instr_substitution(instr_list: &mut [Operation], elem: &[usize], jump_
                     Instruction::Jal(reg, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Jal(reg.to_owned(), jump_label.into())),
                     Instruction::Jalr(reg1, reg2, _) => instr_list[*origin] = Operation::LablMacro(labl.clone(), MacroInstr::Jalr(reg1.to_owned(), reg2.to_owned(), jump_label.into(), Part::None)),
                     op => {
-                        println!("Matched labl: {}, matched instr: {:?}", labl, op);
-                        unreachable!()
+                        unreachable!("Matched labl: {}, matched instr: {:?}", labl, op)
                     },
                 }
             },
             op => {
-                println!("Matched operation: {:?}", op);
-                unreachable!()
+                unreachable!("Matched operation: {:?}", op)
             },
         }
     }
@@ -390,27 +387,30 @@ impl LineHandle for OperationData {
             _ => (),
         }
 
-        if let Some(list) = abs_to_label_queue.remove(&(*instr_counter + 1)) {
-            let jump_label = smartstring::alias::String::from("__") + instr_counter.to_string().as_str();
-            symbol_map.crt_def_ref(&jump_label, false, LabelType::Address, *instr_counter as i128);
-            handle_instr_substitution(instr_list, &list, &jump_label);
+        if let Some(Operation::Labl(labl)) = instr_list.last() {
+            let label = labl.clone();
+            let length = instr_list.len() - 1;
             match &instr {
-                Operation::Instr(instr_in) => *instr = Operation::LablInstr(jump_label, instr_in.to_owned()),
-                Operation::Macro(macro_in) => *instr = Operation::LablMacro(jump_label, macro_in.to_owned()),
-                _ => unreachable!()
+                Operation::Instr(instr_in) => instr_list[length] = Operation::LablInstr(labl.clone(), instr_in.to_owned()),
+                Operation::Macro(macro_in) => instr_list[length] = Operation::LablMacro(labl.clone(), macro_in.to_owned()),
+                op => unreachable!("{op}")
             }
-        }; /*else {
-            if let Some(Operation::Labl(labl)) = instr_list.last() {
-                let length = instr_list.len() - 1;
+            if let Some(list) = abs_to_label_queue.remove(&(*instr_counter + 1)) {
+                handle_instr_substitution(instr_list, &list, &label);
+            }
+        } else {
+            if let Some(list) = abs_to_label_queue.remove(&(*instr_counter + 1)) {
+                let jump_label = smartstring::alias::String::from("__") + instr_counter.to_string().as_str();
+                symbol_map.crt_def_ref(&jump_label, false, LabelType::Address, *instr_counter as i128);
+                handle_instr_substitution(instr_list, &list, &jump_label);
                 match &instr {
-                    Operation::Instr(instr_in) => instr_list[length] = Operation::LablInstr(labl.clone(), instr_in.to_owned()),
-                    Operation::Macro(macro_in) => instr_list[length] = Operation::LablMacro(labl.clone(), macro_in.to_owned()),
-                    op => unreachable!("{op}")
+                    Operation::Instr(instr_in) => *instr = Operation::LablInstr(jump_label, instr_in.to_owned()),
+                    Operation::Macro(macro_in) => *instr = Operation::LablMacro(jump_label, macro_in.to_owned()),
+                    _ => unreachable!()
                 }
-            } else {
-                instr_list.push(instr.to_owned());
             }
-        };*/
+            instr_list.push(instr.to_owned());
+        }
 
         *instr_counter += 1;
         Ok(())
@@ -654,17 +654,21 @@ mod tests {
         assert_equ_line_priv!("_label: add x1, x5, x6", "",
                          LabelOperationData { label: "_label".into(), op: Instruction::Add(Reg::G1, Reg::G5, Reg::G6).into() });
         assert_equ_line_priv!("\n_test:\n\nsub x6, x5, x11", "",
-                         LabelOperationData { label: "_test".into(), op: Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into() });
-        assert_equ_line_priv!("\n\n\n_return:\n", "\n", LabelDef { label: "_return".into() });
+                         NoData { });
+        assert_equ_line_priv!("_test:\n\nsub x6, x5, x11", "",
+                         LabelDef { label: "_test".into() });
+        assert_equ_line_priv!("\n\n\n_return:\n", "\n", NoData { });
+        assert_equ_line_priv!("_test: sub x6, x5, x11", "",
+                        LabelOperationData { label: "_test".into(), op: Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into() });
         assert_equ_line_priv!("mv x15, x12\naddi x12, x10, 0x05", "\naddi x12, x10, 0x05",
                          OperationData { op: Instruction::Addi(Reg::G15, Reg::G12, 0).into() });
-        assert_equ_line_priv!("_label:\ndiv x14, x13, x10", "",
+        assert_equ_line_priv!("_label:        div x14, x13, x10", "",
                          LabelOperationData { label: "_label".into(), op: Instruction::Div(Reg::G14, Reg::G13, Reg::G10).into() });
         Ok(())
     }
 
     #[test]
-    fn test_parse() {
+    fn test_parse_o() {
         let mut source_code = r#"START:
     li x4, 16
     mv x3, x4

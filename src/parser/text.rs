@@ -583,7 +583,7 @@ pub fn parse(input: &mut &str, subroutines: &mut Option<&mut Subroutines>, symbo
             return fail.context(StrContext::Label(e.get_nom_err_text())).parse_next(input)
         }
 
-        if let Some(_) = opt(eof).parse_next(input)? {
+        if opt(eof).parse_next(input)?.is_some() {
             break;
         }
     }

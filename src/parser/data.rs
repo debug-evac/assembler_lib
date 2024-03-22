@@ -275,13 +275,12 @@ fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut [MemDa
     match direct {
         MemData::Bytes(_, _) => 0,
         MemData::Halfs(_) => {
-            if *next_free_ptr % 2 != 0 {
+            if (*next_free_ptr - 1) % 2 != 0 {
                 if let MemData::Bytes(byte_data, _) = dir_list.last_mut().unwrap() {
                     byte_data.push(ByteData::Byte(0));
                 }
-                let num = 2;
-                *next_free_ptr += num;
-                num
+                *next_free_ptr += 1;
+                1
             } else {
                 0
             }
@@ -291,10 +290,11 @@ fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut [MemDa
             if free_bytes != 0 {
                 match dir_list.last_mut().unwrap() {
                     MemData::Bytes(byte_data, _) => {
-                        for _ in 0..free_bytes + 2 {
+                        let real_bytes = 4 - free_bytes;
+                        for _ in 0..real_bytes {
                             byte_data.push(ByteData::Byte(0));
                         }
-                        let num = free_bytes + 2;
+                        let num = real_bytes;
                         *next_free_ptr += num;
                         num + 1
                     },
@@ -713,8 +713,8 @@ HelloKitty:
     .asciz      "MIAO!"                 ; Very nice kitten - 6
     .byte       10, 10, HelloKitty      ; 12
 VeryGood:                               ; 13
-    .word       1250, 1250, 1250        ; 25
-NeedSomeSpaceGotIt:                     ; 26
+    .word       1250, 1250, 1250        ; 23
+NeedSomeSpaceGotIt:                     ; 24
     .space      20                      ; Space for super secret data struct!!!
 
 .text
@@ -764,6 +764,7 @@ NeedSomeSpaceGotIt:                     ; 26
                                                 ]), true)
                                             ];
 
+        //parse(&mut data_code, &mut symbol_map);
         assert_eq!(parse(&mut data_code, &mut symbol_map),
                    Ok(correct_vec));
         assert_eq!(symbol_map, symbols);

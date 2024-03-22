@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dependency from `nom` to `winnow`
 - [BREAKING] Syntax of memory operations (exactly the same to RARS)
   - `lb t1, 4(t2)` instead of `lb t1, t2, 4`
   - You can also use `lb t1, (t2)` which is equivalent to former syntax `lb t1, t2, 0`

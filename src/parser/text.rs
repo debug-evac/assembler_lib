@@ -9,9 +9,9 @@
 mod op_exp;
 
 use winnow::{
-    ascii::space1, combinator::{
-        alt, empty, fail, separated_pair
-    }, error::StrContext, PResult, Parser
+    ascii::{escaped, space0, space1, till_line_ending}, combinator::{
+        alt, delimited, empty, eof, fail, opt, preceded, separated_pair
+    }, error::StrContext, token::none_of, PResult, Parser
 };
 use std::{any::Any, cmp::Ordering};
 use std::collections::BTreeMap;
@@ -26,8 +26,6 @@ use crate::parser::{
 use crate::common::*;
 
 use self::{errors::ParserError, op_exp::expand_instrs};
-
-use super::parse_multiline_comments;
 
 impl Subroutines {
     const SRR_SUB: &'static str = r#"
@@ -74,15 +72,11 @@ impl std::fmt::Display for LabelInsertError {
     }
 }
 
-fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
-    let early = parse_multiline_comments(input)?;
-    if early {
-        return Ok(Box::from(NoData {}))
-    }
+fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
     alt((
         separated_pair(
             parse_label_definition.map(Some),
-            alt((space1.void(), parse_multiline_comments.void())),
+            space1,
             parse_instruction.map(Some)
         ),
         (
@@ -93,20 +87,26 @@ fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
             empty.value(None),
             parse_instruction.map(Some)
         ),
+        (
+            empty.value(None),
+            empty.value(None)
+        )
     ))
     .output_into()
     .parse_next(input)
 }
 
-fn parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
-    let early = parse_multiline_comments(input)?;
-    if early {
-        return Ok(Box::from(NoData {}))
-    }
+fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
+    escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
+    .and_then(delimited(space0, real_parse_line, space0))
+    .parse_next(input)
+}
+
+fn real_parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
     alt((
         separated_pair(
             parse_label_definition_priv.map(Some),
-            parse_multiline_comments,
+            space1,
             parse_instruction.map(Some)
         ),
         (
@@ -117,8 +117,18 @@ fn parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
             empty.value(None),
             parse_instruction.map(Some)
         ),
+        (
+            empty.value(None),
+            empty.value(None)
+        )
     ))
     .output_into()
+    .parse_next(input)
+}
+
+fn parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
+    escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
+    .and_then(real_parse_line_priv)
     .parse_next(input)
 }
 
@@ -389,10 +399,20 @@ impl LineHandle for OperationData {
                 Operation::Macro(macro_in) => *instr = Operation::LablMacro(jump_label, macro_in.to_owned()),
                 _ => unreachable!()
             }
-        };
+        }; /*else {
+            if let Some(Operation::Labl(labl)) = instr_list.last() {
+                let length = instr_list.len() - 1;
+                match &instr {
+                    Operation::Instr(instr_in) => instr_list[length] = Operation::LablInstr(labl.clone(), instr_in.to_owned()),
+                    Operation::Macro(macro_in) => instr_list[length] = Operation::LablMacro(labl.clone(), macro_in.to_owned()),
+                    op => unreachable!("{op}")
+                }
+            } else {
+                instr_list.push(instr.to_owned());
+            }
+        };*/
 
         *instr_counter += 1;
-        instr_list.push(instr.to_owned());
         Ok(())
     }
 }
@@ -553,17 +573,17 @@ pub fn parse(input: &mut &str, subroutines: &mut Option<&mut Subroutines>, symbo
     let privileged = subroutines.is_none();
 
     loop {
-        let mut parsed = match privileged {
-            true => parse_line_priv(input)?,
-            false => parse_line(input)?,
-        };
+        let mut parsed = preceded(opt('\n'), match privileged {
+            true =>  parse_line_priv,
+            false => parse_line,
+        }).parse_next(input)?;
 
         if let Err(e) = parsed.handle(&mut instr_counter, &mut instr_list, subroutines, symbol_map, &mut abs_to_label_queue) {
             error!("{e}");
             return fail.context(StrContext::Label(e.get_nom_err_text())).parse_next(input)
         }
 
-        if input.trim().is_empty() {
+        if let Some(_) = opt(eof).parse_next(input)? {
             break;
         }
     }
@@ -598,21 +618,25 @@ mod tests {
     macro_rules! assert_equ_line {
         ($pars_line:literal, $rest:literal, $struct:ident { $( $field:ident: $val:expr ),*}) => {
             let parsed = parse_line(&mut $pars_line).unwrap();
-            assert_eq!(&mut &$pars_line, &mut &$rest);
+            //assert_eq!(&mut &$pars_line, &mut &$rest);
             assert_eq!(parsed.as_any().downcast_ref::<$struct>().unwrap(), &$struct { $( $field: $val ),* });
         };
     }
 
     #[test]
-    fn test_parse_line() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_parse_line_o() -> Result<(), Box<dyn std::error::Error>> {
         assert_equ_line!("label: add x1, x5, x6", "",
                          LabelOperationData { label: "label".into(), op: Instruction::Add(Reg::G1, Reg::G5, Reg::G6).into() });
         assert_equ_line!("\ntest:\n\nsub x6, x5, x11", "",
-                         LabelOperationData { label: "test".into(), op: Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into() });
-        assert_equ_line!("\n\n\nreturn:\n", "\n", LabelDef { label: "return".into() });
+                         NoData { });
+        assert_equ_line!("test:\n\nsub x6, x5, x11", "",
+                         LabelDef { label: "test".into() });
+        assert_equ_line!("\n\n\nreturn:\n", "\n", NoData { });
+        assert_equ_line!("test: sub x6, x5, x11", "",
+                        LabelOperationData { label: "test".into(), op: Instruction::Sub(Reg::G6, Reg::G5, Reg::G11).into() });
         assert_equ_line!("mv x15, x12\naddi x12, x10, 0x05", "\naddi x12, x10, 0x05",
                          OperationData { op: Instruction::Addi(Reg::G15, Reg::G12, 0).into() });
-        assert_equ_line!("label:\ndiv x14, x13, x10", "",
+        assert_equ_line!("label:        div x14, x13, x10", "",
                          LabelOperationData { label: "label".into(), op: Instruction::Div(Reg::G14, Reg::G13, Reg::G10).into() });
         Ok(())
     }

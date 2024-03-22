@@ -29,6 +29,7 @@ use crate::{
     linker::Namespaces,
 };
 
+#[allow(dead_code)]
 #[derive(Clone)]
 enum RegActType {
     NA,

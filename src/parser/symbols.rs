@@ -10,6 +10,7 @@ use std::{cell::RefCell, collections::HashMap, sync::OnceLock};
 
 pub(super) struct Symbols;
 
+#[allow(clippy::thread_local_initializer_can_be_made_const)]
 impl Symbols {
     //#[thread_local]
     thread_local! {

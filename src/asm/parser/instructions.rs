@@ -14,7 +14,7 @@ use winnow::{
     Parser
 };
 
-use crate::parser::literals::{parse_imm, parse_reg, parse_label_name};
+use crate::asm::parser::literals::{parse_imm, parse_reg, parse_label_name};
 use crate::common::{MacroInstr, Instruction, Operation, Reg, Part};
 
 use super::{errors::ParserError, symbols::Symbols};
@@ -735,7 +735,7 @@ pub fn parse_instruction(input: &mut &str) -> PResult<Operation> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::symbols::Symbols;
+    use crate::asm::parser::symbols::Symbols;
 
     use super::*;
 

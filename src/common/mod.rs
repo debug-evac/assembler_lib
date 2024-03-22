@@ -27,8 +27,8 @@ pub use self::instructions::*;
 pub use self::macros::*;
 pub use self::registers::*;
 
-use crate::linker::Namespaces;
-use crate::parser::Subroutines;
+use crate::asm::linker::Namespaces;
+use crate::asm::parser::Subroutines;
 
 pub trait AssemblyCode {
     type Labels;

@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use assembler_lib::{translator, ParseLinkBuilder};
+use assembler_lib::{asm::translator, asm::ParseLinkBuilder};
 
 use predicates::prelude::*;
 use assert_fs::prelude::*;

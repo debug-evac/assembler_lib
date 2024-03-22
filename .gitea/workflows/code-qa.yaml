@@ -60,7 +60,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: -p ${{ gitea.event.repository.name }} -- -D warnings
 
   test-all:
     name: Test Suite (all features)

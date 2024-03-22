@@ -26,7 +26,7 @@ use log::debug;
 use crate::{
     common::{errors::OptimizerError, AssemblyCode, AssemblyCodeNamespaces, ByteData, DWordData, HalfData, Instruction, LabelType, MacroInstr, MemData, Operation, Part, Reg, TranslatableCode, WordData
     },
-    linker::Namespaces,
+    asm::linker::Namespaces,
 };
 
 #[allow(dead_code)]

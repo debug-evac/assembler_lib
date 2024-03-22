@@ -17,7 +17,7 @@ use std::{any::Any, cmp::Ordering};
 use std::collections::BTreeMap;
 use log::{debug, error};
 
-use crate::parser::{
+use crate::asm::parser::{
     handle_label_defs, instructions::parse_instruction, literals::{
         parse_label_definition,
         parse_label_definition_priv

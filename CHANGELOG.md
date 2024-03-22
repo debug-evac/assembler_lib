@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- [BREAKING] Internal structure of library
+  - Assembler functionality is now found under `asm` for the Rust library
+  - Disassembler functionality is found under `disasm` for the Rust library
+  - Added unstable `internal` module, which exposes some of the private functions used
+  - No changes to Python module
 - Dependency from `nom` to `winnow`
   - Removed nom error from `LibraryError` enum and instead used winnow errors
   - `parse_line` functions will now parse lines instead of components

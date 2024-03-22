@@ -18,7 +18,7 @@ use winnow::{
 };
 use std::collections::HashSet;
 
-use crate::{common::*, parser::symbols::Symbols};
+use crate::{common::*, asm::parser::symbols::Symbols};
 
 use self::errors::CommonError;
 

@@ -358,7 +358,7 @@ pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode,
 #[cfg(test)]
 mod tests {
    use crate::common::{Instruction, Reg};
-   use crate::translator::Translate;
+   use crate::asm::translator::Translate;
 
    #[test]
    fn test_translate_rtype_instr() {

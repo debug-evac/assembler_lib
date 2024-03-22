@@ -6,13 +6,3 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-pub mod disasm;
-pub mod asm;
-pub mod common;
-
-pub mod internal {
-    pub use crate::asm::*;
-    #[allow(unused_imports)]
-    pub use crate::disasm::*;
-    pub use crate::common::*;
-}

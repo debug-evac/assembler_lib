@@ -16,6 +16,7 @@ use winnow::{
 
 use crate::common::{Imm, Reg};
 
+#[allow(dead_code)]
 pub fn parse_data_segment_id<'a>(input: &mut &'a str) -> PResult<&'a str> {
     ('.', literal("data"))
     .recognize()

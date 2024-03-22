@@ -258,8 +258,8 @@ ret
     let mut parser_builder = ParseLinkBuilder::new();
     parser_builder.add_code(input.to_string());
 
-    if let Ok(_) = parser_builder.parse_link_optimize() {
-        panic!("Parse has succeeded although instruction is unknown!");
+    if let Ok(code) = parser_builder.parse_link_optimize() {
+        panic!("Parse has succeeded although instruction is unknown! Got: {:?}", code);
     }
 
     Ok(())

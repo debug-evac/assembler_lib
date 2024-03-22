@@ -10,7 +10,7 @@ mod op_exp;
 
 use winnow::{
     ascii::{escaped, space0, space1, till_line_ending}, combinator::{
-        alt, delimited, empty, eof, fail, opt, preceded, separated_pair
+        alt, delimited, empty, eof, fail, not, opt, preceded, separated_pair
     }, error::StrContext, token::none_of, PResult, Parser
 };
 use std::{any::Any, cmp::Ordering};
@@ -89,7 +89,7 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         ),
         (
             empty.value(None),
-            empty.value(None)
+            not(none_of(('\n', ';', '\r'))).value(None)
         )
     ))
     .output_into()
@@ -119,7 +119,7 @@ fn real_parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         ),
         (
             empty.value(None),
-            empty.value(None)
+            not(none_of(('\n', ';', '\r'))).value(None)
         )
     ))
     .output_into()

@@ -557,8 +557,6 @@ fn parse_macro_1reg(input: &mut &str) -> PResult<Operation> {
 fn parse_macro_1labl1reg(input: &mut &str) -> PResult<Operation> {
     let instr = alt((
         literal("jal").value(InstrType::RegLabl(IntermediateOp::Jal)),
-
-        literal("li").value(InstrType::RegLabl(IntermediateOp::Li)),
         literal("la").value(InstrType::RegLabl(IntermediateOp::La)),
     )).parse_next(input)?;
     instr.translate_parse(input)

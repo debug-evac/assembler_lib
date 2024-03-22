@@ -10,7 +10,7 @@ use std::{any::Any, fmt::Display};
 
 use log::{debug, error};
 use winnow::{
-    ascii::{digit1, escaped, multispace1, space0, space1, till_line_ending}, combinator::{alt, delimited, empty, fail, opt, preceded, separated, separated_pair}, error::StrContext, token::{literal, none_of, take_till}, PResult, Parser
+    ascii::{digit1, escaped, multispace1, space0, space1, till_line_ending}, combinator::{alt, delimited, empty, fail, not, opt, preceded, separated, separated_pair}, error::StrContext, token::{literal, none_of, take_till}, PResult, Parser
 };
 
 use super::{
@@ -214,7 +214,7 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         ),
         (
             empty.value(None),
-            empty.value(None)
+            not(none_of(('\n', ';', '\r'))).value(None)
         )
     ))
     .output_into()

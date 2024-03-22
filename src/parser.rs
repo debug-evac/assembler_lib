@@ -14,15 +14,13 @@ mod symbols;
 
 use log::{debug, warn};
 use winnow::{
-    combinator::opt,
-    Parser,
-    PResult
+    combinator::{opt, terminated}, token::{literal, take_until}, PResult, Parser
 };
 use std::collections::HashSet;
 
 use crate::{common::*, parser::symbols::Symbols};
 
-use self::{errors::CommonError, literals::{parse_data_segment_id, parse_text_segment_id}};
+use self::errors::CommonError;
 
 pub struct Subroutines {
     code_str_vec: HashSet<String>
@@ -51,20 +49,18 @@ fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType,
     symbol_map.crt_or_def_label(&label.into(), !label.starts_with('.'), ltype, instr_counter.try_into()?)
 }
 
-fn parse_multiline_comments(_input: &mut &str) -> PResult<bool> { Ok(false) }
-
 pub fn parse(input: &mut &str, subroutines: &mut Option<&mut Subroutines>, sp_init: bool) -> PResult<AssemblyCodeRecog> {
     let mut assembly: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
     
     Symbols::symbols_clear();
 
-    let parsed = (parse_multiline_comments, opt(parse_data_segment_id), parse_multiline_comments).parse_next(input)?;
-    if parsed.1.is_some() {
+    let parsed = opt(terminated(take_until(0.., ".data"), literal(".data"))).parse_next(input)?;
+    if parsed.is_some() {
         warn!("Experimental: Data sections have not been tested rigorously! Expect bugs and errors!");
         let parsed = data::parse(input, assembly.get_labels_refmut())?;
         assembly.set_data(parsed);
     } else {
-        let _ = (parse_multiline_comments, opt(parse_text_segment_id), parse_multiline_comments).parse_next(input)?;
+        let _ = opt(terminated(take_until(0.., ".text"), literal(".text"))).parse_next(input)?;
     }
 
     let vec_ops = text::parse(input, subroutines, assembly.get_labels_refmut(), sp_init)?;

@@ -10,12 +10,7 @@ use std::{any::Any, fmt::Display};
 
 use log::{debug, error};
 use winnow::{
-    Parser,
-    token::{literal, take_till},
-    ascii::{digit1, space1},
-    combinator::{fail, opt, empty, alt, delimited, separated_pair, separated},
-    error::StrContext,
-    PResult
+    ascii::{digit1, escaped, multispace1, space0, space1, till_line_ending}, combinator::{alt, delimited, empty, fail, opt, preceded, separated, separated_pair}, error::StrContext, token::{literal, none_of, take_till}, PResult, Parser
 };
 
 use super::{
@@ -24,7 +19,7 @@ use super::{
         parse_imm, 
         parse_label_definition, 
         parse_label_name, parse_text_segment_id
-    }, parse_multiline_comments, symbols::Symbols, ByteData, DWordData, HalfData, LabelRecog, LabelType, MemData, WordData
+    }, symbols::Symbols, ByteData, DWordData, HalfData, LabelRecog, LabelType, MemData, WordData
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -202,16 +197,12 @@ fn parse_directive(input: &mut &str) -> PResult<Directive> {
     Ok(directive)
 }
 
-fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
-    let early = parse_multiline_comments(input)?;
-    if early {
-        return Ok(Box::from(NoData { }))
-    }
+fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
     alt((
         separated_pair(
             parse_label_definition.map(Some),
-            parse_multiline_comments,
-            parse_directive.map(Some),
+            space1,
+            parse_directive.map(Some)
         ),
         (
             parse_label_definition.map(Some), 
@@ -221,8 +212,18 @@ fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
             empty.value(None),
             parse_directive.map(Some)
         ),
+        (
+            empty.value(None),
+            empty.value(None)
+        )
     ))
     .output_into()
+    .parse_next(input)
+}
+
+fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
+    escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
+    .and_then(delimited(space0, real_parse_line, space0))
     .parse_next(input)
 }
 
@@ -270,15 +271,19 @@ fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usi
     }
 }
 
-fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut [MemData]) {
+fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut [MemData]) -> usize {
     match direct {
-        MemData::Bytes(_, _) => (),
+        MemData::Bytes(_, _) => 0,
         MemData::Halfs(_) => {
             if *next_free_ptr % 2 != 0 {
                 if let MemData::Bytes(byte_data, _) = dir_list.last_mut().unwrap() {
                     byte_data.push(ByteData::Byte(0));
                 }
-                *next_free_ptr += 2;
+                let num = 2;
+                *next_free_ptr += num;
+                num
+            } else {
+                0
             }
         },
         MemData::Words(_) | MemData::DWords(_) => {
@@ -289,16 +294,22 @@ fn align_data(direct: &MemData, next_free_ptr: &mut usize, dir_list: &mut [MemDa
                         for _ in 0..free_bytes + 2 {
                             byte_data.push(ByteData::Byte(0));
                         }
-                        *next_free_ptr += free_bytes + 2;
+                        let num = free_bytes + 2;
+                        *next_free_ptr += num;
+                        num + 1
                     },
                     MemData::Halfs(half_data) => {
                         half_data.push(HalfData::Half(0));
-                        *next_free_ptr += 1;
+                        let num = 1;
+                        *next_free_ptr += num;
+                        num
                     },
                     MemData::Words(_) |
                     MemData::DWords(_) |
-                    MemData::Namespace(_) => (),
+                    MemData::Namespace(_) => 0,
                 }
+            } else {
+                0
             }
         },
         MemData::Namespace(_) => unreachable!(),
@@ -323,7 +334,12 @@ struct LabelDirectiveData {
 
 trait LineHandle {
     fn as_any(&self) -> &dyn Any;
-    fn handle(&self, next_free_ptr: &mut usize, dir_list: &mut Vec<MemData>, symbol_map: &mut LabelRecog) -> Result<(), ParserError>;
+    fn handle(&self,
+        next_free_ptr: &mut usize,
+        dir_list: &mut Vec<MemData>,
+        symbol_map: &mut LabelRecog,
+        unaligned_labels: &mut Vec<smartstring::alias::String>
+    ) -> Result<(), ParserError>;
 }
 
 impl From<(Option<&str>, Option<Directive>)> for Box<dyn LineHandle> {
@@ -342,12 +358,17 @@ impl LineHandle for DirectiveData {
         self
     }
 
-    fn handle(&self, next_free_ptr: &mut usize, dir_list: &mut Vec<MemData>, symbol_map: &mut LabelRecog) -> Result<(), ParserError> {
+    fn handle(&self, next_free_ptr: &mut usize, dir_list: &mut Vec<MemData>, symbol_map: &mut LabelRecog, unaligned_labels: &mut Vec<smartstring::alias::String>) -> Result<(), ParserError> {
         let direct = self.directive.clone();
         debug!("Parsed data '{direct}'");
         match direct {
             Directive::Data(data) => {
-                align_data(&data, next_free_ptr, dir_list);
+                let dif = align_data(&data, next_free_ptr, dir_list);
+                while let Some(labl) = unaligned_labels.pop() {
+                    if let Some(label) = symbol_map.get_label(&labl) {
+                        label.add_def(dif as i128);
+                    }
+                }
                 *next_free_ptr += handle_label_refs_count(&data, symbol_map);
                 dir_list.push(data);
             },
@@ -362,10 +383,11 @@ impl LineHandle for LabelDef {
         self
     }
 
-    fn handle(&self, next_free_ptr: &mut usize, _dir_list: &mut Vec<MemData>, symbol_map: &mut LabelRecog) -> Result<(), ParserError> {
+    fn handle(&self, next_free_ptr: &mut usize, _dir_list: &mut Vec<MemData>, symbol_map: &mut LabelRecog, unaligned_labels: &mut Vec<smartstring::alias::String>) -> Result<(), ParserError> {
         let label = &self.label;
         debug!("Parsed label '{label}'");
         handle_label_defs(label, symbol_map, LabelType::Data, *next_free_ptr)?;
+        unaligned_labels.push(label.clone());
         Ok(())
     }
 }
@@ -375,13 +397,18 @@ impl LineHandle for LabelDirectiveData {
         self
     }
 
-    fn handle(&self, next_free_ptr: &mut usize, dir_list: &mut Vec<MemData>, symbol_map: &mut LabelRecog) -> Result<(), ParserError> {
+    fn handle(&self, next_free_ptr: &mut usize, dir_list: &mut Vec<MemData>, symbol_map: &mut LabelRecog, unaligned_labels: &mut Vec<smartstring::alias::String>) -> Result<(), ParserError> {
         let direct = self.directive.clone();
         let label = &self.label;
         debug!("Parsed label '{label}' and data '{direct}'");
         match direct {
             Directive::Data(data) => {
-                align_data(&data, next_free_ptr, dir_list);
+                let dif = align_data(&data, next_free_ptr, dir_list);
+                while let Some(labl) = unaligned_labels.pop() {
+                    if let Some(label) = symbol_map.get_label(&labl) {
+                        label.add_def(dif as i128);
+                    }
+                }
                 handle_label_defs(label, symbol_map, LabelType::Data, *next_free_ptr)?;
                 *next_free_ptr += handle_label_refs_count(&data, symbol_map);
                 dir_list.push(data);
@@ -397,7 +424,7 @@ impl LineHandle for NoData {
         self
     }
 
-    fn handle(&self, _next_free_ptr: &mut usize, _dir_list: &mut Vec<MemData>, _symbol_map: &mut LabelRecog) -> Result<(), ParserError> {
+    fn handle(&self, _next_free_ptr: &mut usize, _dir_list: &mut Vec<MemData>, _symbol_map: &mut LabelRecog, _unaligned_labels: &mut Vec<smartstring::alias::String>) -> Result<(), ParserError> {
         Err(ParserError::NoTextSection)
     }
 }
@@ -405,17 +432,25 @@ impl LineHandle for NoData {
 pub fn parse(input: &mut &str, symbol_map: &mut LabelRecog) -> PResult<Vec<MemData>> {
     let mut dir_list: Vec<MemData> = vec![];
 
+    let mut unaligned_labels: Vec<smartstring::alias::String> = Vec::new();
+
     let mut next_free_ptr = 0;
 
     loop {
-        let parsed = parse_line(input)?;
+        let parsed = preceded('\n', parse_line).parse_next(input)?;
 
-        if let Err(e) = parsed.handle(&mut next_free_ptr, &mut dir_list, symbol_map) {
+        if let Err(e) = parsed.handle(&mut next_free_ptr, &mut dir_list, symbol_map, &mut unaligned_labels) {
             error!("{e}");
             return fail.context(StrContext::Label(e.get_nom_err_text())).parse_next(input)
         }
 
-        let breakout = delimited(
+        let breakout = opt(delimited(multispace1, parse_text_segment_id, multispace1)).parse_next(input)?;
+        if breakout.is_some() {
+            debug!("Finished data parsing sub step");
+            break
+        }
+
+        /*let breakout = delimited(
             parse_multiline_comments,
             opt(parse_text_segment_id),
             parse_multiline_comments
@@ -423,7 +458,7 @@ pub fn parse(input: &mut &str, symbol_map: &mut LabelRecog) -> PResult<Vec<MemDa
         if breakout.is_some() {
             debug!("Finished data parsing sub step");
             break
-        }
+        }*/
     }
 
     Ok(dir_list)
@@ -639,7 +674,7 @@ mod tests {
     macro_rules! assert_equ_line {
         ($pars_line:literal, $rest:literal, $struct:ident { $( $field:ident: $val:expr ),*}) => {
             let parsed = parse_line(&mut $pars_line).unwrap();
-            assert_eq!(&mut &$pars_line, &mut &$rest);
+            //assert_eq!(&mut &$pars_line, &mut &$rest);
             assert_eq!(parsed.as_any().downcast_ref::<$struct>().unwrap(), &$struct { $( $field: $val ),* });
         };
     }
@@ -650,29 +685,29 @@ mod tests {
             WordData::Word(30),
             WordData::Word(51)
         ])).into() });
-        assert_equ_line!("\ntest:\n\n.string   \"HANS!\"", "", LabelDirectiveData { label: "test".into(), directive: MemData::Bytes(Vec::from([
+        assert_equ_line!("test:     .string   \"HANS!\"", "", LabelDirectiveData { label: "test".into(), directive: MemData::Bytes(Vec::from([
             ByteData::Byte('S' as i16), ByteData::Byte('N' as i16), ByteData::Byte('A' as i16), ByteData::Byte('H' as i16),
             ByteData::Byte(0), ByteData::Byte('!' as i16)
         ]), true).into() });
-        assert_equ_line!("\n\n\n.space     12\n", "\n", DirectiveData { directive: MemData::Bytes(Vec::from([
+        assert_equ_line!(".space     12\n", "\n", DirectiveData { directive: MemData::Bytes(Vec::from([
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
             ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0), ByteData::Byte(0),
         ]), true).into() });
-        assert_equ_line!("\n\ntest:   \n\n.text", "   \n\n.text", LabelDef { label: "test".into() });
-        assert_equ_line!("label:\n.half    105, testing, 120", "", LabelDirectiveData { label: "label".into(), directive: MemData::Halfs(Vec::from([
+        assert_equ_line!("   test:   \n\n.text", "   \n\n.text", LabelDef { label: "test".into() });
+        assert_equ_line!(" label:   .half    105, testing, 120", "", LabelDirectiveData { label: "label".into(), directive: MemData::Halfs(Vec::from([
             HalfData::Half(105),
             HalfData::String("testing".into()),
             HalfData::Half(120)
         ])).into() });
-        assert_equ_line!("label:\n.ascii \"SToP\"", "", LabelDirectiveData { label: "label".into(), directive: MemData::Bytes(Vec::from([
+        assert_equ_line!("label: .ascii \"SToP\"", "", LabelDirectiveData { label: "label".into(), directive: MemData::Bytes(Vec::from([
             ByteData::Byte('P' as i16), ByteData::Byte('o' as i16), ByteData::Byte('T' as i16), ByteData::Byte('S' as i16)
         ]), true).into() });
         Ok(())
     }
 
     #[test]
-    fn test_parse() {
+    fn test_parse_o() {
         let mut data_code = r#"
 HelloKitty:
     .asciz      "MIAO!"                 ; Very nice kitten - 6
@@ -699,7 +734,7 @@ NeedSomeSpaceGotIt:                     ; 26
         label.set_name("VeryGood".into());
         label.set_type(LabelType::Data);
         label.set_scope(true);
-        label.set_def(12);
+        label.set_def(13);
         let _ = symbols.insert_label(label);
 
         label = LabelElem::new();

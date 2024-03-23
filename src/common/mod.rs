@@ -171,6 +171,10 @@ impl TranslatableCode {
     pub fn get_all_ref(&self) -> (&Vec<Instruction>, &Vec<MemData>) {
         (&self.text, &self.data)
     }
+
+    pub fn decompose(self) -> (Vec<Instruction>, Vec<MemData>) {
+        (self.text, self.data)
+    }
 }
 
 impl Default for TranslatableCode {

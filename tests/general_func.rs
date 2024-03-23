@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use assembler_lib::{asm::translator, asm::ParseLinkBuilder};
+use assembler_lib::asm::{translator::{self, RawFormat}, ParseLinkBuilder};
 
 use predicates::prelude::*;
 use assert_fs::prelude::*;
@@ -71,7 +71,11 @@ ret
     parser_builder.add_code(input.to_string());
 
     let assembly_code = parser_builder.parse_link_optimize().unwrap();
-    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "raw", (0, 0)).unwrap();
+    //translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "raw", (0, 0)).unwrap();
+
+    let code_writer = translator::CodeWriter::new(RawFormat, assembly_code);
+
+    code_writer.write_text_file(output_path.path())?;
 
     output_path
         .assert(predicate::path::is_file())
@@ -161,7 +165,11 @@ ret
     }
 
     let assembly_code = parser_builder.parse_link_optimize().unwrap();
-    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "raw", (0, 0)).unwrap();
+    //translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "raw", (0, 0)).unwrap();
+
+    let code_writer = translator::CodeWriter::new(RawFormat, assembly_code);
+
+    code_writer.write_text_file(output_path.path())?;
 
     let get_vec = std::fs::read(output_path.path())?;
 
@@ -222,7 +230,11 @@ ret
     parser_builder.add_code(input.to_string());
 
     let assembly_code = parser_builder.parse_link_optimize().unwrap();
-    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "raw", (0, 0)).unwrap();
+    //translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "raw", (0, 0)).unwrap();
+
+    let code_writer = translator::CodeWriter::new(RawFormat, assembly_code);
+
+    code_writer.write_text_file(output_path.path())?;
 
     output_path
         .assert(predicate::path::is_file())
@@ -318,7 +330,11 @@ farAway: j farAway
     parser_builder.add_code(input.to_string());
 
     let assembly_code = parser_builder.parse_link_optimize().unwrap();
-    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "raw", (0, 0)).unwrap();
+    //translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "raw", (0, 0)).unwrap();
+
+    let code_writer = translator::CodeWriter::new(RawFormat, assembly_code);
+
+    code_writer.write_text_file(output_path.path())?;
 
     output_path
         .assert(predicate::path::is_file())

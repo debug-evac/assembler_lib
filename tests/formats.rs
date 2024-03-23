@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use assembler_lib::{asm::translator, asm::ParseLinkBuilder};
+use assembler_lib::asm::{translator::{self, MifFormat, WordWidth}, ParseLinkBuilder};
 
 use predicates::prelude::*;
 use assert_fs::prelude::*;
@@ -51,7 +51,9 @@ rep 3, nop
     parser_builder.add_code(input.to_string());
 
     let assembly_code = parser_builder.parse_link_optimize().unwrap();
-    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "mif", (1024, 32)).unwrap();
+    let code_writer = translator::CodeWriter::new(MifFormat::default(), assembly_code);
+
+    code_writer.write_text_file(output_path.path())?;
 
     output_path
         .assert(predicate::path::is_file())
@@ -100,7 +102,11 @@ rep 3, nop
     parser_builder.add_code(input.to_string());
 
     let assembly_code = parser_builder.parse_link_optimize().unwrap();
-    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "mif", (1024, 8)).unwrap();
+
+    let mif_format = MifFormat::default().set_word_len(WordWidth::EightBit);
+    let code_writer = translator::CodeWriter::new(mif_format, assembly_code);
+
+    code_writer.write_text_file(output_path.path())?;
 
     output_path
         .assert(predicate::path::is_file())
@@ -155,7 +161,11 @@ rep 3, nop
     parser_builder.add_code(input.to_string());
 
     let assembly_code = parser_builder.parse_link_optimize().unwrap();
-    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, true, "mif", (1024, 32)).unwrap();
+
+    let mif_format = MifFormat::default().set_comment(true);
+    let code_writer = translator::CodeWriter::new(mif_format, assembly_code);
+
+    code_writer.write_text_file(output_path.path())?;
 
     output_path
         .assert(predicate::path::is_file())
@@ -208,7 +218,11 @@ rep 3, nop
     parser_builder.add_code(input.to_string());
 
     let assembly_code = parser_builder.parse_link_optimize().unwrap();
-    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, true, "mif", (1024, 8)).unwrap();
+
+    let mif_format = MifFormat::default().set_comment(true).set_word_len(WordWidth::EightBit);
+    let code_writer = translator::CodeWriter::new(mif_format, assembly_code);
+
+    code_writer.write_text_file(output_path.path())?;
 
     output_path
         .assert(predicate::path::is_file())
@@ -253,7 +267,11 @@ rep 3, nop
     parser_builder.add_code(input.to_string());
 
     let assembly_code = parser_builder.parse_link_optimize().unwrap();
-    translator::translate_and_present(&no_output_path.to_path_buf(), assembly_code, true, "debug", (1024, 8)).unwrap();
+
+    let mif_format = MifFormat::default().set_comment(true).set_word_len(WordWidth::EightBit);
+    let code_writer = translator::CodeWriter::new(mif_format, assembly_code);
+
+    code_writer.write_text_stdout()?;
 
     no_output_path
         .assert(predicate::path::missing());

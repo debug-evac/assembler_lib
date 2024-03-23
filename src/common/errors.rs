@@ -96,6 +96,8 @@ pub enum TranslatorError {
     UndefinedFormat(String)
 }
 
+impl std::error::Error for TranslatorError {}
+
 impl ExitErrorCode for TranslatorError {
     fn get_err_code(&self) -> i32 {
         match self {

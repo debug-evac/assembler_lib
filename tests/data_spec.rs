@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use assembler_lib::{asm::translator, asm::ParseLinkBuilder};
+use assembler_lib::asm::{translator::{self, MifFormat, WordWidth}, ParseLinkBuilder};
 
 use predicates::prelude::*;
 use assert_fs::prelude::*;
@@ -91,13 +91,18 @@ GETIT:
     parser_builder.add_code(input.to_string());
 
     let assembly_code = parser_builder.parse_link_optimize().unwrap();
-    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "mif", (1024, 32)).unwrap();
+
+    let code_writer = translator::CodeWriter::new(MifFormat::default(), assembly_code);
+
+    let data_out = temp.child("a.mem.mif");
+
+    code_writer.write_files(output_path.path(), data_out.path())?;
 
     output_path
         .assert(predicate::path::is_file())
         .assert(predicate::path::eq_file(cor_instr_output.path()));
 
-    temp.child("a.mem.mif")
+    data_out
         .assert(predicate::path::is_file())
         .assert(predicate::path::eq_file(cor_data_output.path()));
 
@@ -199,13 +204,23 @@ GETIT:
     parser_builder.add_code(input.to_string());
 
     let assembly_code = parser_builder.parse_link_optimize().unwrap();
-    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "mif", (1024, 8)).unwrap();
+
+    let mif_format = MifFormat::default().set_word_len(WordWidth::EightBit);
+    let code_writer = translator::CodeWriter::new(mif_format, assembly_code);
+
+    let data_out = temp.child("a.mem.mif");
+
+    code_writer.write_files(output_path.path(), data_out.path())?;
+
+    /*let get_vec = std::fs::read_to_string(data_out.path())?;
+
+    panic!("{get_vec}");*/
 
     output_path
         .assert(predicate::path::is_file())
         .assert(predicate::path::eq_file(cor_instr_output.path()));
 
-    temp.child("a.mem.mif")
+    data_out
         .assert(predicate::path::is_file())
         .assert(predicate::path::eq_file(cor_data_output.path()));
 
@@ -304,7 +319,13 @@ GETIT:
     parser_builder.add_code(input.to_string());
 
     let assembly_code = parser_builder.parse_link_optimize().unwrap();
-    translator::translate_and_present(&output_path.to_path_buf(), assembly_code, false, "mif", (1024, 8)).unwrap();
+
+    let mif_format = MifFormat::default().set_word_len(WordWidth::EightBit);
+    let code_writer = translator::CodeWriter::new(mif_format, assembly_code);
+
+    let data_out = temp.child("a.mem.mif");
+
+    code_writer.write_files(output_path.path(), data_out.path())?;
 
     /*let get_vec = std::fs::read_to_string(output_path.path())?;
 
@@ -324,7 +345,7 @@ GETIT:
         .assert(predicate::path::is_file())
         .assert(predicate::path::eq_file(cor_instr_output.path()));
 
-    temp.child("a.mem.mif")
+    data_out
         .assert(predicate::path::is_file())
         .assert(predicate::path::eq_file(cor_data_output.path()));
 

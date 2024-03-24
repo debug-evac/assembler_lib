@@ -127,7 +127,7 @@ pub trait Format {
     fn write<W: std::io::Write, T: Translatable>(
         &self,
         writer: &mut W,
-        writable: &Vec<T>,
+        writable: &[T],
     ) -> Result<(), TranslatorError>;
 }
 
@@ -136,7 +136,7 @@ impl Format for RawFormat {
     fn write<W: std::io::Write, T: Translatable>(
         &self,
         writer: &mut W,
-        writable: &Vec<T>,
+        writable: &[T],
     ) -> Result<(), TranslatorError> {
         let mut byte_instrs: Vec<u8> = vec![];
 
@@ -157,7 +157,7 @@ impl Format for MifFormat {
     fn write<W: std::io::Write, T: Translatable>(
         &self,
         writer: &mut W,
-        writable: &Vec<T>,
+        writable: &[T],
     ) -> Result<(), TranslatorError> {
         let depth = self.mem_len;
         let width = self.word_len;
@@ -247,7 +247,7 @@ impl Format for DatFormat {
     fn write<W: std::io::Write, T: Translatable>(
         &self,
         _writer: &mut W,
-        _writable: &Vec<T>,
+        _writable: &[T],
     ) -> Result<(), TranslatorError> {
         unimplemented!()
     }
@@ -308,7 +308,7 @@ impl<T: Format> CodeWriter<T> {
     ) -> Result<(), TranslatorError> {
         self.write_text_file(text_output)?;
 
-        if self.data.len() != 0 {
+        if self.data.is_empty() {
             self.write_data_file(data_output)?;
         }
 

@@ -308,7 +308,7 @@ impl<T: Format> CodeWriter<T> {
     ) -> Result<(), TranslatorError> {
         self.write_text_file(text_output)?;
 
-        if self.data.is_empty() {
+        if !self.data.is_empty() {
             self.write_data_file(data_output)?;
         }
 

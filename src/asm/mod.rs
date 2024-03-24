@@ -101,12 +101,13 @@ impl <'a> ParseLinkBuilder<'a> {
 /// * `sp_init` - Stack pointer initialization as boolean (default: true)
 /// * `no_nop_insert` - If nop insertions should be done, as boolean (default: false)
 /// * `format` - The output format as String (default: "mif")
-/// * `outpath` - The path of the output file as Path (default: "a.mif")
+/// * `text_outpath` - The path of the output file for the text section as Path (default: "a.mif")
+/// * `data_outpath` - The path of the output file for the data section as Path (default: "a.mem.mif")
 /// * `comment` - If the output file should be commented, as boolean (default: false)
 ///               Does not do anything, if format != "mif"
 /// * `depth` - Memory depth of mif file as Int (default: 1024)
 ///             Does not do anything, if format != "mif"
-/// * `width` - Memory width of mif file as Int (default: 8)
+/// * `width` - Memory width of mif file as Int (default: 32)
 ///             Does not do anything, if format != "mif"
 ///
 /// # Returns
@@ -118,21 +119,27 @@ impl <'a> ParseLinkBuilder<'a> {
     sp_init=true, 
     no_nop_insert=false, 
     format="mif",
-    outpath=PathBuf::from("a.mif"),
+    text_outpath=PathBuf::from("a.mif"),
+    data_outpath=PathBuf::from("a.mem.mif"),
     comment=false,
     depth=1024,
-    width=8
+    width=32
 ))]
 fn assemble(
     assembly_code: Vec<String>,
     sp_init: bool,
     no_nop_insert: bool,
     format: &str,
-    outpath: PathBuf,
+    text_outpath: PathBuf,
+    data_outpath: PathBuf,
     comment: bool,
     depth: u16,
     width: u8
 ) -> PyResult<()> {
+    use crate::{asm::translator::{CodeWriter, RawFormat, WordWidth}, common::errors::TranslatorError};
+
+    use self::translator::MifFormat;
+
     let mut builder = ParseLinkBuilder::new()
                                                 .sp_init(sp_init)
                                                 .no_nop_insert(no_nop_insert);
@@ -143,7 +150,24 @@ fn assemble(
 
     let translate_code = builder.parse_link_optimize()?;
 
-    translator::translate_and_present(&outpath, translate_code, comment, format, (depth, width))?;
+    match format {
+        "mif" => {
+            let width_num = match width {
+                8 => WordWidth::EightBit,
+                32 => WordWidth::ThirtyTwoBit,
+                num => return Err(TranslatorError::UndefinedWidth(num).into()),
+            };
+            let mif_format = MifFormat::default().set_comment(comment).set_mem_len(depth).set_word_len(width_num);
+            let code_writer = CodeWriter::new(mif_format, translate_code);
+            code_writer.write_files(text_outpath, data_outpath)
+        },
+        "raw" => {
+            let code_writer = CodeWriter::new(RawFormat, translate_code);
+            code_writer.write_files(text_outpath, data_outpath)
+        },
+        "dat" => return Err(TranslatorError::UndefinedFormat("dat".to_string()).into()),
+        form => return Err(TranslatorError::UndefinedFormat(form.to_string()).into()),
+    }?;
     
     Ok(())
 }
@@ -159,17 +183,19 @@ fn assemble(
     sp_init=true, 
     no_nop_insert=true, 
     format="mif",
-    outpath=PathBuf::from("a.mif"),
+    text_outpath=PathBuf::from("a.mif"),
+    data_outpath=PathBuf::from("a.mem.mif"),
     comment=false,
     depth=1024,
-    width=8
+    width=32
 ))]
 fn assemble_paths(
     assembly_paths: Vec<PathBuf>,
     sp_init: bool,
     no_nop_insert: bool,
     format: &str,
-    outpath: PathBuf,
+    text_outpath: PathBuf,
+    data_outpath: PathBuf,
     comment: bool,
     depth: u16,
     width: u8
@@ -188,7 +214,8 @@ fn assemble_paths(
         sp_init,
         no_nop_insert,
         format,
-        outpath,
+        text_outpath,
+        data_outpath,
         comment,
         depth,
         width,

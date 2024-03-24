@@ -286,11 +286,6 @@ impl<T: Format> CodeWriter<T> {
     }
 
     pub fn write_text_stdout(&self) -> Result<(), TranslatorError> {
-        // TODO: Throw better error
-        #[cfg(target_os = "windows")]
-        if let MifFormat = self.format {
-            return Err(TranslatorError::DepthNotFit(0, 0));
-        }
         self.format.write(&mut std::io::stdout(), &self.text)?;
         Ok(())
     }

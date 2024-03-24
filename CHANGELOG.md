@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- [BREAKING] Added separation of output args of text and data output in Python module (`text_outpath` & `data_outpath`)
+- [BREAKING] Set default value of `width` to 32 from 8
 - [BREAKING] Internal structure of library
   - Assembler functionality is now found under `asm` for the Rust library
   - Disassembler functionality is found under `disasm` for the Rust library

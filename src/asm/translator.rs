@@ -11,6 +11,7 @@
 // has been parsed, linked and potentially optimized.
 
 mod pretty_print;
+mod file_handler;
 
 use std::{
    fs::File, io::Write, path::{Path, PathBuf}
@@ -18,7 +19,9 @@ use std::{
 use log::{debug, info, log_enabled, warn};
 
 use self::pretty_print::emit_debug_translate_instruction;
-use crate::common::{ByteData, DWordData, HalfData, Imm, Instruction, MemData, Reg, TranslatableCode, WordData, errors::TranslatorError};
+use crate::common::{Imm, Instruction, Reg, TranslatableCode, errors::TranslatorError};
+
+pub use self::file_handler::*;
 
 fn btype_instr(rs1: &Reg, rs2: &Reg, imm: &Imm) -> u32 {
    let u12 =  (imm & 0b100_00000_00000i32) >> 1;
@@ -151,6 +154,7 @@ impl Translate for Instruction {
    }
 }
 
+// Deprecated
 fn set_data_path(output: &Path, extension: &str) -> PathBuf {
    let mut datapath = output.to_path_buf();
    datapath.set_extension(extension);
@@ -158,29 +162,15 @@ fn set_data_path(output: &Path, extension: &str) -> PathBuf {
    datapath
 }
 
-trait Translatable {
-   fn translate(&self) -> u32;
-}
-
-impl Translatable for Instruction {
-   fn translate(&self) -> u32 {
-      self.translate_instruction()
-   }
-}
-
-impl Translatable for u32 {
-   fn translate(&self) -> u32 {
-      *self
-   }
-}
-
+// Deprecated
 trait Writable {
    // about to be phased out, only included here to not have to deal with two proceedings
    fn write_to_mif(&self, output: &Path, depth: u16, width: u8, comment: bool) -> Result<(), TranslatorError>;
    fn write_raw(&self, output: &Path) -> Result<(), std::io::Error>;
 }
 
-impl <T: Translatable + std::fmt::Display> Writable for &Vec<T> {
+// Deprecated
+impl <T: Translatable> Writable for &Vec<T> {
    fn write_raw(&self, output: &Path) -> Result<(), std::io::Error> {
       let mut file = File::create(output)?;
       let mut byte_instrs: Vec<u8> = vec![];
@@ -233,72 +223,7 @@ impl <T: Translatable + std::fmt::Display> Writable for &Vec<T> {
    }
 }
 
-fn translate_data_to_word_vec(memdata: &[MemData]) -> Vec<u32> {
-   let mut translatable_data: Vec<u8> = vec![];
-
-   for data in memdata.iter() {
-      match data {
-         MemData::Bytes(data_vec, _) => {
-            for byte in data_vec {
-               if let ByteData::Byte(num) = byte {
-                  let bytes = num.to_le_bytes();
-                  translatable_data.push(bytes[0]);
-               }
-            }
-         },
-         MemData::Halfs(data_vec) => {
-            for half in data_vec {
-               if let HalfData::Half(num) = half {
-                  let bytes = num.to_le_bytes();
-                  translatable_data.push(bytes[0]);
-                  translatable_data.push(bytes[1]);
-               }
-            }
-         },
-         MemData::Words(data_vec) => {
-            for word in data_vec {
-               if let WordData::Word(num) = word {
-                  let bytes = num.to_le_bytes();
-                  for byte in bytes.iter().take(4) {
-                     translatable_data.push(*byte);
-                  }
-               }
-            }
-         },
-         MemData::DWords(data_vec) => {
-            for dword in data_vec {
-               if let DWordData::DWord(num) = dword {
-                  let bytes = num.to_le_bytes();
-                  for byte in bytes.iter().take(8) {
-                     translatable_data.push(*byte);
-                  }
-               }
-            }
-         },
-         MemData::Namespace(_) => (),
-     }
-   }
-
-   let mut word_vec: Vec<u32> = vec![];
-   let mut iter = translatable_data.chunks_exact(4);
-
-   for byte in iter.by_ref() {
-      word_vec.push(((byte[3] as u32) << 24) + ((byte[2] as u32) << 16) + ((byte[1] as u32) << 8) + (byte[0] as u32));
-   }
-
-   let remainder = iter.remainder();
-
-   match remainder.len() {
-      0 => (),
-      1 => word_vec.push((remainder[0] as u32)<< 24),
-      2 => word_vec.push(((remainder[1] as u32) << 24) + ((remainder[0] as u32) << 16)),
-      3 => word_vec.push(((remainder[2] as u32) << 24) + ((remainder[1] as u32) << 16) + ((remainder[0] as u32) << 8)),
-      _ => unreachable!(),
-   }
-
-   word_vec
-}
-
+#[deprecated = "Use the CodeWriter"]
 pub fn translate_and_present(output: &PathBuf, translate_code: TranslatableCode, comment: bool, format: &str, size: (u16, u8)) -> Result<(), TranslatorError> {
    let (input, data) = translate_code.get_all_ref();
 

@@ -39,18 +39,18 @@ enum InstrType {
 
 impl InstrType {
     fn translate_parse(self, input: &mut &str) -> PResult<Operation> {
+        if let InstrType::NoArg(interop) = self {
+            return Ok(match interop {
+                IntermediateOp::Nop => Instruction::Addi(Reg::G0, Reg::G0, 0).into(),
+                IntermediateOp::Ret => Instruction::Jalr(Reg::G0, Reg::G1, 0).into(), 
+                IntermediateOp::Ebreak => Operation::Instr(Instruction::Ebreak).into(), 
+                IntermediateOp::Ecall => Operation::Instr(Instruction::Ecall).into(),
+
+                op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
+            })
+        }
         let _ = space1(input)?;
         match self {
-            InstrType::NoArg(interop) => {
-                Ok(match interop {
-                    IntermediateOp::Nop => Instruction::Addi(Reg::G0, Reg::G0, 0).into(),
-                    IntermediateOp::Ret => Instruction::Jalr(Reg::G0, Reg::G1, 0).into(), 
-                    IntermediateOp::Ebreak => Operation::Instr(Instruction::Ebreak).into(), 
-                    IntermediateOp::Ecall => Operation::Instr(Instruction::Ecall).into(),
-
-                    op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
-                })
-            },
             InstrType::Labl(interop) => {
                 let labl = parse_label_name(input)?;
 
@@ -523,7 +523,7 @@ impl InstrType {
             },
             // Labl, 1labl1reg, 1imm1reg
             InstrType::Jal => {
-                if let Some(base_reg) = opt(parse_reg).parse_next(input)? {
+                if let Some(base_reg) = opt(terminated(parse_reg, parse_seper)).parse_next(input)? {
                     let imm = match opt(parse_imm).parse_next(input)? {
                         None => {
                             opt(parse_label_name.verify_map(|label| {
@@ -571,6 +571,7 @@ impl InstrType {
                     None => Ok(Instruction::Jalr(Reg::G1, base_reg, 0).into()),
                 }
             },
+            InstrType::NoArg(_) => unreachable!(),
         }
     }
 }
@@ -948,185 +949,185 @@ mod tests {
     
     #[test]
     fn test_parse_instrnoparam() {
-        assert_ne!(parse_macro_noparm(&mut "invalid"), Ok(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0))));
-        assert_ne!(parse_macro_noparm(&mut "noop"), Ok(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0))));
-        assert_eq!(parse_macro_noparm(&mut "nop"), Ok(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0))));
+        assert_ne!(parse_instruction(&mut "invalid"), Ok(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0))));
+        assert_ne!(parse_instruction(&mut "noop"), Ok(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0))));
+        assert_eq!(parse_instruction(&mut "nop"), Ok(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0))));
         //assert_ne!(parse_macro_noparm(&mut "nop x1"), Ok(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0))));
-        assert_eq!(parse_macro_noparm(&mut "ret"), Ok(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0))));
+        assert_eq!(parse_instruction(&mut "ret"), Ok(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0))));
         //assert_ne!(parse_macro_noparm(&mut "ret nop"), Ok(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0))));
     }
 
     #[test]
     fn test_parse_instr1labl() {
-        assert_ne!(parse_macro_1labl(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_macro_1labl(&mut " "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_macro_1labl(&mut ""), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_macro_1labl(&mut "call"), Ok(MacroInstr::Call("".into()).into()));
-        assert_eq!(parse_macro_1labl(&mut "tail test"), Ok(MacroInstr::Tail("test".into()).into()));
-        assert_eq!(parse_macro_1labl(&mut "call HANS"), Ok(MacroInstr::Call("HANS".into()).into()));
+        assert_ne!(parse_instruction(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut " "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut ""), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut "call"), Ok(MacroInstr::Call("".into()).into()));
+        assert_eq!(parse_instruction(&mut "tail test"), Ok(MacroInstr::Tail("test".into()).into()));
+        assert_eq!(parse_instruction(&mut "call HANS"), Ok(MacroInstr::Call("HANS".into()).into()));
         //assert_ne!(parse_macro_1labl(&mut "call label  "), Ok(MacroInstr::Call("label".into()).into()));
     }
 
     #[test]
     fn test_parse_instr1reg() {
-        assert_ne!(parse_macro_1reg(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_macro_1reg(&mut " "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_macro_1reg(&mut ""), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_macro_1reg(&mut "jr"), Ok(Instruction::Jalr(Reg::G0, Reg::G0, 0).into()));
-        assert_eq!(parse_macro_1reg(&mut "jalr a2"), Ok(Instruction::Jalr(Reg::G1, Reg::str_to_enum("a2").unwrap(), 0).into()));
-        assert_eq!(parse_macro_1reg(&mut "jr x18"), Ok(Instruction::Jalr(Reg::G0, Reg::G18, 0).into()));
+        assert_ne!(parse_instruction(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut " "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut ""), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut "jr"), Ok(Instruction::Jalr(Reg::G0, Reg::G0, 0).into()));
+        assert_eq!(parse_instruction(&mut "jalr a2"), Ok(Instruction::Jalr(Reg::G1, Reg::str_to_enum("a2").unwrap(), 0).into()));
+        assert_eq!(parse_instruction(&mut "jr x18"), Ok(Instruction::Jalr(Reg::G0, Reg::G18, 0).into()));
         //assert_ne!(parse_macro_1reg(&mut "jalr x19  "), Ok(Instruction::Jalr(Reg::G1, Reg::G19, 0).into()));
     }
 
     #[test]
     fn test_parse_instr1labl1reg() {
-        assert_ne!(parse_macro_1labl1reg(&mut ""), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_macro_1labl1reg(&mut "auipc s2, helloWorld"), Ok(MacroInstr::Auipc(Reg::G18, "helloWorld".into()).into()));
-        assert_eq!(parse_macro_1labl1reg(&mut "jal   x20, test"), Ok(MacroInstr::Jal(Reg::G20, "test".into()).into()));
+        assert_ne!(parse_instruction(&mut ""), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut "auipc s2, helloWorld"), Ok(MacroInstr::Auipc(Reg::G18, "helloWorld".into()).into()));
+        assert_eq!(parse_instruction(&mut "jal   x20, test"), Ok(MacroInstr::Jal(Reg::G20, "test".into()).into()));
         //assert_ne!(parse_macro_1labl1reg(&mut "jal x19, train "), Ok(MacroInstr::Jal(Reg::G19, "train".into()).into()));
-        assert_eq!(parse_macro_1labl1reg(&mut "la x19, HELLOWORLD"), Ok(MacroInstr::La(Reg::G19, "HELLOWORLD".into()).into()));
+        assert_eq!(parse_instruction(&mut "la x19, HELLOWORLD"), Ok(MacroInstr::La(Reg::G19, "HELLOWORLD".into()).into()));
     }
 
     #[test]
     fn test_parse_instr1imm1reg() {
-        assert_ne!(parse_inst_1imm1reg(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_inst_1imm1reg(&mut " "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_inst_1imm1reg(&mut ""), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_inst_1imm1reg(&mut "lb"), Ok(Instruction::Lb(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_inst_1imm1reg(&mut ""), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_inst_1imm1reg(&mut "lui"), Ok(Instruction::Lui(Reg::G0, 0).into()));
-        assert_eq!(parse_inst_1imm1reg(&mut "lui x12, 12"), Ok(Instruction::Lui(Reg::G12, 49152).into()));
-        assert_eq!(parse_inst_1imm1reg(&mut "lui a2, %hi(stop)"), Ok(MacroInstr::Lui(Reg::G12, "stop".into(), Part::None).into()));
-        assert_eq!(parse_inst_1imm1reg(&mut "auipc x18, 0x20"), Ok(Instruction::Auipc(Reg::G18, 131072).into()));
-        assert_eq!(parse_inst_1imm1reg(&mut "jal x20, 5"), Ok(Instruction::Jal(Reg::G20, 5).into()));
+        assert_ne!(parse_instruction(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut " "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut ""), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut "lb"), Ok(Instruction::Lb(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut ""), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut "lui"), Ok(Instruction::Lui(Reg::G0, 0).into()));
+        assert_eq!(parse_instruction(&mut "lui x12, 12"), Ok(Instruction::Lui(Reg::G12, 49152).into()));
+        assert_eq!(parse_instruction(&mut "lui a2, %hi(stop)"), Ok(MacroInstr::Lui(Reg::G12, "stop".into(), Part::None).into()));
+        assert_eq!(parse_instruction(&mut "auipc x18, 0x20"), Ok(Instruction::Auipc(Reg::G18, 131072).into()));
+        assert_eq!(parse_instruction(&mut "jal x20, 5"), Ok(Instruction::Jal(Reg::G20, 5).into()));
         //assert_ne!(parse_inst_1imm1reg(&mut "jal x19, 125 "), Ok(Instruction::Jal(Reg::G19, 125).into()));
-        assert_ne!(parse_inst_1imm1reg(&mut "la x19, 0x0F"), Ok(MacroInstr::La(Reg::G19, "0x0F".into()).into()));
+        assert_ne!(parse_instruction(&mut "la x19, 0x0F"), Ok(MacroInstr::La(Reg::G19, "0x0F".into()).into()));
 
         setup_symbols("TEST".into(), 25);
 
-        assert_eq!(parse_inst_1imm1reg(&mut "li  x11, TEST"), Ok(MacroInstr::Li(Reg::G11, 25).into()));
-        assert_eq!(parse_inst_1imm1reg(&mut "lui x15, TEST"), Ok(Instruction::Lui(Reg::G15, 102400).into()));
-        assert_ne!(parse_inst_1imm1reg(&mut "auipc x15, .TEST"), Ok(Instruction::Auipc(Reg::G15, 102400).into()));
+        assert_eq!(parse_instruction(&mut "li  x11, TEST"), Ok(MacroInstr::Li(Reg::G11, 25).into()));
+        assert_eq!(parse_instruction(&mut "lui x15, TEST"), Ok(Instruction::Lui(Reg::G15, 102400).into()));
+        assert_ne!(parse_instruction(&mut "auipc x15, .TEST"), Ok(Instruction::Auipc(Reg::G15, 102400).into()));
     }
 
     #[test]
     fn test_parse_inst_2reg() {
-        assert_ne!(parse_macro_2reg(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_macro_2reg(&mut "   "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_macro_2reg(&mut "lb x1, 0xAA"), Ok(Instruction::Lb(Reg::G1, Reg::G0, 0xAA).into()));
-        assert_ne!(parse_macro_2reg(&mut "mv x1, 0xAA"), Ok(Instruction::Addi(Reg::G1, Reg::G0, 0xAA).into()));
-        assert_eq!(parse_macro_2reg(&mut "mv x1, x4"), Ok(Instruction::Addi(Reg::G1, Reg::G4, 0).into()));
-        assert_eq!(parse_macro_2reg(&mut "mv x12,x4"), Ok(Instruction::Addi(Reg::G12, Reg::G4, 0).into()));
+        assert_ne!(parse_instruction(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut "   "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_eq!(parse_instruction(&mut "lb x1, 0xAA"), Ok(Instruction::Lb(Reg::G1, Reg::G0, 0xAA).into()));
+        assert_ne!(parse_instruction(&mut "mv x1, 0xAA"), Ok(Instruction::Addi(Reg::G1, Reg::G0, 0xAA).into()));
+        assert_eq!(parse_instruction(&mut "mv x1, x4"), Ok(Instruction::Addi(Reg::G1, Reg::G4, 0).into()));
+        assert_eq!(parse_instruction(&mut "mv x12,x4"), Ok(Instruction::Addi(Reg::G12, Reg::G4, 0).into()));
     }
 
     #[test]
     fn test_parse_instr1labl2reg() {
-        assert_ne!(parse_macro_1labl2reg(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_macro_1labl2reg(&mut "   "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_eq!(parse_macro_1labl2reg(&mut "bgeu  x1, x4, sTaRt"), Ok(MacroInstr::Bgeu(Reg::G1, Reg::G4, "sTaRt".into()).into()));
-        assert_eq!(parse_macro_1labl2reg(&mut "blt x10,x10, last"), Ok(MacroInstr::Blt(Reg::G10, Reg::G10, "last".into()).into()));
-        assert_ne!(parse_macro_1labl2reg(&mut "jalr  x6,  x8,test"), Ok(MacroInstr::Jalr(Reg::G6, Reg::G8, "test".into(), Part::None).into()));
-        assert_ne!(parse_macro_1labl2reg(&mut "beqx1x15,start"), Ok(MacroInstr::Beq(Reg::G1, Reg::G15, "start".into()).into()));
+        assert_ne!(parse_instruction(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut "   "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_eq!(parse_instruction(&mut "bgeu  x1, x4, sTaRt"), Ok(MacroInstr::Bgeu(Reg::G1, Reg::G4, "sTaRt".into()).into()));
+        assert_eq!(parse_instruction(&mut "blt x10,x10, last"), Ok(MacroInstr::Blt(Reg::G10, Reg::G10, "last".into()).into()));
+        assert_ne!(parse_instruction(&mut "jalr  x6,  x8,test"), Ok(MacroInstr::Jalr(Reg::G6, Reg::G8, "test".into(), Part::None).into()));
+        assert_ne!(parse_instruction(&mut "beqx1x15,start"), Ok(MacroInstr::Beq(Reg::G1, Reg::G15, "start".into()).into()));
     }
 
     #[test]
     fn test_parse_inst_1imm2reg() {
-        assert_ne!(parse_inst_1imm2reg_lw(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_inst_1imm2reg_lw(&mut "   "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_inst_1imm2reg_lw(&mut "addi x1, x6"), Ok(Instruction::Addi(Reg::G1, Reg::G6, 0).into()));
-        assert_eq!(parse_inst_1imm2reg_lw(&mut "blt x1, x4, 5"), Ok(Instruction::Blt(Reg::G1, Reg::G4, 5).into()));
-        assert_ne!(parse_inst_1imm2reg_lw(&mut "bge x6,  x8,5"), Ok(Instruction::Bge(Reg::G6, Reg::G8, 5).into()));
+        assert_ne!(parse_instruction(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut "   "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut "addi x1, x6"), Ok(Instruction::Addi(Reg::G1, Reg::G6, 0).into()));
+        assert_eq!(parse_instruction(&mut "blt x1, x4, 5"), Ok(Instruction::Blt(Reg::G1, Reg::G4, 5).into()));
+        assert_ne!(parse_instruction(&mut "bge x6,  x8,5"), Ok(Instruction::Bge(Reg::G6, Reg::G8, 5).into()));
 
-        assert_eq!(parse_inst_1imm2reg_up(&mut "addi x1, x2, 0xAA"), Ok(Instruction::Addi(Reg::G1, Reg::G2, 0xAA).into()));
-        assert_eq!(parse_inst_1imm2reg_up(&mut "srr   x13,x15,6"), Ok(MacroInstr::Srr(Reg::G13, Reg::G15, 6).into()));
-        assert_ne!(parse_inst_1imm2reg_up(&mut "sltix1x15,6"), Ok(Instruction::Slti(Reg::G1, Reg::G15, 6).into()));
-        assert_ne!(parse_inst_1imm2reg_up(&mut "slli x12, x15,  6"), Ok(Instruction::Slli(Reg::G12, Reg::G15, 6).into()));
+        assert_eq!(parse_instruction(&mut "addi x1, x2, 0xAA"), Ok(Instruction::Addi(Reg::G1, Reg::G2, 0xAA).into()));
+        assert_eq!(parse_instruction(&mut "srr   x13,x15,6"), Ok(MacroInstr::Srr(Reg::G13, Reg::G15, 6).into()));
+        assert_ne!(parse_instruction(&mut "sltix1x15,6"), Ok(Instruction::Slti(Reg::G1, Reg::G15, 6).into()));
+        assert_ne!(parse_instruction(&mut "slli x12, x15,  6"), Ok(Instruction::Slli(Reg::G12, Reg::G15, 6).into()));
         // TODO: More tests
 
         setup_symbols("HelloWorld".into(), 404);
 
-        assert_eq!(parse_inst_1imm2reg_lw(&mut "blt x1, x4, HelloWorld"), Ok(Instruction::Blt(Reg::G1, Reg::G4, 404).into()));
+        assert_eq!(parse_instruction(&mut "blt x1, x4, HelloWorld"), Ok(Instruction::Blt(Reg::G1, Reg::G4, 404).into()));
     }
 
     #[test]
     fn test_parse_mem_ops() {
-        assert_eq!(parse_mem_ops(&mut "sb x10,51(x10)"), Ok(Instruction::Sb(Reg::G10, Reg::G10, 51).into()));
-        assert_eq!(parse_mem_ops(&mut "sh x1, (x10)"), Ok(Instruction::Sh(Reg::G1, Reg::G10, 0).into()));
-        assert_eq!(parse_mem_ops(&mut "sw x12, 12(x16)"), Ok(Instruction::Sw(Reg::G12, Reg::G16, 12).into()));
+        assert_eq!(parse_instruction(&mut "sb x10,51(x10)"), Ok(Instruction::Sb(Reg::G10, Reg::G10, 51).into()));
+        assert_eq!(parse_instruction(&mut "sh x1, (x10)"), Ok(Instruction::Sh(Reg::G1, Reg::G10, 0).into()));
+        assert_eq!(parse_instruction(&mut "sw x12, 12(x16)"), Ok(Instruction::Sw(Reg::G12, Reg::G16, 12).into()));
 
-        assert_eq!(parse_mem_ops(&mut "sb x17, -12"), Ok(Instruction::Sb(Reg::G17, Reg::G0, -12).into()));
-        assert_eq!(parse_mem_ops(&mut "sh x11, 1506"), Ok(Instruction::Sh(Reg::G11, Reg::G0, 1506).into()));
-        assert_ne!(parse_mem_ops(&mut "sh x12, 15060"), Ok(Instruction::Sh(Reg::G12, Reg::G0, 15060).into()));
-        assert_ne!(parse_mem_ops(&mut "sw x15, -12515"), Ok(Instruction::Sw(Reg::G15, Reg::G0, -12515).into()));
+        assert_eq!(parse_instruction(&mut "sb x17, -12"), Ok(Instruction::Sb(Reg::G17, Reg::G0, -12).into()));
+        assert_eq!(parse_instruction(&mut "sh x11, 1506"), Ok(Instruction::Sh(Reg::G11, Reg::G0, 1506).into()));
+        assert_ne!(parse_instruction(&mut "sh x12, 15060"), Ok(Instruction::Sh(Reg::G12, Reg::G0, 15060).into()));
+        assert_ne!(parse_instruction(&mut "sw x15, -12515"), Ok(Instruction::Sw(Reg::G15, Reg::G0, -12515).into()));
         
-        assert_eq!(parse_mem_ops(&mut "sb x17, 151500, x10"), Ok(MacroInstr::SbImm(Reg::G17, Reg::G10, 151500).into()));
-        assert_eq!(parse_mem_ops(&mut "sh x11, -151251, x17"), Ok(MacroInstr::ShImm(Reg::G11, Reg::G17, -151251).into()));
-        assert_eq!(parse_mem_ops(&mut "sw x10, 15006, x2"), Ok(MacroInstr::SwImm(Reg::G10, Reg::G2, 15006).into()));
+        assert_eq!(parse_instruction(&mut "sb x17, 151500, x10"), Ok(MacroInstr::SbImm(Reg::G17, Reg::G10, 151500).into()));
+        assert_eq!(parse_instruction(&mut "sh x11, -151251, x17"), Ok(MacroInstr::ShImm(Reg::G11, Reg::G17, -151251).into()));
+        assert_eq!(parse_instruction(&mut "sw x10, 15006, x2"), Ok(MacroInstr::SwImm(Reg::G10, Reg::G2, 15006).into()));
         
-        assert_ne!(parse_mem_ops(&mut "sb x1, x6"), Ok(MacroInstr::SbLabl(Reg::G1, Reg::G6, "".into()).into()));
-        assert_eq!(parse_mem_ops(&mut "sb x17, dasLabel, x10"), Ok(MacroInstr::SbLabl(Reg::G17, Reg::G10, "dasLabel".into()).into()));
-        assert_eq!(parse_mem_ops(&mut "sh x13,loading,x15"), Ok(MacroInstr::ShLabl(Reg::G13, Reg::G15, "loading".into()).into()));
-        assert_eq!(parse_mem_ops(&mut "sw x10, randa, x2"), Ok(MacroInstr::SwLabl(Reg::G10, Reg::G2, "randa".into()).into()));
+        assert_ne!(parse_instruction(&mut "sb x1, x6"), Ok(MacroInstr::SbLabl(Reg::G1, Reg::G6, "".into()).into()));
+        assert_eq!(parse_instruction(&mut "sb x17, dasLabel, x10"), Ok(MacroInstr::SbLabl(Reg::G17, Reg::G10, "dasLabel".into()).into()));
+        assert_eq!(parse_instruction(&mut "sh x13,loading,x15"), Ok(MacroInstr::ShLabl(Reg::G13, Reg::G15, "loading".into()).into()));
+        assert_eq!(parse_instruction(&mut "sw x10, randa, x2"), Ok(MacroInstr::SwLabl(Reg::G10, Reg::G2, "randa".into()).into()));
 
-        assert_eq!(parse_mem_ops(&mut "lbu x1, 0xAA"), Ok(Instruction::Lbu(Reg::G1, Reg::G0, 0xAA).into()));
-        assert_ne!(parse_mem_ops(&mut "lb x1x4,0x6"), Ok(Instruction::Lb(Reg::G1, Reg::G4, 6).into()));
-        assert_eq!(parse_mem_ops(&mut "lb x10,(x10)"), Ok(Instruction::Lb(Reg::G10, Reg::G10, 0).into()));
-        assert_eq!(parse_mem_ops(&mut "lw x10, -1(x10)"), Ok(Instruction::Lw(Reg::G10, Reg::G10, -1).into()));
-        assert_eq!(parse_mem_ops(&mut "lb x26, 0x500(zero)"), Ok(Instruction::Lb(Reg::G26, Reg::G0, 0x500).into()));
-        assert_ne!(parse_mem_ops(&mut "lw x10,x10)"), Ok(Instruction::Lw(Reg::G10, Reg::G10, 0).into()));
+        assert_eq!(parse_instruction(&mut "lbu x1, 0xAA"), Ok(Instruction::Lbu(Reg::G1, Reg::G0, 0xAA).into()));
+        assert_ne!(parse_instruction(&mut "lb x1x4,0x6"), Ok(Instruction::Lb(Reg::G1, Reg::G4, 6).into()));
+        assert_eq!(parse_instruction(&mut "lb x10,(x10)"), Ok(Instruction::Lb(Reg::G10, Reg::G10, 0).into()));
+        assert_eq!(parse_instruction(&mut "lw x10, -1(x10)"), Ok(Instruction::Lw(Reg::G10, Reg::G10, -1).into()));
+        assert_eq!(parse_instruction(&mut "lb x26, 0x500(zero)"), Ok(Instruction::Lb(Reg::G26, Reg::G0, 0x500).into()));
+        assert_ne!(parse_instruction(&mut "lw x10,x10)"), Ok(Instruction::Lw(Reg::G10, Reg::G10, 0).into()));
 
-        assert_ne!(parse_mem_ops(&mut "lb x1, total"), Ok(MacroInstr::LbLabl(Reg::G1, Reg::G0, "total".into(), Part::None).into()));
-        assert_ne!(parse_mem_ops(&mut "lhu x1, x2, hans"), Ok(MacroInstr::LhuLabl(Reg::G1, Reg::G2, "hans".into()).into()));
-        assert_ne!(parse_mem_ops(&mut "lbu x12, x15,  dasletzte"), Ok(MacroInstr::LbuLabl(Reg::G12, Reg::G15, "dasletzte".into()).into()));
+        assert_ne!(parse_instruction(&mut "lb x1, total"), Ok(MacroInstr::LbLabl(Reg::G1, Reg::G0, "total".into(), Part::None).into()));
+        assert_ne!(parse_instruction(&mut "lhu x1, x2, hans"), Ok(MacroInstr::LhuLabl(Reg::G1, Reg::G2, "hans".into()).into()));
+        assert_ne!(parse_instruction(&mut "lbu x12, x15,  dasletzte"), Ok(MacroInstr::LbuLabl(Reg::G12, Reg::G15, "dasletzte".into()).into()));
 
         setup_symbols("HelloWorld".into(), 404);
 
-        assert_eq!(parse_mem_ops(&mut "sw x10,HelloWorld(x10)"), Ok(Instruction::Sw(Reg::G10, Reg::G10, 404).into()));
+        assert_eq!(parse_instruction(&mut "sw x10,HelloWorld(x10)"), Ok(Instruction::Sw(Reg::G10, Reg::G10, 404).into()));
 
-        assert_eq!(parse_mem_ops(&mut "lbu x1, HelloWorld"), Ok(Instruction::Lbu(Reg::G1, Reg::G0, 404).into()));
-        assert_ne!(parse_mem_ops(&mut "lb x1x4,0x6"), Ok(Instruction::Lb(Reg::G1, Reg::G4, 6).into()));
+        assert_eq!(parse_instruction(&mut "lbu x1, HelloWorld"), Ok(Instruction::Lbu(Reg::G1, Reg::G0, 404).into()));
+        assert_ne!(parse_instruction(&mut "lb x1x4,0x6"), Ok(Instruction::Lb(Reg::G1, Reg::G4, 6).into()));
     }
 
     #[test]
     fn test_parse_inst_3reg() {
-        assert_ne!(parse_inst_3reg(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_inst_3reg(&mut "   "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
-        assert_ne!(parse_inst_3reg(&mut "addi x1, x6, 0xAA"), Ok(Instruction::Addi(Reg::G1, Reg::G6, 0xAA).into()));
-        assert_ne!(parse_inst_3reg(&mut "add x1, x2"), Ok(Instruction::Add(Reg::G1, Reg::G2, Reg::G0).into()));
-        assert_eq!(parse_inst_3reg(&mut "mul x1, x4, x6"), Ok(Instruction::Mul(Reg::G1, Reg::G4, Reg::G6).into()));
-        assert_ne!(parse_inst_3reg(&mut "div x10x14,x7"), Ok(Instruction::Div(Reg::G10, Reg::G14, Reg::G7).into()));
-        assert_eq!(parse_inst_3reg(&mut "xor x10,x11, x10"), Ok(Instruction::Xor(Reg::G10, Reg::G11, Reg::G10).into()));
-        assert_ne!(parse_inst_3reg(&mut "xnor x6,  x8,x5"), Ok(Instruction::Xnor(Reg::G6, Reg::G8, Reg::G5).into()));
-        assert_eq!(parse_inst_3reg(&mut "and x6, x8, x14"), Ok(Instruction::And(Reg::G6, Reg::G8, Reg::G14).into()));
-        assert_ne!(parse_inst_3reg(&mut "sll x6,  x8, x14"), Ok(Instruction::Sll(Reg::G6, Reg::G8, Reg::G14).into()));
+        assert_ne!(parse_instruction(&mut "invalid"), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_ne!(parse_instruction(&mut "   "), Ok(Instruction::Addi(Reg::G0, Reg::G0, 0).into()));
+        assert_eq!(parse_instruction(&mut "addi x1, x6, 0xAA"), Ok(Instruction::Addi(Reg::G1, Reg::G6, 0xAA).into()));
+        assert_ne!(parse_instruction(&mut "add x1, x2"), Ok(Instruction::Add(Reg::G1, Reg::G2, Reg::G0).into()));
+        assert_eq!(parse_instruction(&mut "mul x1, x4, x6"), Ok(Instruction::Mul(Reg::G1, Reg::G4, Reg::G6).into()));
+        assert_ne!(parse_instruction(&mut "div x10x14,x7"), Ok(Instruction::Div(Reg::G10, Reg::G14, Reg::G7).into()));
+        assert_eq!(parse_instruction(&mut "xor x10,x11, x10"), Ok(Instruction::Xor(Reg::G10, Reg::G11, Reg::G10).into()));
+        assert_ne!(parse_instruction(&mut "xnor x6,  x8,x5"), Ok(Instruction::Xnor(Reg::G6, Reg::G8, Reg::G5).into()));
+        assert_eq!(parse_instruction(&mut "and x6, x8, x14"), Ok(Instruction::And(Reg::G6, Reg::G8, Reg::G14).into()));
+        assert_ne!(parse_instruction(&mut "sll x6,  x8, x14"), Ok(Instruction::Sll(Reg::G6, Reg::G8, Reg::G14).into()));
     }
 
     #[test]
     fn test_parse_inst_multiarg() {
-        assert_ne!(parse_macro_multiarg(&mut "push"), Ok(MacroInstr::Push(vec![]).into()));
-        assert_eq!(parse_macro_multiarg(&mut "push x12"), Ok(MacroInstr::Push(Vec::from([
+        assert_ne!(parse_instruction(&mut "push"), Ok(MacroInstr::Push(vec![]).into()));
+        assert_eq!(parse_instruction(&mut "push x12"), Ok(MacroInstr::Push(Vec::from([
             Reg::G12
         ])).into()));
-        assert_eq!(parse_macro_multiarg(&mut "push x12, x13, x14"), Ok(MacroInstr::Push(Vec::from([
+        assert_eq!(parse_instruction(&mut "push x12, x13, x14"), Ok(MacroInstr::Push(Vec::from([
             Reg::G12,
             Reg::G13,
             Reg::G14
         ])).into()));
-        assert_eq!(parse_macro_multiarg(&mut "push   x12,x13,x14"), Ok(MacroInstr::Push(Vec::from([
+        assert_eq!(parse_instruction(&mut "push   x12,x13,x14"), Ok(MacroInstr::Push(Vec::from([
             Reg::G12,
             Reg::G13,
             Reg::G14
         ])).into()));
-        assert_ne!(parse_macro_multiarg(&mut "pop"), Ok(MacroInstr::Pop(vec![]).into()));
-        assert_eq!(parse_macro_multiarg(&mut "pop x12"), Ok(MacroInstr::Pop(Vec::from([
+        assert_ne!(parse_instruction(&mut "pop"), Ok(MacroInstr::Pop(vec![]).into()));
+        assert_eq!(parse_instruction(&mut "pop x12"), Ok(MacroInstr::Pop(Vec::from([
             Reg::G12
         ])).into()));
-        assert_eq!(parse_macro_multiarg(&mut "pop x12, x13, x14"), Ok(MacroInstr::Pop(Vec::from([
+        assert_eq!(parse_instruction(&mut "pop x12, x13, x14"), Ok(MacroInstr::Pop(Vec::from([
             Reg::G12,
             Reg::G13,
             Reg::G14
         ])).into()));
-        assert_eq!(parse_macro_multiarg(&mut "pop   x12,x13,x14"), Ok(MacroInstr::Pop(Vec::from([
+        assert_eq!(parse_instruction(&mut "pop   x12,x13,x14"), Ok(MacroInstr::Pop(Vec::from([
             Reg::G12,
             Reg::G13,
             Reg::G14

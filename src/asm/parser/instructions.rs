@@ -119,13 +119,6 @@ impl InstrType {
                 .parse_next(input)?;
 
                 Ok(match interop {
-                    IntermediateOp::Beq => MacroInstr::Beq(args.0, args.1, args.2.into()).into(),
-                    IntermediateOp::Bne => MacroInstr::Bne(args.0, args.1, args.2.into()).into(),
-                    IntermediateOp::Blt => MacroInstr::Blt(args.0, args.1, args.2.into()).into(),
-                    IntermediateOp::Bltu => MacroInstr::Bltu(args.0, args.1, args.2.into()).into(),
-                    IntermediateOp::Bge => MacroInstr::Bge(args.0, args.1, args.2.into()).into(),
-                    IntermediateOp::Bgeu => MacroInstr::Bgeu(args.0, args.1, args.2.into()).into(),
-            
                     IntermediateOp::Sb => MacroInstr::SbLabl(args.0, args.1, args.2.into()).into(),
                     IntermediateOp::Sh => MacroInstr::ShLabl(args.0, args.1, args.2.into()).into(),
                     IntermediateOp::Sw => MacroInstr::SwLabl(args.0, args.1, args.2.into()).into(),
@@ -152,15 +145,6 @@ impl InstrType {
                 };
 
                 Ok(match interop {
-                    // these may be removed
-                    IntermediateOp::Beq => Instruction::Beq(args.0, args.1, imm).into(),
-                    IntermediateOp::Bne => Instruction::Bne(args.0, args.1, imm).into(),
-                    IntermediateOp::Blt => Instruction::Blt(args.0, args.1, imm).into(),
-                    IntermediateOp::Bltu => Instruction::Bltu(args.0, args.1, imm).into(),
-                    IntermediateOp::Bge => Instruction::Bge(args.0, args.1, imm).into(),
-                    IntermediateOp::Bgeu => Instruction::Bgeu(args.0, args.1, imm).into(),
-                    // until here
-            
                     IntermediateOp::Slli => Instruction::Slli(args.0, args.1, imm).into(),
                     IntermediateOp::Srli => Instruction::Srli(args.0, args.1, imm).into(),
                     IntermediateOp::Srai => Instruction::Srai(args.0, args.1, imm).into(),

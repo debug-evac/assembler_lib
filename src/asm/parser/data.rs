@@ -10,7 +10,7 @@ use std::{any::Any, fmt::Display};
 
 use log::{debug, error};
 use winnow::{
-    ascii::{digit1, escaped, multispace1, space0, space1, till_line_ending}, combinator::{alt, delimited, empty, fail, not, opt, preceded, separated, separated_pair}, error::StrContext, token::{literal, none_of, take_till}, PResult, Parser
+    ascii::{digit1, escaped, multispace1, space0, space1, till_line_ending}, combinator::{alt, delimited, empty, fail, not, opt, preceded, separated, separated_pair, terminated}, dispatch, error::StrContext, stream::AsChar, token::{none_of, take_till}, PResult, Parser
 };
 
 use super::{
@@ -157,44 +157,36 @@ fn string_to_le_words(input: String) -> MemData {
 }
 
 fn parse_directive(input: &mut &str) -> PResult<Directive> {
-    let (_, directive) = alt((
-        separated_pair(literal(".byte"), space1, parse_byte.map(Directive::Data)),
-        separated_pair(literal(".half"), space1, parse_half.map(Directive::Data)),
-        separated_pair(literal(".word"), space1, parse_word.map(Directive::Data)),
-        separated_pair(literal(".dword"), space1, parse_dword.map(Directive::Data)),
-        separated_pair(literal(".space"), space1,
-            digit1.try_map(|num| {
-                let mut vec_data = vec![];
-                for _ in 0..str::parse(num)? {
-                    vec_data.push(ByteData::Byte(0));
-                }
-                Ok::<Directive, <usize as core::str::FromStr>::Err>(MemData::Bytes(vec_data, true).into())
+    dispatch!{terminated(take_till(1.., AsChar::is_space), space1);
+        ".byte" => parse_byte.map(Directive::Data),
+        ".half" => parse_half.map(Directive::Data),
+        ".word" => parse_word.map(Directive::Data),
+        ".dword" => parse_dword.map(Directive::Data),
+        ".space" => digit1.try_map(|num| {
+            let mut vec_data = vec![];
+            for _ in 0..str::parse(num)? {
+                vec_data.push(ByteData::Byte(0));
             }
-        )),
-        separated_pair(literal(".ascii"), space1,
-            delimited('"', take_till(1.., ['\n', '\"', ';']), '"').map(
+            Ok::<Directive, <usize as core::str::FromStr>::Err>(MemData::Bytes(vec_data, true).into())
+        }),
+        ".ascii" => delimited('"', take_till(1.., ['\n', '\"', ';']), '"').map(
             |ascii_str: &str| string_to_le_words(ascii_str.to_string()).into()
-        )),
-        separated_pair(literal(".asciz"), space1,
-            delimited('"', take_till(1.., ['\n', '\"', ';']), '"').map(
+        ),
+        ".asciz" => delimited('"', take_till(1.., ['\n', '\"', ';']), '"').map(
             |ascii_str: &str| {
                 let mut ascii_string = ascii_str.to_string(); 
                 ascii_string.push('\0');
                 string_to_le_words(ascii_string).into()
-            } 
-        )),
-        separated_pair(literal(".string"), space1,
-            delimited('"', take_till(1.., ['\n', '\"', ';']), '"').map(
+        }),
+        ".string" => delimited('"', take_till(1.., ['\n', '\"', ';']), '"').map(
             |ascii_str: &str| {
                 let mut ascii_string = ascii_str.to_string(); 
                 ascii_string.push('\0');
                 string_to_le_words(ascii_string).into()
-            }
-        )),
-        separated_pair(literal(".eqv"), space1, parse_eqv)
-    )).parse_next(input)?;
-
-    Ok(directive)
+        }),
+        ".eqv" => parse_eqv,
+        _ => fail.context(StrContext::Label("unknown directive")),
+    }.parse_next(input)
 }
 
 fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
@@ -449,16 +441,6 @@ pub fn parse(input: &mut &str, symbol_map: &mut LabelRecog) -> PResult<Vec<MemDa
             debug!("Finished data parsing sub step");
             break
         }
-
-        /*let breakout = delimited(
-            parse_multiline_comments,
-            opt(parse_text_segment_id),
-            parse_multiline_comments
-        ).parse_next(input)?;
-        if breakout.is_some() {
-            debug!("Finished data parsing sub step");
-            break
-        }*/
     }
 
     Ok(dir_list)

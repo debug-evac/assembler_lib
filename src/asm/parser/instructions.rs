@@ -43,8 +43,8 @@ impl InstrType {
             return Ok(match interop {
                 IntermediateOp::Nop => Instruction::Addi(Reg::G0, Reg::G0, 0).into(),
                 IntermediateOp::Ret => Instruction::Jalr(Reg::G0, Reg::G1, 0).into(), 
-                IntermediateOp::Ebreak => Operation::Instr(Instruction::Ebreak).into(), 
-                IntermediateOp::Ecall => Operation::Instr(Instruction::Ecall).into(),
+                IntermediateOp::Ebreak => Operation::Instr(Instruction::Ebreak), 
+                IntermediateOp::Ecall => Operation::Instr(Instruction::Ecall),
 
                 op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
             })

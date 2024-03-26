@@ -9,7 +9,7 @@
 mod op_exp;
 
 use winnow::{
-    ascii::{escaped, space0, space1, till_line_ending}, combinator::{
+    ascii::{space0, space1, take_escaped, till_line_ending}, combinator::{
         alt, delimited, empty, eof, fail, not, opt, preceded, separated_pair
     }, error::StrContext, token::none_of, PResult, Parser
 };
@@ -97,7 +97,7 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
 }
 
 fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
-    escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
+    take_escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
     .and_then(delimited(space0, real_parse_line, space0))
     .parse_next(input)
 }
@@ -127,7 +127,7 @@ fn real_parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
 }
 
 fn parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
-    escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
+    take_escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
     .and_then(delimited(space0, real_parse_line_priv, space0))
     .parse_next(input)
 }

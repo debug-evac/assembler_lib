@@ -56,7 +56,7 @@ fn parse_byte(input: &mut &str) -> PResult<MemData> {
                 }
             })
         )))
-        .context(StrContext::Expected(StrContextValue::StringLiteral("<Imm> OR <Label>"))),
+        .context(StrContext::Expected(StrContextValue::StringLiteral("<Symbol> OR <Imm> OR <Label>"))),
         backtrack_err(parse_seper)
     ).map(
         |data| MemData::Bytes(data, false)
@@ -76,7 +76,7 @@ fn parse_half(input: &mut &str) -> PResult<MemData> {
                 }
             })
         )))
-        .context(StrContext::Expected(StrContextValue::StringLiteral("<Imm> OR <Label>"))),
+        .context(StrContext::Expected(StrContextValue::StringLiteral("<Symbol> OR <Imm> OR <Label>"))),
         backtrack_err(parse_seper)
     ).map(
         MemData::Halfs
@@ -96,7 +96,7 @@ fn parse_word(input: &mut &str) -> PResult<MemData> {
                 }
             })
         )))
-        .context(StrContext::Expected(StrContextValue::StringLiteral("<Imm> OR <Label>"))),
+        .context(StrContext::Expected(StrContextValue::StringLiteral("<Symbol> OR <Imm> OR <Label>"))),
         backtrack_err(parse_seper)
     ).map(
         MemData::Words
@@ -116,7 +116,7 @@ fn parse_dword(input: &mut &str) -> PResult<MemData> {
                 }
             })
         )))
-        .context(StrContext::Expected(StrContextValue::StringLiteral("<Imm> OR <Label>"))),
+        .context(StrContext::Expected(StrContextValue::StringLiteral("<Symbol> OR <Imm> OR <Label>"))),
         backtrack_err(parse_seper)
     ).map(
         MemData::DWords

@@ -77,7 +77,7 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         separated_pair(
             parse_label_definition.map(Some),
             space1,
-            parse_instruction.map(Some)
+            parse_instruction.map(Some).context(StrContext::Label("instruction or macro"))
         ),
         (
             parse_label_definition.map(Some), 
@@ -85,11 +85,11 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         ),
         (
             empty.value(None),
-            parse_instruction.map(Some)
+            parse_instruction.map(Some).context(StrContext::Label("instruction or macro"))
         ),
         (
             empty.value(None),
-            not(none_of(('\n', ';', '\r'))).value(None)
+            not(none_of(('\n', ';', '\r'))).value(None).context(StrContext::Label("operation"))
         )
     ))
     .output_into()
@@ -107,7 +107,7 @@ fn real_parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         separated_pair(
             parse_label_definition_priv.map(Some),
             space1,
-            parse_instruction.map(Some)
+            parse_instruction.map(Some).context(StrContext::Label("instruction or macro"))
         ),
         (
             parse_label_definition_priv.map(Some), 
@@ -115,11 +115,11 @@ fn real_parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         ),
         (
             empty.value(None),
-            parse_instruction.map(Some)
+            parse_instruction.map(Some).context(StrContext::Label("instruction or macro"))
         ),
         (
             empty.value(None),
-            not(none_of(('\n', ';', '\r'))).value(None)
+            not(none_of(('\n', ';', '\r'))).value(None).context(StrContext::Label("operation"))
         )
     ))
     .output_into()

@@ -242,14 +242,23 @@ impl Default for MifFormat {
     }
 }
 
-struct DatFormat;
+pub struct DatFormat;
 impl Format for DatFormat {
     fn write<W: std::io::Write, T: Translatable>(
         &self,
-        _writer: &mut W,
-        _writable: &[T],
+        writer: &mut W,
+        writable: &[T],
     ) -> Result<(), TranslatorError> {
-        unimplemented!()
+        for (counter, elem) in writable.iter().enumerate() {
+            let mach_instr = elem.translate().to_le_bytes();
+            writeln!(
+                writer,
+                "{counter}\t{:08b}{:08b}{:08b}{:08b}",
+                mach_instr[0], mach_instr[1], mach_instr[2], mach_instr[3]
+            )?;
+        }
+
+        Ok(())
     }
 }
 

@@ -10,7 +10,7 @@ use std::{any::Any, fmt::Display};
 
 use log::{debug, error};
 use winnow::{
-    ascii::{digit1, multispace1, space0, space1, take_escaped, till_line_ending}, combinator::{alt, backtrack_err, cut_err, delimited, empty, fail, not, opt, preceded, separated, separated_pair, terminated}, dispatch, error::{StrContext, StrContextValue}, stream::AsChar, token::{none_of, take_till}, PResult, Parser
+    ascii::{digit1, multispace1, space0, space1, till_line_ending}, combinator::{alt, backtrack_err, cut_err, delimited, empty, fail, not, opt, preceded, separated, separated_pair, terminated}, dispatch, error::{StrContext, StrContextValue}, stream::AsChar, token::{none_of, take_till}, PResult, Parser
 };
 
 use super::{
@@ -220,9 +220,10 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
 }
 
 fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
-    take_escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
-    .and_then(delimited(space0, real_parse_line, space0))
-    .parse_next(input)
+    terminated(
+        delimited(space0, real_parse_line, space0), 
+        opt(till_line_ending)
+    ).parse_next(input)
 }
 
 fn handle_label_refs_count(direct: &MemData, symbol_map: &mut LabelRecog) -> usize {

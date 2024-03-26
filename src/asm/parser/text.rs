@@ -9,8 +9,8 @@
 mod op_exp;
 
 use winnow::{
-    ascii::{space0, space1, take_escaped, till_line_ending}, combinator::{
-        alt, delimited, empty, eof, fail, not, opt, preceded, separated_pair
+    ascii::{space0, space1, till_line_ending}, combinator::{
+        alt, delimited, empty, eof, fail, not, opt, preceded, separated_pair, terminated
     }, error::StrContext, token::none_of, PResult, Parser
 };
 use std::{any::Any, cmp::Ordering};
@@ -97,9 +97,10 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
 }
 
 fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
-    take_escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
-    .and_then(delimited(space0, real_parse_line, space0))
-    .parse_next(input)
+    terminated(
+        delimited(space0, real_parse_line, space0), 
+        opt(till_line_ending)
+    ).parse_next(input)
 }
 
 fn real_parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
@@ -127,9 +128,10 @@ fn real_parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
 }
 
 fn parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
-    take_escaped(none_of(('\n', ';', '\r')), ';', till_line_ending)
-    .and_then(delimited(space0, real_parse_line_priv, space0))
-    .parse_next(input)
+    terminated(
+        delimited(space0, real_parse_line_priv, space0), 
+        opt(till_line_ending)
+    ).parse_next(input)
 }
 
 fn handle_label_refs(macro_in: &MacroInstr, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog) {

@@ -423,7 +423,7 @@ impl LineHandle for NoData {
     }
 
     fn handle(&self, _next_free_ptr: &mut usize, _dir_list: &mut Vec<MemData>, _symbol_map: &mut LabelRecog, _unaligned_labels: &mut Vec<smartstring::alias::String>) -> Result<(), ParserError> {
-        Err(ParserError::NoTextSection)
+        Ok(())
     }
 }
 
@@ -435,14 +435,18 @@ pub fn parse(input: &mut &str, symbol_map: &mut LabelRecog) -> PResult<Vec<MemDa
     let mut next_free_ptr = 0;
 
     loop {
-        let parsed = preceded('\n', parse_line).parse_next(input)?;
+        let parsed = preceded('\n', parse_line)
+            .context(StrContext::Label("assembly file: .text section is missing"))
+            .parse_next(input)?;
 
         if let Err(e) = parsed.handle(&mut next_free_ptr, &mut dir_list, symbol_map, &mut unaligned_labels) {
             error!("{e}");
             return fail.context(StrContext::Label(e.get_nom_err_text())).parse_next(input)
         }
 
-        let breakout = opt(delimited(multispace1, parse_text_segment_id, multispace1)).parse_next(input)?;
+        let breakout = opt(delimited(multispace1, parse_text_segment_id, multispace1))
+            .context(StrContext::Label("assembly file: .text section is missing"))
+            .parse_next(input)?;
         if breakout.is_some() {
             debug!("Finished data parsing sub step");
             break

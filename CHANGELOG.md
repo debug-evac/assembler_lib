@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Using `dispatch` instead of `alt` in `data` and `text` parsing
   - Performance improvement and eases the path to error reporting
 
+### Fixed
+
+- Parsing empty lines in `.data` sections
+
 ## [2.0.0] - 2024-03-24
 
 ### Added

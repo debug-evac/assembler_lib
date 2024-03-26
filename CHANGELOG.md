@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved some logic into macros
 - Using `dispatch` instead of `alt` in `data` and `text` parsing
   - Performance improvement and eases the path to error reporting
+- `winnow` version to latest version, 0.6
 
 ### Fixed
 

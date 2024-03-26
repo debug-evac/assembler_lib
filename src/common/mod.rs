@@ -97,6 +97,10 @@ impl AssemblyCodeRecog {
     pub fn get_subroutine_refmut(&mut self) -> &mut Subroutines {
         &mut self.subroutine
     }
+
+    pub fn get_parse_refmut(&mut self) -> (&mut LabelRecog, &mut Subroutines) {
+        (&mut self.labels, &mut self.subroutine)
+    }
 }
 
 impl_assembly_code!(

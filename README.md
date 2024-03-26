@@ -15,7 +15,7 @@ It uses a modified MIPS assembly syntax and features labels, macros, automatic n
 - [x] Rudimentary user output (wip)
 - [x] Support for assembler directives that are used to store constants in memory
 - [x] Python module for easier integration into the compiler
-- [ ] Improvement of error reporting (currently very bare bones)
+- [x] Rudimentary error reporting
 - [ ] Better internal code documentation
 - [ ] Disassembler-Mode (planned for release 2.0.0 or a minor release of 2.0.0)
 

@@ -7,11 +7,7 @@
  */
 
 use winnow::{
-    ascii::{alpha1, alphanumeric0, alphanumeric1, digit1, hex_digit1},
-    combinator::{alt, opt, empty, terminated, preceded},
-    token::{one_of, literal, take_while},
-    PResult,
-    Parser
+    ascii::{alpha1, alphanumeric0, alphanumeric1, digit1, hex_digit1}, combinator::{alt, cut_err, empty, opt, preceded, terminated}, error::{StrContext, StrContextValue}, token::{literal, one_of, take_while}, PResult, Parser
 };
 
 use crate::common::{Imm, Reg};
@@ -173,7 +169,7 @@ pub fn parse_decimal(input: &mut &str) -> PResult<Imm> {
 }
 
 pub fn parse_reg(input: &mut &str) -> PResult<Reg> {
-    alt((
+    cut_err(alt((
         preceded(
             'x', 
             digit1.try_map(|x: &str| {
@@ -185,7 +181,9 @@ pub fn parse_reg(input: &mut &str) -> PResult<Reg> {
             empty.value('n'),
             alphanumeric1.try_map(Reg::str_to_enum)
         )
-    )).parse_next(input)
+    )))
+    .context(StrContext::Expected(StrContextValue::StringLiteral("<Reg>")))
+    .parse_next(input)
 }
 
 #[cfg(test)]

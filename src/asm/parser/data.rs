@@ -10,7 +10,7 @@ use std::{any::Any, fmt::Display};
 
 use log::{debug, error};
 use winnow::{
-    ascii::{digit1, escaped, multispace1, space0, space1, till_line_ending}, combinator::{alt, delimited, empty, fail, not, opt, preceded, separated, separated_pair, terminated}, dispatch, error::StrContext, stream::AsChar, token::{none_of, take_till}, PResult, Parser
+    ascii::{digit1, escaped, multispace1, space0, space1, till_line_ending}, combinator::{alt, backtrack_err, cut_err, delimited, empty, fail, not, opt, preceded, separated, separated_pair, terminated}, dispatch, error::{StrContext, StrContextValue}, stream::AsChar, token::{none_of, take_till}, PResult, Parser
 };
 
 use super::{
@@ -46,7 +46,7 @@ impl Display for Directive {
 fn parse_byte(input: &mut &str) -> PResult<MemData> {
     separated(
         1..,
-        alt((
+        cut_err(alt((
             parse_imm.map(|imm| imm.into()),
             parse_label_name.map(|label| {
                 let labl = smartstring::alias::String::from(label);
@@ -55,8 +55,9 @@ fn parse_byte(input: &mut &str) -> PResult<MemData> {
                     None => ByteData::String(labl),
                 }
             })
-        )),
-        parse_seper
+        )))
+        .context(StrContext::Expected(StrContextValue::StringLiteral("<Imm> OR <Label>"))),
+        backtrack_err(parse_seper)
     ).map(
         |data| MemData::Bytes(data, false)
     ).parse_next(input)
@@ -65,7 +66,7 @@ fn parse_byte(input: &mut &str) -> PResult<MemData> {
 fn parse_half(input: &mut &str) -> PResult<MemData> {
     separated(
         1..,
-        alt((
+        cut_err(alt((
             parse_imm.map(|imm| imm.into()),
             parse_label_name.map(|label| {
                 let labl = smartstring::alias::String::from(label);
@@ -74,8 +75,9 @@ fn parse_half(input: &mut &str) -> PResult<MemData> {
                     None => HalfData::String(labl),
                 }
             })
-        )),
-        parse_seper
+        )))
+        .context(StrContext::Expected(StrContextValue::StringLiteral("<Imm> OR <Label>"))),
+        backtrack_err(parse_seper)
     ).map(
         MemData::Halfs
     ).parse_next(input)
@@ -84,7 +86,7 @@ fn parse_half(input: &mut &str) -> PResult<MemData> {
 fn parse_word(input: &mut &str) -> PResult<MemData> {
     separated(
         1..,
-        alt((
+        cut_err(alt((
             parse_bigimm.map(|imm| imm.into()),
             parse_label_name.map(|label| {
                 let labl = smartstring::alias::String::from(label);
@@ -93,8 +95,9 @@ fn parse_word(input: &mut &str) -> PResult<MemData> {
                     None => WordData::String(labl),
                 }
             })
-        )),
-        parse_seper
+        )))
+        .context(StrContext::Expected(StrContextValue::StringLiteral("<Imm> OR <Label>"))),
+        backtrack_err(parse_seper)
     ).map(
         MemData::Words
     ).parse_next(input)
@@ -103,7 +106,7 @@ fn parse_word(input: &mut &str) -> PResult<MemData> {
 fn parse_dword(input: &mut &str) -> PResult<MemData> {
     separated(
         1..,
-        alt((
+        cut_err(alt((
             parse_bigimm.map(|imm| imm.into()),
             parse_label_name.map(|label| {
                 let labl = smartstring::alias::String::from(label);
@@ -112,8 +115,9 @@ fn parse_dword(input: &mut &str) -> PResult<MemData> {
                     None => DWordData::String(labl),
                 }
             })
-        )),
-        parse_seper
+        )))
+        .context(StrContext::Expected(StrContextValue::StringLiteral("<Imm> OR <Label>"))),
+        backtrack_err(parse_seper)
     ).map(
         MemData::DWords
     ).parse_next(input)
@@ -121,9 +125,11 @@ fn parse_dword(input: &mut &str) -> PResult<MemData> {
 
 fn parse_eqv(input: &mut &str) -> PResult<Directive> {
     separated_pair(
-        parse_label_name, 
+        cut_err(parse_label_name)
+            .context(StrContext::Expected(StrContextValue::StringLiteral("<Symbol>"))), 
         parse_seper, 
-        parse_bigimm
+        cut_err(parse_bigimm)
+            .context(StrContext::Expected(StrContextValue::StringLiteral("<Imm>")))
     ).map(
         |(label, def)| Directive::EqvLabel(label.into(), def)
     ).parse_next(input)
@@ -194,7 +200,7 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         separated_pair(
             parse_label_definition.map(Some),
             space1,
-            parse_directive.map(Some)
+            parse_directive.map(Some).context(StrContext::Label("directive"))
         ),
         (
             parse_label_definition.map(Some), 
@@ -202,11 +208,11 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         ),
         (
             empty.value(None),
-            parse_directive.map(Some)
+            parse_directive.map(Some).context(StrContext::Label("directive"))
         ),
         (
             empty.value(None),
-            not(none_of(('\n', ';', '\r'))).value(None)
+            not(none_of(('\n', ';', '\r'))).value(None).context(StrContext::Label("operation"))
         )
     ))
     .output_into()

@@ -77,7 +77,7 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         separated_pair(
             parse_label_definition.map(Some),
             space1,
-            parse_instruction.map(Some)
+            parse_instruction.map(Some).context(StrContext::Label("instruction or macro"))
         ),
         (
             parse_label_definition.map(Some), 
@@ -85,11 +85,11 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         ),
         (
             empty.value(None),
-            parse_instruction.map(Some)
+            parse_instruction.map(Some).context(StrContext::Label("instruction or macro"))
         ),
         (
             empty.value(None),
-            not(none_of(('\n', ';', '\r'))).value(None)
+            not(none_of(('\n', ';', '\r'))).value(None).context(StrContext::Label("operation"))
         )
     ))
     .output_into()
@@ -107,7 +107,7 @@ fn real_parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         separated_pair(
             parse_label_definition_priv.map(Some),
             space1,
-            parse_instruction.map(Some)
+            parse_instruction.map(Some).context(StrContext::Label("instruction or macro"))
         ),
         (
             parse_label_definition_priv.map(Some), 
@@ -115,11 +115,11 @@ fn real_parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
         ),
         (
             empty.value(None),
-            parse_instruction.map(Some)
+            parse_instruction.map(Some).context(StrContext::Label("instruction or macro"))
         ),
         (
             empty.value(None),
-            not(none_of(('\n', ';', '\r'))).value(None)
+            not(none_of(('\n', ';', '\r'))).value(None).context(StrContext::Label("operation"))
         )
     ))
     .output_into()
@@ -558,17 +558,12 @@ impl LineHandle for NoData {
     }
 }
 
-pub fn parse(input: &mut &str, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog, sp_init: bool) -> PResult<Vec<Operation>> {
+pub fn parse(input: &mut &str, subroutines: &mut Option<&mut Subroutines>, symbol_map: &mut LabelRecog) -> PResult<Vec<Operation>> {
     let mut instr_list: Vec<Operation> = vec![];
 
     // Key = line forward; value = current line
     let mut abs_to_label_queue: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     let mut instr_counter: usize = 0;
-
-    if sp_init {
-        instr_list.push(Instruction::Lui(Reg::G2, 4096).into());
-        instr_counter += 1;
-    }
 
     let privileged = subroutines.is_none();
 
@@ -715,7 +710,7 @@ END:
                                                 Operation::Labl("END".into())
                                                 ];
 
-        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map),
                    Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty())
@@ -775,7 +770,7 @@ r#" li  x4, 16
                                                 Operation::Labl("__7".into())
                                                 ];
 
-        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map),
                    Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert_eq!(subroutines.get_code().is_empty(), true);
@@ -889,7 +884,7 @@ TEST: srli a7, a7, 1
         correct_vec.push(Operation::LablMacro("__29".into(), MacroInstr::Bne(Reg::G12, Reg::G0, "__9".into())));
         correct_vec.push(Operation::Instr(Instruction::Jalr(Reg::G0, Reg::G1, 0)));
 
-        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map),
                    Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());
@@ -952,7 +947,7 @@ END:                    ; TEST
                                                 Operation::Labl("END".into())
                                                 ];
 
-        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map),
                    Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty())
@@ -984,7 +979,7 @@ TESTING: rep 1000, nop
             correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G0, Reg::G0, 0)));
         }
 
-        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map, false),
+        assert_eq!(parse(&mut source_code, &mut Some(&mut subroutines), &mut symbol_map),
                    Ok(correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());
@@ -1018,7 +1013,7 @@ TESTING: rep 50, pop x15
             sec_correct_vec.push(Operation::Instr(Instruction::Addi(Reg::G2, Reg::G2, 4)));
         }
 
-        assert_eq!(parse(&mut source_code_two, &mut Some(&mut subroutines), &mut symbol_map, false),
+        assert_eq!(parse(&mut source_code_two, &mut Some(&mut subroutines), &mut symbol_map),
                    Ok(sec_correct_vec));
         assert_eq!(symbol_map, symbols);
         assert!(subroutines.get_code().is_empty());

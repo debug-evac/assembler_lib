@@ -7,7 +7,7 @@
  */
 
 use winnow::{
-    ascii::{digit1, space1}, combinator::{delimited, empty, fail, opt, preceded, separated, separated_pair, terminated}, dispatch, error::StrContext, stream::AsChar, token::{literal, take_while}, PResult, Parser
+    ascii::{digit1, space1}, combinator::{backtrack_err, cut_err, delimited, empty, fail, opt, preceded, separated, separated_pair, terminated}, dispatch, error::{StrContext, StrContextValue}, stream::AsChar, token::{literal, take_while}, PResult, Parser
 };
 
 use crate::asm::parser::literals::{parse_imm, parse_reg, parse_label_name};
@@ -37,6 +37,43 @@ enum InstrType {
     Oper,
 }
 
+macro_rules! parse_symimm {
+    ($input:expr) => {
+        match opt(parse_imm).parse_next($input)? {
+            None => {
+                cut_err(parse_label_name.verify_map(|label| {
+                    let labl = smartstring::alias::String::from(label);
+                    Some(Symbols::symbols_read(&labl)? as i32)
+                }))
+                .context(StrContext::Expected(StrContextValue::StringLiteral("<Symbol> OR <Imm>")))
+                .parse_next($input)?
+            },
+            Some(val) => val,
+        }
+    };
+    (opt, $input:expr) => {
+        match opt(parse_imm).parse_next($input)? {
+            None => {
+                opt(parse_label_name.verify_map(|label| {
+                    let labl = smartstring::alias::String::from(label);
+                    Some(Symbols::symbols_read(&labl)? as i32)
+                })).parse_next($input)?
+            },
+            op => op,
+        }
+    };
+}
+
+fn parse_delimited_reg(input: &mut &str) -> PResult<Reg> {
+    delimited(
+        '(',
+        parse_reg,
+        cut_err(')')
+            .context(StrContext::Expected(StrContextValue::CharLiteral(')')))
+    )
+    .parse_next(input)
+}
+
 impl InstrType {
     fn translate_parse(self, input: &mut &str) -> PResult<Operation> {
         if let InstrType::NoArg(interop) = self {
@@ -49,10 +86,14 @@ impl InstrType {
                 op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
             })
         }
-        let _ = space1(input)?;
+        let _ = cut_err(space1)
+            .context(StrContext::Expected(StrContextValue::Description("one or more spaces")))
+            .parse_next(input)?;
         match self {
             InstrType::Labl(interop) => {
-                let labl = parse_label_name(input)?;
+                let labl = cut_err(parse_label_name)
+                    .context(StrContext::Expected(StrContextValue::StringLiteral("<Label>")))
+                    .parse_next(input)?;
 
                 Ok(match interop {
                     IntermediateOp::Call => MacroInstr::Call(labl.into()).into(),
@@ -72,10 +113,14 @@ impl InstrType {
                 })
             },
             InstrType::RegLabl(interop) => {
-                let args = separated_pair(parse_reg, parse_seper, parse_label_name).parse_next(input)?;
+                let args = separated_pair(
+                    parse_reg,
+                    parse_seper,
+                    cut_err(parse_label_name)
+                        .context(StrContext::Expected(StrContextValue::StringLiteral("<Label>")))
+                ).parse_next(input)?;
 
                 Ok(match interop {
-                    IntermediateOp::Lui => MacroInstr::Lui(args.0, args.1.into(), Part::None).into(),
                     IntermediateOp::La => MacroInstr::La(args.0, args.1.into()).into(),
 
                     op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
@@ -84,20 +129,10 @@ impl InstrType {
             InstrType::RegImm(interop) => {
                 let reg = terminated(parse_reg, parse_seper).parse_next(input)?;
 
-                let imm = match opt(parse_imm).parse_next(input)? {
-                    None => {
-                        parse_label_name.verify_map(|label| {
-                            let labl = smartstring::alias::String::from(label);
-                            Some(Symbols::symbols_read(&labl)? as i32)
-                        }).parse_next(input)?
-                    },
-                    Some(val) => val,
-                };
+                let imm = parse_symimm!(input);
 
                 Ok(match interop {
-                    IntermediateOp::Lui => Instruction::Lui(reg, imm << 12).into(),
                     IntermediateOp::Auipc => Instruction::Auipc(reg, imm << 12).into(),
-            
                     IntermediateOp::Li => MacroInstr::Li(reg, imm).into(),
             
                     op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
@@ -115,7 +150,12 @@ impl InstrType {
                 let args = (
                     parse_reg,
                     preceded(parse_seper, parse_reg),
-                    preceded(parse_seper, parse_label_name))
+                    preceded(
+                        parse_seper, 
+                        cut_err(parse_label_name)
+                            .context(StrContext::Expected(StrContextValue::StringLiteral("<Label>")))
+                    )
+                )
                 .parse_next(input)?;
 
                 Ok(match interop {
@@ -134,15 +174,7 @@ impl InstrType {
                     delimited(parse_seper, parse_reg, parse_seper)
                 ).parse_next(input)?;
 
-                let imm = match opt(parse_imm).parse_next(input)? {
-                    None => {
-                        parse_label_name.verify_map(|label| {
-                            let labl = smartstring::alias::String::from(label);
-                            Some(Symbols::symbols_read(&labl)? as i32)
-                        }).parse_next(input)?
-                    },
-                    Some(val) => val,
-                };
+                let imm = parse_symimm!(input);
 
                 Ok(match interop {
                     IntermediateOp::Slli => Instruction::Slli(args.0, args.1, imm).into(),
@@ -202,7 +234,9 @@ impl InstrType {
                 })
             },
             InstrType::RegVar(interop) => {
-                let args = separated(1.., parse_reg, parse_seper).parse_next(input)?;
+                let args = separated(1.., parse_reg, backtrack_err(parse_seper))
+                    .context(StrContext::Expected(StrContextValue::Description("one or more registers")))
+                    .parse_next(input)?;
 
                 Ok(match interop {
                     IntermediateOp::Push => MacroInstr::Push(args).into(),
@@ -214,23 +248,11 @@ impl InstrType {
             InstrType::StoreOp(interop) => {
                 let treg = terminated(parse_reg, parse_seper).parse_next(input)?;
 
-                let imm = match opt(parse_imm).parse_next(input)? {
-                    None => {
-                        opt(parse_label_name.verify_map(|label| {
-                            let labl = smartstring::alias::String::from(label);
-                            Some(Symbols::symbols_read(&labl)? as i32)
-                        })).parse_next(input)?
-                    },
-                    op => op,
-                };
+                let imm = parse_symimm!(opt, input);
 
                 match imm {
                     Some(offset) => { // s{b|w|h} x[0-31], IMM
-                        if let Some(mem_reg) = opt(delimited(
-                            '(',
-                            parse_reg,
-                            ')'
-                        )).parse_next(input)? { // s{b|w|h} x[0-31], IMM(x[0-31])
+                        if let Some(mem_reg) = opt(parse_delimited_reg).parse_next(input)? { // s{b|w|h} x[0-31], IMM(x[0-31])
                             Ok(match interop {
                                 IntermediateOp::Sb => Instruction::Sb(treg, mem_reg, offset),
                                 IntermediateOp::Sh => Instruction::Sh(treg, mem_reg, offset),
@@ -240,7 +262,9 @@ impl InstrType {
                             }.into())
                         } else { // s{b|w|h} x[0-31], IMM OR s{b|w|h} x[0-31], IMM, x[0-31]
                             if !(-2048..=0b01_11111_11111_i32).contains(&offset) {
-                                let temp_reg = preceded(parse_seper, parse_reg).parse_next(input)?;
+                                let temp_reg = preceded(parse_seper, parse_reg)
+                                    .context(StrContext::Expected(StrContextValue::Description("temp register needed for immediate that large")))
+                                    .parse_next(input)?;
 
                                 Ok(match interop {
                                     IntermediateOp::Sb => MacroInstr::SbImm(treg, temp_reg, offset),
@@ -261,11 +285,7 @@ impl InstrType {
                         }
                     },
                     None => { // s{b|w|h} x[0-31], 
-                        if let Some(mem_reg) = opt(delimited(
-                            '(',
-                            parse_reg,
-                            ')'
-                        )).parse_next(input)? { // s{b|w|h} x[0-31], (x[0-31])
+                        if let Some(mem_reg) = opt(parse_delimited_reg).parse_next(input)? { // s{b|w|h} x[0-31], (x[0-31])
                             Ok(match interop {
                                 IntermediateOp::Sb => Instruction::Sb(treg, mem_reg, 0),
                                 IntermediateOp::Sh => Instruction::Sh(treg, mem_reg, 0),
@@ -274,7 +294,12 @@ impl InstrType {
                                 op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                             }.into())
                         } else {
-                            let (label, temp_reg) = separated_pair(parse_label_name, parse_seper, parse_reg).parse_next(input)?;
+                            let (label, temp_reg) = separated_pair(
+                                cut_err(parse_label_name)
+                                    .context(StrContext::Expected(StrContextValue::StringLiteral("<Label> OR (<Reg>) OR <Imm>"))),
+                                parse_seper,
+                                parse_reg
+                            ).parse_next(input)?;
                             Ok(match interop {
                                 IntermediateOp::Sb => MacroInstr::SbLabl(treg, temp_reg, label.into()),
                                 IntermediateOp::Sh => MacroInstr::ShLabl(treg, temp_reg, label.into()),
@@ -289,23 +314,11 @@ impl InstrType {
             InstrType::LoadOp(interop) => {
                 let treg = terminated(parse_reg, parse_seper).parse_next(input)?;
 
-                let imm = match opt(parse_imm).parse_next(input)? {
-                    None => {
-                        opt(parse_label_name.verify_map(|label| {
-                            let labl = smartstring::alias::String::from(label);
-                            Some(Symbols::symbols_read(&labl)? as i32)
-                        })).parse_next(input)?
-                    },
-                    op => op,
-                };
+                let imm = parse_symimm!(opt, input);
 
                 match imm {
                     Some(offset) => { // l{b|w|h|bu|hu} x[0-31], IMM
-                        if let Some(mem_reg) = opt(delimited(
-                            '(',
-                            parse_reg,
-                            ')'
-                        )).parse_next(input)? { // l{b|w|h|bu|hu} x[0-31], IMM(x[0-31])
+                        if let Some(mem_reg) = opt(parse_delimited_reg).parse_next(input)? { // l{b|w|h|bu|hu} x[0-31], IMM(x[0-31])
                             Ok(match interop {
                                 IntermediateOp::Lb => Instruction::Lb(treg, mem_reg, offset),
                                 IntermediateOp::Lbu => Instruction::Lbu(treg, mem_reg, offset),
@@ -340,11 +353,7 @@ impl InstrType {
                         }
                     },
                     None => { // l{b|w|h|bu|hu} x[0-31], 
-                        if let Some(mem_reg) = opt(delimited(
-                            '(',
-                            parse_reg,
-                            ')'
-                        )).parse_next(input)? { // l{b|w|h|bu|hu} x[0-31], (x[0-31])
+                        if let Some(mem_reg) = opt(parse_delimited_reg).parse_next(input)? { // l{b|w|h|bu|hu} x[0-31], (x[0-31])
                             Ok(match interop {
                                 IntermediateOp::Lb => Instruction::Lb(treg, mem_reg, 0),
                                 IntermediateOp::Lbu => Instruction::Lbu(treg, mem_reg, 0),
@@ -365,18 +374,24 @@ impl InstrType {
                                 op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                             }.into()) // l{b|w|h|bu|hu} x[0-31], LABEL
                         } else {
-                            let (label, mem_reg) = (
+                            let (label, mem_reg) = cut_err((
                                 parse_low_label,
                                 delimited(
                                     '(',
                                     parse_reg,
                                     ')'
                                 )
-                            ).parse_next(input)?; // l{b|w|h|bu|hu} x[0-31], %lo(LABEL)(x[0-31])
+                            ))
+                            .context(StrContext::Expected(StrContextValue::StringLiteral("(<Reg>) OR <Label> OR %lo(<Label>)(<Reg>)")))
+                            .parse_next(input)?; // l{b|w|h|bu|hu} x[0-31], %lo(LABEL)(x[0-31])
 
                             match interop {
-                                IntermediateOp::Lbu => fail(input),
-                                IntermediateOp::Lhu => fail(input),
+                                IntermediateOp::Lbu |
+                                IntermediateOp::Lhu => {
+                                    cut_err(fail)
+                                        .context(StrContext::Label("argument: %lo(<Label>)(<Reg>) not allowed"))
+                                        .parse_next(input)
+                                },
                                 IntermediateOp::Lb => Ok(MacroInstr::LbLabl(treg, mem_reg, label.into(), Part::Lower).into()),
                                 IntermediateOp::Lh => Ok(MacroInstr::LhLabl(treg, mem_reg, label.into(), Part::Lower).into()),
                                 IntermediateOp::Lw => Ok(MacroInstr::LwLabl(treg, mem_reg, label.into(), Part::Lower).into()),
@@ -394,39 +409,27 @@ impl InstrType {
                     IntermediateOp::Addi => {
                         let reg2 = terminated(parse_reg, parse_seper).parse_next(input)?;
         
-                        let imm = match opt(parse_imm).parse_next(input)? {
-                            None => {
-                                opt(parse_label_name.verify_map(|label| {
-                                    let labl = smartstring::alias::String::from(label);
-                                    Some(Symbols::symbols_read(&labl)? as i32)
-                                })).parse_next(input)?
-                            },
-                            op => op,
-                        };
+                        let imm = parse_symimm!(opt, input);
 
                         if let Some(imm) = imm {
                             Ok(Instruction::Addi(reg1, reg2, imm).into())
                         } else {
-                            let label = parse_low_label(input)?;
+                            let label = cut_err(parse_low_label)
+                                .context(StrContext::Expected(StrContextValue::StringLiteral("%lo(<Label>) OR <Imm>")))
+                                .parse_next(input)?;
 
                             Ok(MacroInstr::Addi(reg1, reg2, label.into(), Part::None).into())
                         }
                     },
                     IntermediateOp::Lui => {
-                        let imm = match opt(parse_imm).parse_next(input)? {
-                            None => {
-                                opt(parse_label_name.verify_map(|label| {
-                                    let labl = smartstring::alias::String::from(label);
-                                    Some(Symbols::symbols_read(&labl)? as i32)
-                                })).parse_next(input)?
-                            },
-                            op => op,
-                        };
+                        let imm = parse_symimm!(opt, input);
 
                         if let Some(imm) = imm {
                             Ok(Instruction::Lui(reg1, imm << 12).into())
                         } else {
-                            let label = parse_high_label(input)?;
+                            let label = cut_err(parse_high_label)
+                                .context(StrContext::Expected(StrContextValue::StringLiteral("%hi(<Label>) OR <Imm>")))
+                                .parse_next(input)?;
 
                             Ok(MacroInstr::Lui(reg1, label.into(), Part::None).into())
                         }
@@ -436,7 +439,11 @@ impl InstrType {
                 }
             },
             InstrType::Oper => {
-                separated_pair(digit1.try_map(str::parse), parse_seper, parse_instruction)
+                separated_pair(cut_err(digit1.try_map(str::parse))
+                    .context(StrContext::Expected(StrContextValue::Description("a positive number"))),
+                parse_seper,
+                cut_err(parse_instruction)
+                .context(StrContext::Expected(StrContextValue::StringLiteral("<Macro> OR <Instruction>"))))
                 .try_map(
                 |(reps, instr)| {
                     match instr {
@@ -462,15 +469,7 @@ impl InstrType {
                     delimited(parse_seper, parse_reg, parse_seper)
                 ).parse_next(input)?;
 
-                let imm = match opt(parse_imm).parse_next(input)? {
-                    None => {
-                        opt(parse_label_name.verify_map(|label| {
-                            let labl = smartstring::alias::String::from(label);
-                            Some(Symbols::symbols_read(&labl)? as i32)
-                        })).parse_next(input)?
-                    },
-                    op => op,
-                };
+                let imm = parse_symimm!(opt, input);
 
                 match imm {
                     Some(imm) => Ok(match interop {
@@ -484,7 +483,10 @@ impl InstrType {
                         op => unreachable!("[Error] Could not map parsed instruction to internal data structure: {:?}", op),
                     }.into()),
                     None => {
-                        let labl = parse_label_name.output_into().parse_next(input)?;
+                        let labl = cut_err(parse_label_name)
+                            .context(StrContext::Expected(StrContextValue::StringLiteral("<Label> OR <Symbol> OR <Imm>")))
+                            .output_into()
+                            .parse_next(input)?;
 
                         Ok(match interop {
                             IntermediateOp::Beq => MacroInstr::Beq(regs.0, regs.1, labl).into(),
@@ -501,27 +503,25 @@ impl InstrType {
             },
             // Labl, 1labl1reg, 1imm1reg
             InstrType::Jal => {
-                if let Some(base_reg) = opt(terminated(parse_reg, parse_seper)).parse_next(input)? {
-                    let imm = match opt(parse_imm).parse_next(input)? {
-                        None => {
-                            opt(parse_label_name.verify_map(|label| {
-                                let labl = smartstring::alias::String::from(label);
-                                Some(Symbols::symbols_read(&labl)? as i32)
-                            })).parse_next(input)?
-                        },
-                        op => op,
-                    };
+                if let Some(base_reg) = opt(terminated(backtrack_err(parse_reg), parse_seper)).parse_next(input)? {
+                    let imm = parse_symimm!(opt, input);
 
                     match imm {
                         Some(val) => Ok(Instruction::Jal(base_reg, val).into()),
                         None => {
-                            let labl = parse_label_name.output_into().parse_next(input)?;
+                            let labl = cut_err(parse_label_name)
+                                .context(StrContext::Expected(StrContextValue::StringLiteral("<Label> OR <Reg>")))
+                                .output_into()
+                                .parse_next(input)?;
 
                             Ok(MacroInstr::Jal(base_reg, labl).into())
                         },
                     }
                 } else {
-                    let labl = parse_label_name.output_into().parse_next(input)?;
+                    let labl = cut_err(parse_label_name)
+                        .context(StrContext::Expected(StrContextValue::StringLiteral("<Label> OR <Reg>")))
+                        .output_into()
+                        .parse_next(input)?;
 
                     Ok(MacroInstr::Jal(Reg::G1, labl).into())
                 }
@@ -529,20 +529,12 @@ impl InstrType {
             // Reg, 1imm2reg
             InstrType::Jalr => {
                 let (base_reg, test) = (parse_reg, opt(
-                    preceded(parse_seper, terminated(parse_reg, parse_seper))
+                    preceded(backtrack_err(parse_seper), terminated(parse_reg, backtrack_err(parse_seper)))
                 )).parse_next(input)?;
 
                 match test {
                     Some(reg2) => {
-                        let imm = match opt(parse_imm).parse_next(input)? {
-                            None => {
-                                parse_label_name.verify_map(|label| {
-                                    let labl = smartstring::alias::String::from(label);
-                                    Some(Symbols::symbols_read(&labl)? as i32)
-                                }).parse_next(input)?
-                            },
-                            Some(val) => val,
-                        };
+                        let imm = parse_symimm!(input);
 
                         Ok(Instruction::Jalr(base_reg, reg2, imm).into())
                     },
@@ -601,11 +593,12 @@ enum IntermediateOp {
 }
 
 pub fn parse_seper<'a>(input: &mut &'a str) -> PResult<&'a str> {
-    (
+    cut_err((
         ',',
         opt(' ')
-    )
+    ))
     .recognize()
+    .context(StrContext::Expected(StrContextValue::CharLiteral(',')))
     .parse_next(input)
 }
 

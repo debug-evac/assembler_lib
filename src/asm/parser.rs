@@ -16,11 +16,13 @@ use log::debug;
 use winnow::{
     combinator::{opt, terminated}, token::{literal, take_until}, PResult, Parser
 };
-use std::collections::HashSet;
+use std::{collections::HashSet, str::FromStr};
 
 use crate::{common::*, asm::parser::symbols::Symbols};
 
-use self::errors::CommonError;
+use self::errors::{CommonError, LibraryError};
+
+pub(crate) use self::text::parse as text_parse;
 
 pub struct Subroutines {
     code_str_vec: HashSet<String>
@@ -36,6 +38,12 @@ impl Subroutines {
     pub fn get_code(&self) -> Vec<String> {
         self.code_str_vec.iter().cloned().collect()
     }
+
+    pub fn merge(&mut self, other: &Subroutines) {
+        for elem in other.code_str_vec.iter() {
+            self.code_str_vec.insert(elem.to_owned());
+        }
+    }
 }
 
 impl Default for Subroutines {
@@ -49,7 +57,7 @@ fn handle_label_defs(label: &str, symbol_map: &mut LabelRecog, ltype: LabelType,
     symbol_map.crt_or_def_label(&label.into(), !label.starts_with('.'), ltype, instr_counter.try_into()?)
 }
 
-pub fn parse(input: &mut &str, subroutines: &mut Option<&mut Subroutines>, sp_init: bool) -> PResult<AssemblyCodeRecog> {
+fn parse(input: &mut &str) -> PResult<AssemblyCodeRecog> {
     let mut assembly: AssemblyCodeRecog = AssemblyCode::new(LabelRecog::new());
     
     Symbols::symbols_clear();
@@ -62,10 +70,23 @@ pub fn parse(input: &mut &str, subroutines: &mut Option<&mut Subroutines>, sp_in
         let _ = opt(terminated(take_until(0.., ".text"), literal(".text"))).parse_next(input)?;
     }
 
-    let vec_ops = text::parse(input, subroutines, assembly.get_labels_refmut(), sp_init)?;
-    assembly.set_text(vec_ops);
+    {
+        let (labels, subroutine) = assembly.get_parse_refmut();
+        let vec_ops = text::parse(input, &mut Some(subroutine), labels)?;
+        assembly.set_text(vec_ops);
+    }
 
     debug!("Finished parser step");
 
     Ok(assembly)
+}
+
+impl FromStr for AssemblyCodeRecog {
+    type Err = LibraryError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        parse
+            .parse(input)
+            .map_err(|e| e.into())
+    }
 }

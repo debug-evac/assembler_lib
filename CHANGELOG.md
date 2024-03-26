@@ -9,8 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Rudimentary error reporting
+  - Errors indicate what is expected next at that line
+  - Currently the column is not shown, however the error is always at the end of the line or the line itself
+- a function in `AssemblyCodeRecog` to get labels and subroutines at the same time
+
 ### Changed
 
+- Moved some logic into macros
 - Using `dispatch` instead of `alt` in `data` and `text` parsing
   - Performance improvement and eases the path to error reporting
 

@@ -11,6 +11,7 @@
 
 #[cfg(feature = "python_lib")]
 use pyo3::{PyErr, exceptions::PyRuntimeError};
+use winnow::error::ContextError;
 
 use std::num::TryFromIntError;
 
@@ -159,11 +160,17 @@ impl <I: std::fmt::Debug + std::clone::Clone> From<winnow::error::ErrMode<winnow
     }
 }
 
+impl From<winnow::error::ParseError<&str, ContextError>> for LibraryError {
+    fn from(value: winnow::error::ParseError<&str, ContextError>) -> Self {
+        LibraryError::ParserError(format!("{value}"))
+    }
+}
+
 impl std::fmt::Display for LibraryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LibraryError::NoCode => write!(f, "No code has been specified!"),
-            LibraryError::ParserError(nom_err) => write!(f, "{nom_err}"),
+            LibraryError::ParserError(nom_err) => write!(f, "\n{nom_err}"),
             LibraryError::LinkerError(link_err) => write!(f, "{link_err}"),
             LibraryError::OptimizerError(opt_err) => write!(f, "{opt_err}"),
         }

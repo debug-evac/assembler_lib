@@ -13,13 +13,15 @@ pub mod translator;
 
 use crate::common::errors::LibraryError;
 
-use crate::common::{AssemblyCodeRecog, TranslatableCode};
+use crate::common::{AssemblyCode, AssemblyCodeRecog, Instruction, LabelRecog, Reg, TranslatableCode};
 use indicatif::ProgressBar;
 
 #[cfg(feature = "python_lib")]
 use std::path::PathBuf;
 #[cfg(feature = "python_lib")]
 use pyo3::{exceptions::PyRuntimeError, prelude::*};
+
+use self::parser::Subroutines;
 
 #[derive(Default)]
 pub struct ParseLinkBuilder<'a> {
@@ -56,14 +58,27 @@ impl <'a> ParseLinkBuilder<'a> {
     #[inline]
     fn parse(&self) -> Result<Vec<AssemblyCodeRecog>, LibraryError> {
         let mut parsed_vector = Vec::with_capacity(self.assembly_code.len());
-        let mut subroutine = parser::Subroutines::new();
 
-        for (counter, code) in self.assembly_code.iter().enumerate() {
-            parsed_vector.push(parser::parse(&mut code.as_str(), &mut Some(&mut subroutine), counter == 0 && self.sp_init)?);
+        if self.sp_init {
+            let mut assembly = AssemblyCodeRecog::new(LabelRecog::new());
+            let text = assembly.get_text_refmut();
+            text.push(Instruction::Lui(Reg::G2, 4096).into());
+            parsed_vector.push(assembly);
         }
 
+        for code in self.assembly_code.iter() {
+            parsed_vector.push(code.parse::<AssemblyCodeRecog>()?);
+        }
+
+        let subroutine = parsed_vector.iter_mut().fold(Subroutines::new(), |mut acc, x| {
+            acc.merge(x.get_subroutine_refmut());
+            acc
+        });
+
         for code in subroutine.get_code() {
-            parsed_vector.push(parser::parse(&mut code.as_str(), &mut None, false)?)
+            let mut assembly = AssemblyCodeRecog::new(LabelRecog::new());
+            *assembly.get_text_refmut() = parser::text_parse(&mut code.as_str(), &mut None, assembly.get_labels_refmut())?;
+            parsed_vector.push(assembly)
         }
 
         Ok(parsed_vector)

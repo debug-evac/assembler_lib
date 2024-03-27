@@ -87,6 +87,6 @@ impl FromStr for AssemblyCodeRecog {
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         parse
             .parse(input)
-            .map_err(|e| e.into())
+            .map_err(|e| (0, e).into())
     }
 }

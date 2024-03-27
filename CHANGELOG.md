@@ -19,10 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Marked all error enums as non_exhaustive
+- Now the index of the offending string is returned, when encountering a parser error
 - Moved some logic into macros
 - Using `dispatch` instead of `alt` in `data` and `text` parsing
   - Performance improvement and eases the path to error reporting
 - `winnow` version to latest version, 0.6
+
+### Deprecated
+
+- ParserError, instead use ParsingError which is a struct enum variant
 
 ### Fixed
 

@@ -31,6 +31,7 @@ impl ExitErrorCode for CommonError {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum LinkError {
     InsertRecog(CommonError),
     UndefinedGlobal(LabelElem)
@@ -58,6 +59,7 @@ impl ExitErrorCode for LinkError {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum OptimizerError {
     LabelNonExistent(smartstring::alias::String),
     LabelSubNotRequiredFor(MacroInstr),
@@ -90,6 +92,7 @@ impl ExitErrorCode for OptimizerError {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum TranslatorError {
     DepthNotFit(usize, usize),
     UndefinedWidth(u8),
@@ -135,9 +138,15 @@ impl std::convert::From<TranslatorError> for PyErr {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum LibraryError {
     NoCode,
+    #[deprecated(since = "2.1.0", note = "Parsing error is used instead of ParserError")]
     ParserError(String),
+    ParsingError {
+        file: usize, 
+        err: String
+    },
     LinkerError(LinkError),
     OptimizerError(OptimizerError),
 }
@@ -156,13 +165,28 @@ impl From<OptimizerError> for LibraryError {
 
 impl <I: std::fmt::Debug + std::clone::Clone> From<winnow::error::ErrMode<winnow::error::ContextError<I>>> for LibraryError {
     fn from(value: winnow::error::ErrMode<winnow::error::ContextError<I>>) -> Self {
+        #[allow(deprecated)]
         LibraryError::ParserError(format!("{value}"))
     }
 }
 
 impl From<winnow::error::ParseError<&str, ContextError>> for LibraryError {
     fn from(value: winnow::error::ParseError<&str, ContextError>) -> Self {
+        #[allow(deprecated)]
         LibraryError::ParserError(format!("{value}"))
+    }
+}
+
+impl From<(usize, winnow::error::ParseError<&str, ContextError>)> for LibraryError {
+    fn from((file, value): (usize, winnow::error::ParseError<&str, ContextError>)) -> Self {
+        LibraryError::ParsingError{file, err: format!("{value}")}
+    }
+}
+
+impl <I: std::fmt::Debug + std::clone::Clone> From<(usize, winnow::error::ErrMode<winnow::error::ContextError<I>>)> for LibraryError {
+    fn from((file, value): (usize, winnow::error::ErrMode<winnow::error::ContextError<I>>)) -> Self {
+        #[allow(deprecated)]
+        LibraryError::ParsingError{ file, err: format!("{value}")}
     }
 }
 
@@ -170,6 +194,8 @@ impl std::fmt::Display for LibraryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LibraryError::NoCode => write!(f, "No code has been specified!"),
+            LibraryError::ParsingError{err: nom_err, ..} => write!(f, "\n{nom_err}"),
+            #[allow(deprecated)]
             LibraryError::ParserError(nom_err) => write!(f, "\n{nom_err}"),
             LibraryError::LinkerError(link_err) => write!(f, "{link_err}"),
             LibraryError::OptimizerError(opt_err) => write!(f, "{opt_err}"),
@@ -181,7 +207,9 @@ impl ExitErrorCode for LibraryError {
     fn get_err_code(&self) -> i32 {
         match self {
             LibraryError::NoCode => 1,
+            #[allow(deprecated)]
             LibraryError::ParserError(_) => 65,
+            LibraryError::ParsingError{ .. } => 65,
             LibraryError::LinkerError(link_err) => link_err.get_err_code(),
             LibraryError::OptimizerError(opt_err) => opt_err.get_err_code(),
         }
@@ -196,6 +224,7 @@ impl std::convert::From<LibraryError> for PyErr {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum ParserError {
     NoTextSection,
     CommonError(CommonError),
@@ -243,6 +272,7 @@ impl From<TryFromIntError> for ParserError {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum CommonError {
     LabelsNameNotEqual(LabelElem, LabelElem),
     MultipleGlobalDefined(LabelElem),

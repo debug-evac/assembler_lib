@@ -222,7 +222,7 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
 fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
     terminated(
         delimited(space0, real_parse_line, space0), 
-        opt(till_line_ending)
+        opt((';', till_line_ending))
     ).parse_next(input)
 }
 

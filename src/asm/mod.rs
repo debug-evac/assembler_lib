@@ -161,7 +161,7 @@ fn assemble(
     depth: u16,
     width: u8
 ) -> PyResult<()> {
-    use crate::{asm::translator::{CodeWriter, RawFormat, WordWidth}, common::errors::TranslatorError};
+    use crate::{asm::translator::{CodeWriter, DatFormat, RawFormat, WordWidth}, common::errors::TranslatorError};
 
     use self::translator::MifFormat;
 
@@ -190,7 +190,10 @@ fn assemble(
             let code_writer = CodeWriter::new(RawFormat, translate_code);
             code_writer.write_files(text_outpath, data_outpath)
         },
-        "dat" => return Err(TranslatorError::UndefinedFormat("dat".to_string()).into()),
+        "dat" => {
+            let code_writer = CodeWriter::new(DatFormat, translate_code);
+            code_writer.write_files(text_outpath, data_outpath)
+        },
         form => return Err(TranslatorError::UndefinedFormat(form.to_string()).into()),
     }?;
     

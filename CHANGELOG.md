@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Marked all error enums as non_exhaustive
 - Now the index of the offending string is returned, when encountering a parser error
+  - This is not the case for the Python module. Support for this is planned.
 - Moved some logic into macros
 - Using `dispatch` instead of `alt` in `data` and `text` parsing
   - Performance improvement and eases the path to error reporting

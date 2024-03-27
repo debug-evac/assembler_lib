@@ -15,6 +15,7 @@ use crate::common::errors::LibraryError;
 
 use crate::common::{AssemblyCode, AssemblyCodeRecog, Instruction, LabelRecog, Reg, TranslatableCode};
 use indicatif::ProgressBar;
+use winnow::error::{ContextError, ErrMode};
 
 #[cfg(feature = "python_lib")]
 use std::path::PathBuf;
@@ -66,8 +67,13 @@ impl <'a> ParseLinkBuilder<'a> {
             parsed_vector.push(assembly);
         }
 
-        for code in self.assembly_code.iter() {
-            parsed_vector.push(code.parse::<AssemblyCodeRecog>()?);
+        for (cur_file, code) in self.assembly_code.iter().enumerate() {
+            parsed_vector.push(code.parse::<AssemblyCodeRecog>().map_err(|mut e| {
+                if let LibraryError::ParsingError { file, .. } = &mut e {
+                    *file = cur_file;
+                }
+                e
+            })?);
         }
 
         let subroutine = parsed_vector.iter_mut().fold(Subroutines::new(), |mut acc, x| {
@@ -75,10 +81,14 @@ impl <'a> ParseLinkBuilder<'a> {
             acc
         });
 
+        let mut counter = self.assembly_code.len();
+
         for code in subroutine.get_code() {
             let mut assembly = AssemblyCodeRecog::new(LabelRecog::new());
-            *assembly.get_text_refmut() = parser::text_parse(&mut code.as_str(), &mut None, assembly.get_labels_refmut())?;
-            parsed_vector.push(assembly)
+            *assembly.get_text_refmut() = parser::text_parse(&mut code.as_str(), &mut None, assembly.get_labels_refmut())
+                .map_err(|e| <(usize, ErrMode<ContextError>) as Into<LibraryError>>::into((counter, e)))?;
+            parsed_vector.push(assembly);
+            counter += 1;
         }
 
         Ok(parsed_vector)

@@ -222,7 +222,10 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
 fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
     terminated(
         delimited(space0, real_parse_line, space0), 
-        opt((';', till_line_ending))
+        alt((
+            (';', till_line_ending).void(),
+            not(none_of(('\n', ';', '\r'))).void(),
+        )).context(StrContext::Label("comment")).context(StrContext::Expected(StrContextValue::CharLiteral(';')))
     ).parse_next(input)
 }
 

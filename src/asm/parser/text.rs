@@ -11,7 +11,7 @@ mod op_exp;
 use winnow::{
     ascii::{space0, space1, till_line_ending}, combinator::{
         alt, delimited, empty, eof, fail, not, opt, preceded, separated_pair, terminated
-    }, error::StrContext, token::none_of, PResult, Parser
+    }, error::{StrContext, StrContextValue}, token::none_of, PResult, Parser
 };
 use std::{any::Any, cmp::Ordering};
 use std::collections::BTreeMap;
@@ -99,7 +99,10 @@ fn real_parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
 fn parse_line(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
     terminated(
         delimited(space0, real_parse_line, space0), 
-        opt((';', till_line_ending))
+        alt((
+            (';', till_line_ending).void(),
+            not(none_of(('\n', ';', '\r'))).void(),
+        )).context(StrContext::Label("comment")).context(StrContext::Expected(StrContextValue::CharLiteral(';')))
     ).parse_next(input)
 }
 
@@ -130,7 +133,10 @@ fn real_parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
 fn parse_line_priv(input: &mut &str) -> PResult<Box<dyn LineHandle>> {
     terminated(
         delimited(space0, real_parse_line_priv, space0), 
-        opt((';', till_line_ending))
+        alt((
+            (';', till_line_ending).void(),
+            not(none_of(('\n', ';', '\r'))).void(),
+        )).context(StrContext::Label("comment")).context(StrContext::Expected(StrContextValue::CharLiteral(';')))
     ).parse_next(input)
 }
 

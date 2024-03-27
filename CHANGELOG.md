@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [2.1.0] - 2024-03-27
+
 ### Added
 
 - Support for dat format
@@ -373,7 +375,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Forwarding unit, Multiplication hardware instruction
 
 <!-- next-url -->
-[Unreleased]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/2.0.0...HEAD
+[Unreleased]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/2.1.0...HEAD
+[2.1.0]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/2.0.0...2.1.0
 [2.0.0]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.3.1...2.0.0
 [1.3.1]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.3.0...1.3.1
 [1.3.0]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/1.2.0...1.3.0

@@ -14,8 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for dat format
   - Similar to MIF, but only the address and the actual operation is included in this file format
 - Rudimentary error reporting
-  - Errors indicate what is expected next at that line
-  - Currently the column is not shown, however the error is always at the end of the line or the line itself
+  - Errors indicate what is wrong and is expected next in that offending line
 - a function in `AssemblyCodeRecog` to get labels and subroutines at the same time
 
 ### Changed

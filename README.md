@@ -29,7 +29,7 @@ These features may or may not be implemented.
 
 The assembler_lib library can be used in Python or Rust. It also can be compiled to a C library, however steps for that are not outlined here.
 
-**This crate does not contain the binary! Head over to [assembler repo](https://git.mafiasi.de/Prj-MR/assembler) for the `assembler` binary.**
+**This crate does not contain the binary! Head over to [assembler repo](https://git.mafiasi.de/21sbecker/assembler) for the `assembler` binary.**
 
 ### Python Module
 
@@ -38,7 +38,7 @@ Since release 1.3.0, a python module is provided which contains the functionalit
 You can use the following command to install this as a python module:
 
 ```sh
-pip install --index-url https://{username}:{password}@git.mafiasi.de/api/packages/Prj-MR/pypi/simple --no-deps assembler_lib
+pip install --index-url https://{username}:{password}@git.mafiasi.de/api/packages/21sbecker/pypi/simple --no-deps assembler_lib
 ```
 
 For more information on installation, see [here](https://docs.gitea.com/next/usage/packages/pypi/).
@@ -60,7 +60,7 @@ Create a file at `~/.cargo/config.toml` with the following content:
 global-credential-providers = ["cargo:token", "cargo:libsecret"]
 
 [registries.mafiasi-gitea] 
-index = "sparse+https://git.mafiasi.de/api/packages/Prj-MR/cargo/"
+index = "sparse+https://git.mafiasi.de/api/packages/21sbecker/cargo/"
 ```
 
 This defines a new registry to use for cargo commands and authentication methods for these registries. `Crate.io` is the default registry, which is **NOT USED** for this crate. If you do not have a system keyring installed, remove `"cargo:libsecret"` from the credential-providers.
@@ -78,7 +78,7 @@ Once done, you can now use `cargo add assembler_lib --registry mafiasi-gitea`. I
 
 #### Using `cargo add` with Git
 
-This method is **highly discouraged**. You can use the following command to add this library with git: `cargo add --git https://git.mafiasi.de/Prj-MR/assembler_lib --tag {VERSION}`. Version is the version that you want to add. You can otherwise use the stable branch with `cargo add --git https://git.mafiasi.de/Prj-MR/assembler_lib --branch stable`. Using the main branch is discouraged.
+This method is **highly discouraged**. You can use the following command to add this library with git: `cargo add --git https://git.mafiasi.de/21sbecker/assembler_lib --tag {VERSION}`. Version is the version that you want to add. You can otherwise use the stable branch with `cargo add --git https://git.mafiasi.de/21sbecker/assembler_lib --branch stable`. Using the main branch is discouraged.
 
 ## Usage
 

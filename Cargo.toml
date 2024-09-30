@@ -2,7 +2,7 @@
 name = "assembler_lib"
 version = "2.1.0"
 description = "A library for an assembler for a self-written RISC-V based CPU"
-repository = "https://git.mafiasi.de/Prj-MR/assembler_lib"
+repository = "https://git.mafiasi.de/21sbecker/assembler_lib"
 rust-version = "1.71.1"
 edition.workspace = true
 license.workspace = true
@@ -37,5 +37,5 @@ pre-release-replacements = [
   {file="CHANGELOG.md", search="\\.\\.\\.HEAD", replace="...{{tag_name}}", exactly=1},
   {file="CHANGELOG.md", search="ReleaseDate", replace="{{date}}"},
   {file="CHANGELOG.md", search="<!-- next-header -->", replace="<!-- next-header -->\n\n## [Unreleased] - ReleaseDate", exactly=1},
-  {file="CHANGELOG.md", search="<!-- next-url -->", replace="<!-- next-url -->\n[Unreleased]: https://git.mafiasi.de/Prj-MR/assembler_lib/compare/{{tag_name}}...HEAD", exactly=1},
+  {file="CHANGELOG.md", search="<!-- next-url -->", replace="<!-- next-url -->\n[Unreleased]: https://git.mafiasi.de/21sbecker/assembler_lib/compare/{{tag_name}}...HEAD", exactly=1},
 ]
